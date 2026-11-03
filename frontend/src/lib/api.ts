@@ -1,4 +1,9 @@
-export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+export const API_BASE = (
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+    ? 'https://vs-hub-1.onrender.com'
+    : '')
+).replace(/\/$/, '');
 
 let currentAccessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;

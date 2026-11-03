@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://vs-hub-1.onrender.com/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://vs-hub-1.onrender.com/uploads/:path*"
+    },
+    {
+      "source": "/s/:path*",
+      "destination": "https://vs-hub-1.onrender.com/s/:path*"
+    },
+    {
+      "source": "/((?!api|uploads|s).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
