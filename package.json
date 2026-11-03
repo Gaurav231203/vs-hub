@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "dev": "pnpm --parallel --filter @postdesk/api --filter @postdesk/web dev",
     "dev:api": "pnpm --filter @postdesk/api dev",
     "dev:web": "pnpm --filter @postdesk/web dev",
     "build": "pnpm --filter \"@postdesk/*\" build",
