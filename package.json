@@ -1,0 +1,16 @@
+{
+  "name": "postdesk-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:api": "pnpm --filter @postdesk/api dev",
+    "dev:web": "pnpm --filter @postdesk/web dev",
+    "build": "pnpm --filter \"@postdesk/*\" build",
+    "db:push": "pnpm --filter @postdesk/api db:push",
+    "db:seed": "pnpm --filter @postdesk/api db:seed",
+    "db:studio": "pnpm --filter @postdesk/api db:studio"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

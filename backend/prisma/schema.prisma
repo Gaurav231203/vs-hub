@@ -1,0 +1,637 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MANAGER
+  EDITOR
+  COMMUNITY
+  ANALYST
+  CLIENT
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+enum ApprovalMode {
+  BY_ROLE
+  EVERY_POST
+  OFF
+}
+
+enum Network {
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  X
+  LINKEDIN
+  YOUTUBE
+  PINTEREST
+  THREADS
+}
+
+enum ChannelStatus {
+  CONNECTED
+  EXPIRING
+  DISCONNECTED
+  PAUSED
+  NEEDS_RECONNECT
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING
+  CHANGES
+  SCHEDULED
+  NEEDS_RESCHEDULE
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+enum TargetStatus {
+  QUEUED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  SKIPPED
+}
+
+enum ReviewDecision {
+  SUBMITTED
+  APPROVED
+  CHANGES_REQUESTED
+  WITHDRAWN
+}
+
+enum ConvoType {
+  COMMENT
+  DM
+  MENTION
+}
+
+enum ConvoStatus {
+  OPEN
+  CLOSED
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum KeywordKind {
+  BRAND
+  HASHTAG
+  TOPIC
+  COMPETITOR
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum ApprovalTokenStatus {
+  ACTIVE
+  REVOKED
+  USED
+}
+
+enum BrandStatus {
+  CREATED
+  INVITED
+  CONNECTED
+  ACTIVE
+  NEEDS_RECONNECT
+}
+
+enum ConnectInviteStatus {
+  ACTIVE
+  USED
+  REVOKED
+  EXPIRED
+}
+
+model Workspace {
+  id           String       @id @default(cuid())
+  name         String
+  timezone     String       @default("UTC")
+  weekStart    Int          @default(1)            // 1=Mon, 0=Sun
+  approvalMode ApprovalMode @default(BY_ROLE)
+  shortenLinks Boolean      @default(true)
+  utmEnabled   Boolean      @default(true)
+  utmSource    String       @default("postdesk")
+  requireMfa   Boolean      @default(false)
+  plan         String       @default("agency")
+  seatLimit    Int          @default(15)
+  createdAt    DateTime     @default(now())
+  brands       Brand[]
+  memberships  Membership[]
+  invites      Invite[]
+  auditLogs    AuditLog[]
+  notifications Notification[]
+  savedReplies SavedReply[]
+  templates    Template[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  title         String?
+  avatarUrl     String?
+  passwordHash  String
+  totpSecretEnc String?  @db.Text          // AES-GCM encrypted
+  totpEnabled   Boolean  @default(false)
+  recoveryCodes Json?                       // array of argon2 hashes
+  failedLogins  Int      @default(0)
+  lockedUntil   DateTime?
+  lastActiveAt  DateTime?
+  createdAt     DateTime @default(now())
+  memberships   Membership[]
+  refreshTokens RefreshToken[]
+  posts         Post[]   @relation("PostAuthor")
+}
+
+model Membership {
+  id          String       @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role
+  status      MemberStatus @default(ACTIVE)
+  allBrands   Boolean      @default(false)     // OWNER/ADMIN/ANALYST may be true
+  createdAt   DateTime     @default(now())
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brands      MembershipBrand[]
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId, role])
+}
+
+model MembershipBrand {
+  membershipId String
+  brandId      String
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  brand        Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@id([membershipId, brandId])
+}
+
+model Invite {
+  id          String   @id @default(cuid())
+  workspaceId String
+  email       String
+  role        Role
+  brandIds    Json                            // string[]
+  tokenHash   String   @unique                // sha256 of the emailed token
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, email])
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  familyId   String                           // for reuse detection
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, familyId])
+}
+
+model Brand {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  color       String   @default("#4F46E5")
+  logoUrl     String?
+  timezone    String   @default("UTC")
+  phone       String?
+  status      BrandStatus @default(CREATED)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contacts    BrandContact[]
+  members     MembershipBrand[]
+  channels    Channel[]
+  posts       Post[]
+  campaigns   Campaign[]
+  assets      MediaAsset[]
+  hashtagSets HashtagSet[]
+  keywords    Keyword[]
+  connectInvites ConnectInvite[]
+
+  @@index([workspaceId])
+}
+
+model BrandContact {
+  id        String   @id @default(cuid())
+  brandId   String
+  name      String
+  email     String
+  phone     String?
+  isPrimary Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+  @@index([email])
+}
+
+model Channel {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  brandId        String
+  network        Network
+  externalId     String                        // id on the network
+  handle         String
+  avatarUrl      String?
+  followers      Int           @default(0)
+  status         ChannelStatus @default(CONNECTED)
+  postingEnabled Boolean       @default(true)
+  accessTokenEnc  String?      @db.Text        // encrypted, "v1:iv:tag:cipher"
+  refreshTokenEnc String?      @db.Text
+  tokenExpiresAt DateTime?
+  lastSyncAt     DateTime?
+  lastError      String?
+  connectedById  String?
+  createdAt      DateTime      @default(now())
+  brand          Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  targets        PostTarget[]
+  conversations  Conversation[]
+  metrics        MetricDaily[]
+
+  @@unique([brandId, network, externalId])
+  @@index([workspaceId, status])
+}
+
+model Campaign {
+  id        String   @id @default(cuid())
+  brandId   String
+  name      String
+  startsAt  DateTime
+  endsAt    DateTime
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  posts     Post[]
+}
+
+model MediaAsset {
+  id          String   @id @default(cuid())
+  workspaceId String
+  brandId     String
+  kind        String                           // image | video
+  url         String
+  thumbUrl    String?
+  title       String
+  tags        Json                             // string[]
+  width       Int?
+  height      Int?
+  bytes       Int
+  starred     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  brand       Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  usedIn      PostMedia[]
+
+  @@index([workspaceId, brandId])
+}
+
+model Post {
+  id            String     @id @default(cuid())
+  workspaceId   String
+  brandId       String
+  authorId      String
+  campaignId    String?
+  caption       String     @db.Text
+  firstComment  String?    @db.Text
+  status        PostStatus @default(DRAFT)
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  partialFailure Boolean   @default(false)
+  publishMode   String     @default("AUTOMATIC") // AUTOMATIC | MANUAL
+  version       Int        @default(1)          // bump on content edit (re-approval logic)
+  deletedAt     DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  brand         Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  author        User       @relation("PostAuthor", fields: [authorId], references: [id])
+  campaign      Campaign?  @relation(fields: [campaignId], references: [id])
+  targets       PostTarget[]
+  media         PostMedia[]
+  reviews       Review[]
+  approvalTokens ApprovalToken[]
+  publishJobs   PublishJob[]
+
+  @@index([workspaceId, status, scheduledAt])
+  @@index([brandId, scheduledAt])
+}
+
+model PostMedia {
+  postId   String
+  assetId  String
+  position Int
+  altText  String?
+  post     Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  asset    MediaAsset @relation(fields: [assetId], references: [id])
+
+  @@id([postId, assetId])
+}
+
+model PostTarget {
+  id              String       @id @default(cuid())
+  postId          String
+  channelId       String
+  status          TargetStatus @default(QUEUED)
+  externalPostId  String?
+  metaContainerId String?
+  attempts        Int          @default(0)
+  lastError       String?
+  publishedAt     DateTime?
+  metrics         Json?                           // {impressions,reach,likes,comments,shares,saves,clicks}
+  post            Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  channel         Channel      @relation(fields: [channelId], references: [id])
+
+  @@unique([postId, channelId])
+}
+
+model Review {
+  id          String         @id @default(cuid())
+  postId      String
+  byId        String
+  decision    ReviewDecision
+  note        String?        @db.Text
+  postVersion Int
+  voided      Boolean        @default(false)
+  tokenId     String?
+  ip          String?
+  userAgent   String?
+  at          DateTime       @default(now())
+  post        Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, postVersion, decision])
+  @@index([postId, at])
+}
+
+model Conversation {
+  id            String       @id @default(cuid())
+  workspaceId   String
+  channelId     String
+  type          ConvoType
+  externalId    String
+  authorName    String
+  authorHandle  String?
+  authorAvatar  String?
+  postTargetId  String?                          // original post, when comment
+  status        ConvoStatus  @default(OPEN)
+  sentiment     Sentiment    @default(NEUTRAL)
+  priority      Boolean      @default(false)
+  flagged       Boolean      @default(false)
+  assigneeId    String?
+  unread        Boolean      @default(true)
+  firstReplyAt  DateTime?
+  lastMessageAt DateTime
+  createdAt     DateTime     @default(now())
+  channel       Channel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  messages      Message[]
+
+  @@unique([channelId, externalId])
+  @@index([workspaceId, status, lastMessageAt])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  externalId     String?
+  direction      String                          // IN | OUT | NOTE
+  body           String   @db.Text
+  authorUserId   String?                         // for OUT/NOTE
+  sentAt         DateTime
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, sentAt])
+}
+
+model SavedReply {
+  id          String    @id @default(cuid())
+  workspaceId String
+  title       String
+  body        String    @db.Text
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Template {
+  id          String    @id @default(cuid())
+  workspaceId String
+  brandId     String?
+  title       String
+  body        String    @db.Text
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model HashtagSet {
+  id      String @id @default(cuid())
+  brandId String
+  name    String
+  tags    Json
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+}
+
+model Keyword {
+  id        String      @id @default(cuid())
+  brandId   String
+  kind      KeywordKind
+  term      String
+  handle    String?
+  createdAt DateTime    @default(now())
+  brand     Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  mentions  Mention[]
+
+  @@unique([brandId, kind, term])
+}
+
+model Mention {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  keywordId    String
+  network      Network
+  externalId   String
+  authorName   String
+  authorHandle String?
+  text         String    @db.Text
+  reach        Int       @default(0)
+  sentiment    Sentiment @default(NEUTRAL)
+  saved        Boolean   @default(false)
+  hidden       Boolean   @default(false)
+  postedAt     DateTime
+  keyword      Keyword   @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@unique([network, externalId, keywordId])
+  @@index([workspaceId, postedAt])
+}
+
+model MetricDaily {
+  id             String   @id @default(cuid())
+  channelId      String
+  date           DateTime @db.Date
+  followers      Int
+  impressions    Int
+  reach          Int
+  engagements    Int
+  clicks         Int
+  postsPublished Int      @default(0)
+  channel        Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, date])
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  type        String
+  title       String
+  body        String?
+  link        String?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  workspaceId String
+  actorId     String?
+  action      String
+  entity      String
+  entityId    String?
+  brandId     String?
+  meta        Json?
+  ip          String?
+  at          DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, at])
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  type        String                               // publishTarget | syncMetrics | syncInbox | refreshToken | sendEmail | weeklyReport
+  payload     Json
+  status      JobStatus @default(QUEUED)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lastError   String?   @db.Text
+  dedupeKey   String?   @unique                    // idempotency
+  createdAt   DateTime  @default(now())
+
+  @@index([status, runAt])
+}
+
+model ShortLink {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  url          String   @db.Text
+  postTargetId String?
+  clicks       Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([code])
+}
+
+model ConnectInvite {
+  id             String              @id @default(cuid())
+  workspaceId    String
+  brandId        String
+  tokenHash      String              @unique
+  expiresAt      DateTime
+  status         ConnectInviteStatus @default(ACTIVE)
+  usedAt         DateTime?
+  revokedAt      DateTime?
+  reminderSentAt DateTime?
+  createdBy      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @default(now()) @updatedAt
+  brand          Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([workspaceId, brandId])
+  @@index([status])
+}
+
+model ApprovalToken {
+  id          String              @id @default(cuid())
+  postId      String
+  tokenHash   String              @unique
+  expiresAt   DateTime
+  postVersion Int                 @default(1)
+  status      ApprovalTokenStatus @default(ACTIVE)
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  feedback    String?             @db.Text
+  createdAt   DateTime            @default(now())
+  post        Post                @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([postId])
+  @@index([status])
+}
+
+model PublishJob {
+  id              String    @id @default(cuid())
+  postId          String
+  targetId        String
+  metaContainerId String?
+  attempts        Int       @default(0)
+  status          JobStatus @default(QUEUED)
+  lastError       String?   @db.Text
+  scheduledAt     DateTime
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, targetId])
+  @@index([status, scheduledAt])
+}
+
+model OAuthSession {
+  id            String   @id // sessionId
+  inviteToken   String
+  workspaceId   String
+  brandId       String
+  candidatesEnc String   @db.Text // AES-256-GCM encrypted candidate pages with page tokens
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
