@@ -1,4 +1,5 @@
-export const API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+const rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+export const API_BASE = rawBase.replace(/\/api\/v1$/, '');
 
 let currentAccessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
@@ -16,7 +17,10 @@ interface RequestOptions extends RequestInit {
 }
 
 export async function apiFetch<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}/api/v1${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = endpoint.startsWith('http')
+    ? endpoint
+    : `${API_BASE}/api/v1${cleanEndpoint}`;
 
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
@@ -27,11 +31,17 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestOption
     headers.set('Authorization', `Bearer ${currentAccessToken}`);
   }
 
-  let response = await fetch(url, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+  } catch (err: any) {
+    console.error(`Failed to reach ${url}:`, err);
+    throw new Error(err.message || 'Network connection failed. Please check your internet or adblocker.');
+  }
 
   // Handle 401 with single-flight token refresh
   if (response.status === 401 && !options.skipAuth && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh')) {
