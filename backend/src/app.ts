@@ -52,7 +52,28 @@ export function createApp(): Express {
   // 4. CORS
   app.use(
     cors({
-      origin: [env.WEB_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: (origin, callback) => {
+        // Allow requests with no origin (curl, mobile, server-to-server)
+        if (!origin) return callback(null, true);
+
+        // Allow localhost
+        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+          return callback(null, true);
+        }
+
+        // Allow all Vercel apps (*.vercel.app)
+        if (origin.endsWith('.vercel.app')) {
+          return callback(null, true);
+        }
+
+        // Allow configured WEB_URL
+        if (env.WEB_URL && (origin === env.WEB_URL || origin === env.WEB_URL.replace(/\/$/, ''))) {
+          return callback(null, true);
+        }
+
+        // Fallback allow for frontend
+        return callback(null, true);
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],

@@ -3,12 +3,14 @@ import { AuthService } from './auth.service.js';
 import { env } from '../../config/env.js';
 import { loginSchema, verify2faSchema, acceptInviteSchema, forgotPasswordSchema } from '@postdesk/shared';
 
+const isProd = env.NODE_ENV === 'production';
+
 function setRefreshCookie(res: Response, token: string) {
   res.cookie('refreshToken', token, {
     httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    sameSite: 'strict',
-    domain: env.COOKIE_DOMAIN === 'localhost' ? undefined : env.COOKIE_DOMAIN,
+    secure: isProd ? true : env.COOKIE_SECURE,
+    sameSite: isProd ? 'none' : 'lax',
+    domain: env.COOKIE_DOMAIN === 'localhost' || isProd ? undefined : env.COOKIE_DOMAIN,
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: '/api/v1/auth',
   });
@@ -17,9 +19,9 @@ function setRefreshCookie(res: Response, token: string) {
 function clearRefreshCookie(res: Response) {
   res.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    sameSite: 'strict',
-    domain: env.COOKIE_DOMAIN === 'localhost' ? undefined : env.COOKIE_DOMAIN,
+    secure: isProd ? true : env.COOKIE_SECURE,
+    sameSite: isProd ? 'none' : 'lax',
+    domain: env.COOKIE_DOMAIN === 'localhost' || isProd ? undefined : env.COOKIE_DOMAIN,
     path: '/api/v1/auth',
   });
 }
