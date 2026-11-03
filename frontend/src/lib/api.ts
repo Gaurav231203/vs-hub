@@ -1,3 +1,5 @@
+export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
 let currentAccessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -14,7 +16,7 @@ interface RequestOptions extends RequestInit {
 }
 
 export async function apiFetch<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const url = endpoint.startsWith('http') ? endpoint : `/api/v1${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}/api/v1${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
@@ -36,7 +38,7 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestOption
     if (!refreshPromise) {
       refreshPromise = (async () => {
         try {
-          const res = await fetch('/api/v1/auth/refresh', {
+          const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },

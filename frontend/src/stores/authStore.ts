@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiFetch, setApiAccessToken } from '../lib/api.js';
+import { apiFetch, setApiAccessToken, API_BASE } from '../lib/api.js';
 import { Role, Permission } from '@postdesk/shared';
 
 export interface UserProfile {
@@ -149,7 +149,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       // Single silent refresh attempt using httpOnly cookie
-      const res = await fetch('/api/v1/auth/refresh', {
+      const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
