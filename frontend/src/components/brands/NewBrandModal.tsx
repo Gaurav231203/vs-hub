@@ -66,6 +66,22 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
 
   const [inlinePhone, setInlinePhone] = useState('');
 
+  const sanitizeInviteUrl = (url?: string) => {
+    if (!url) return '';
+    if (
+      typeof window !== 'undefined' &&
+      (url.includes('localhost') || url.includes('127.0.0.1')) &&
+      !window.location.hostname.includes('localhost') &&
+      !window.location.hostname.includes('127.0.0.1')
+    ) {
+      try {
+        const parsed = new URL(url);
+        return `${window.location.origin}${parsed.pathname}${parsed.search}`;
+      } catch {}
+    }
+    return url;
+  };
+
   const getWhatsAppUrlForPhone = (phoneNum?: string) => {
     const raw = phoneNum || createdInvite?.contactPhone || inlinePhone;
     if (!raw) return null;
@@ -75,7 +91,7 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
     }
     const name = createdInvite?.contactName || 'there';
     const brand = createdInvite?.brandName || 'your brand';
-    const link = createdInvite?.inviteUrl || '';
+    const link = sanitizeInviteUrl(createdInvite?.inviteUrl) || '';
     const message = `Hi ${name}! 👋\n\nHere is your official connection link to connect the Facebook & Instagram accounts for *${brand}*:\n\n👉 ${link}\n\n🔒 This is a secure zero-login link. No agency password needed.`;
     return `https://api.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent(message)}`;
   };
@@ -113,7 +129,7 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
       });
 
       setCreatedInvite({
-        inviteUrl: res.invite.inviteUrl,
+        inviteUrl: sanitizeInviteUrl(res.invite.inviteUrl),
         rawToken: res.invite.rawToken,
         brandName: newBrand.name,
         brandId: newBrand.id,
@@ -142,7 +158,7 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
 
   const handleCopyLink = () => {
     if (!createdInvite?.inviteUrl) return;
-    navigator.clipboard.writeText(createdInvite.inviteUrl);
+    navigator.clipboard.writeText(sanitizeInviteUrl(createdInvite.inviteUrl));
     setCopied(true);
     addToast({ type: 'success', message: 'Invite link copied to clipboard!' });
     setTimeout(() => setCopied(false), 2500);
@@ -400,7 +416,7 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
               </div>
 
               <p style={{ fontSize: '11.5px', color: 'var(--muted)', margin: '8px 0 0 2px' }}>
-                Secure token with zero agency password needed. Client connects Facebook & Instagram in 2 clicks.
+                Secure token with zero agency password needed. Client connects Facebook &amp; Instagram in 2 clicks. Other platforms (LinkedIn, X, TikTok, YouTube, Pinterest) can be connected directly from the Channels tab.
               </p>
             </div>
 

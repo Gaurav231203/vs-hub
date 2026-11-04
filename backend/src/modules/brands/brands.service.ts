@@ -3,6 +3,7 @@ import { AppError } from '../../middleware/error.js';
 import { generateSecureToken } from '../../lib/crypto.js';
 import { env } from '../../config/env.js';
 import { EmailService } from '../../lib/email.js';
+import { getWebUrl } from '../../lib/urls.js';
 import { BrandStatus, ConnectInviteStatus } from '@prisma/client';
 
 export interface CreateBrandInput {
@@ -23,7 +24,7 @@ export class BrandsService {
    * Optional: logo, color, phone.
    * Lifecycle: CREATED -> auto-generates first invite -> INVITED.
    */
-  static async createBrand(workspaceId: string, userId: string, input: CreateBrandInput) {
+  static async createBrand(workspaceId: string, userId: string, input: CreateBrandInput, baseUrl?: string) {
     const {
       name,
       clientContactName,
@@ -104,7 +105,8 @@ export class BrandsService {
       include: { contacts: true },
     });
 
-    const inviteUrl = `${env.WEB_URL}/connect/${raw}`;
+    const webBase = baseUrl || getWebUrl();
+    const inviteUrl = `${webBase}/connect/${raw}`;
 
     // 5. Send onboarding invite email via Resend
     await EmailService.sendConnectInvite({
@@ -209,7 +211,7 @@ export class BrandsService {
    * Generate fresh invite for brand.
    * Requirement 3: Automatically revokes older active invites.
    */
-  static async generateInvite(workspaceId: string, brandId: string, userId: string, expiresInDays = 7) {
+  static async generateInvite(workspaceId: string, brandId: string, userId: string, expiresInDays = 7, baseUrl?: string) {
     // 1. Strict workspace scoping to prevent IDOR
     const brand = await prisma.brand.findFirst({
       where: { id: brandId, workspaceId },
@@ -255,7 +257,8 @@ export class BrandsService {
       });
     }
 
-    const inviteUrl = `${env.WEB_URL}/connect/${raw}`;
+    const webBase = baseUrl || getWebUrl();
+    const inviteUrl = `${webBase}/connect/${raw}`;
 
     // 5. Send email if primary contact exists
     const contact = brand.contacts[0];

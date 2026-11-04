@@ -9,6 +9,7 @@ import { AppError } from '../../middleware/error.js';
 import { hashToken, generateSecureToken } from '../../lib/crypto.js';
 import { reviewRateLimiter } from '../../middleware/rateLimit.js';
 import { clientApproveSchema, clientRequestChangesSchema } from '../../lib/sanitize.js';
+import { getWebUrl } from '../../lib/urls.js';
 import { PostStatus, ReviewDecision, ApprovalTokenStatus } from '@prisma/client';
 
 export const reviewRouter = Router();
@@ -66,7 +67,7 @@ reviewRouter.post(
         },
       });
 
-      const reviewUrl = `${env.WEB_URL}/review/${raw}`;
+      const reviewUrl = `${getWebUrl(req)}/review/${raw}`;
 
       logger.info({ postId: id, version: post.version, tokenId: approvalToken.id }, 'Generated fresh client review link');
 

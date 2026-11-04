@@ -19,6 +19,7 @@ import { connectRateLimiter, oauthRateLimiter } from '../../middleware/rateLimit
 import { ChannelStatus, Network, BrandStatus, ConnectInviteStatus } from '@prisma/client';
 import { OAuthSessionService } from './oauthSession.service.js';
 import { EmailService } from '../../lib/email.js';
+import { getWebUrl } from '../../lib/urls.js';
 
 export const invitesRouter = Router();
 
@@ -91,7 +92,8 @@ invitesRouter.post(
         });
       }
 
-      const inviteUrl = `${env.WEB_URL}/connect/${raw}`;
+      const webBase = getWebUrl(req);
+      const inviteUrl = `${webBase}/connect/${raw}`;
 
       // Dispatch invite email if client contact exists
       const primaryContact = brand.contacts[0];
@@ -324,7 +326,7 @@ invitesRouter.get(
 
       // Generate signed state parameter
       const state = generateMetaOAuthState(rawToken, invite.brandId);
-      const authUrl = getMetaAuthorizeUrl(state);
+      const authUrl = getMetaAuthorizeUrl(state, req);
 
       res.json({ authUrl });
     } catch (err) {
@@ -344,9 +346,11 @@ invitesRouter.get(
     try {
       const { code, state, error, error_description, mock } = req.query;
 
+      const webBase = getWebUrl(req);
+
       if (error) {
         logger.warn({ error, error_description }, 'Meta OAuth denied by user');
-        return res.redirect(`${env.WEB_URL}/connect/error?message=${encodeURIComponent(String(error_description || error))}`);
+        return res.redirect(`${webBase}/connect/error?message=${encodeURIComponent(String(error_description || error))}`);
       }
 
       if (!state || typeof state !== 'string') {
@@ -380,7 +384,7 @@ invitesRouter.get(
 
       if (candidatePages.length === 0) {
         return res.redirect(
-          `${env.WEB_URL}/connect/${inviteToken}?error=NO_PAGES_FOUND&message=No%20Facebook%20Pages%20found%20under%20your%20Meta%20account.`
+          `${webBase}/connect/${inviteToken}?error=NO_PAGES_FOUND&message=No%20Facebook%20Pages%20found%20under%20your%20Meta%20account.`
         );
       }
 
@@ -394,7 +398,7 @@ invitesRouter.get(
         });
 
         return res.redirect(
-          `${env.WEB_URL}/connect/${inviteToken}?step=select-page&sessionId=${sessionId}`
+          `${webBase}/connect/${inviteToken}?step=select-page&sessionId=${sessionId}`
         );
       }
 
@@ -420,7 +424,7 @@ invitesRouter.get(
         data: { status: BrandStatus.CONNECTED },
       });
 
-      return res.redirect(`${env.WEB_URL}/connect/${inviteToken}?status=success`);
+      return res.redirect(`${webBase}/connect/${inviteToken}?status=success`);
     } catch (err: any) {
       next(err);
     }

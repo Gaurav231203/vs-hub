@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { UserContext, Role } from '@postdesk/shared';
 import { AppError } from '../../middleware/error.js';
+import { getWebUrl } from '../../lib/urls.js';
 import crypto from 'crypto';
 
 export class TeamService {
@@ -151,7 +152,7 @@ export class TeamService {
 
     return {
       invite,
-      inviteUrl: `http://localhost:5173/accept-invite/${rawToken}`,
+      inviteUrl: `${getWebUrl()}/accept-invite/${rawToken}`,
     };
   }
 
@@ -170,7 +171,7 @@ export class TeamService {
 
     return {
       invite,
-      inviteUrl: `http://localhost:5173/accept-invite/${rawToken}`,
+      inviteUrl: `${getWebUrl()}/accept-invite/${rawToken}`,
     };
   }
 

@@ -3,6 +3,7 @@ import { authenticate } from '../../middleware/auth.js';
 import { tenantMiddleware } from '../../middleware/tenant.js';
 import { requirePerm } from '../../middleware/rbac.js';
 import { BrandsService } from './brands.service.js';
+import { getWebUrl } from '../../lib/urls.js';
 
 export const brandsRouter = Router();
 
@@ -18,7 +19,8 @@ brandsRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const ctx = req.ctx!;
-      const result = await BrandsService.createBrand(ctx.workspaceId, ctx.userId, req.body);
+      const baseUrl = getWebUrl(req);
+      const result = await BrandsService.createBrand(ctx.workspaceId, ctx.userId, req.body, baseUrl);
       res.status(201).json(result);
     } catch (err) {
       next(err);
@@ -76,12 +78,14 @@ brandsRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const ctx = req.ctx!;
+      const baseUrl = getWebUrl(req);
       const expiresInDays = req.body.expiresInDays ? Number(req.body.expiresInDays) : 7;
       const result = await BrandsService.generateInvite(
         ctx.workspaceId,
         req.params.id,
         ctx.userId,
-        expiresInDays
+        expiresInDays,
+        baseUrl
       );
       res.status(201).json(result);
     } catch (err) {

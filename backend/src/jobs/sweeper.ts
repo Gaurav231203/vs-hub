@@ -3,6 +3,7 @@ import { logger } from '../lib/logger.js';
 import { PostStatus, JobStatus, ConnectInviteStatus } from '@prisma/client';
 import { JobQueue } from './queue.js';
 import { EmailService } from '../lib/email.js';
+import { getWebUrl } from '../lib/urls.js';
 import { env } from '../config/env.js';
 
 export class Sweeper {
@@ -195,7 +196,7 @@ export class Sweeper {
           clientName: contact.name,
           brandName: invite.brand.name,
           agencyName: invite.brand.workspace.name,
-          inviteUrl: `${env.WEB_URL}/connect/pending?brandId=${invite.brandId}`,
+          inviteUrl: `${getWebUrl()}/connect/pending?brandId=${invite.brandId}`,
         });
       }
 

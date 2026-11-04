@@ -1,7 +1,9 @@
 import crypto from 'crypto';
+import { Request } from 'express';
 import { env } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
 import { AppError } from '../../middleware/error.js';
+import { getApiUrl } from '../../lib/urls.js';
 
 export interface MetaPageCandidate {
   pageId: string;
@@ -68,10 +70,11 @@ export function verifyMetaOAuthState(state: string): { inviteToken: string; bran
 /**
  * Build Meta OAuth authorization dialog URL
  */
-export function getMetaAuthorizeUrl(state: string): string {
+export function getMetaAuthorizeUrl(state: string, req?: Request): string {
   if (!env.META_APP_ID) {
     // Mock simulation URL if no Meta App ID is configured
-    return `${env.API_URL}/api/v1/oauth/meta/callback?mock=true&state=${state}`;
+    const apiBase = getApiUrl(req);
+    return `${apiBase}/api/v1/oauth/meta/callback?mock=true&state=${state}`;
   }
 
   const scopes = [

@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { API_BASE } from '../../lib/api.js';
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api/v1';
+const getPublicApiUrl = (endpoint: string) => {
+  const clean = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${API_BASE}/api/v1/public/connect${clean}`;
+};
 
 interface BrandPublicInfo {
   id: string;
@@ -69,7 +73,7 @@ export function PublicConnectView() {
     const verifyToken = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch(`${API_BASE}/public/connect/${token}`);
+        const res = await fetch(getPublicApiUrl(`/${token}`));
         const data = await res.json();
 
         if (!res.ok) {
@@ -120,7 +124,7 @@ export function PublicConnectView() {
     if (step === 'select-page' && sessionId && token) {
       const fetchCandidates = async () => {
         try {
-          const res = await fetch(`${API_BASE}/public/connect/${token}/pages/${sessionId}`);
+          const res = await fetch(getPublicApiUrl(`/${token}/pages/${sessionId}`));
           if (res.ok) {
             const data = await res.json();
             setCandidates(data.candidates || []);
@@ -139,7 +143,7 @@ export function PublicConnectView() {
   // Action: Initiate Meta OAuth
   const handleConnectMeta = async () => {
     try {
-      const res = await fetch(`${API_BASE}/public/connect/${token}/oauth/meta`);
+      const res = await fetch(getPublicApiUrl(`/${token}/oauth/meta`));
       const data = await res.json();
       if (res.ok && data.authUrl) {
         window.location.href = data.authUrl;
@@ -156,7 +160,7 @@ export function PublicConnectView() {
     if (!token) return;
     setIsRequestingNewLink(true);
     try {
-      const res = await fetch(`${API_BASE}/public/connect/${token}/request-new-link`, {
+      const res = await fetch(getPublicApiUrl(`/${token}/request-new-link`), {
         method: 'POST',
       });
       if (res.ok) {
@@ -179,7 +183,7 @@ export function PublicConnectView() {
 
     setIsSubmittingPage(true);
     try {
-      const res = await fetch(`${API_BASE}/public/connect/${token}/select-page`, {
+      const res = await fetch(getPublicApiUrl(`/${token}/select-page`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, selectedPageId }),
