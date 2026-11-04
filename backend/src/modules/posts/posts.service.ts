@@ -4,6 +4,7 @@ import { PostStatus } from '@prisma/client';
 import { AppError } from '../../middleware/error.js';
 import { validatePostContent } from '../../lib/validation.js';
 import { transitionPost } from './posts.transitions.js';
+import { handlePublishTarget } from '../../jobs/handlers/publishTarget.js';
 
 function validateScheduledDate(dateInput: any): Date | null {
   if (dateInput === undefined || dateInput === null) return null;
@@ -582,6 +583,9 @@ export class PostsService {
 
   static async publishNow(ctx: UserContext, id: string) {
     const post = await this.getById(ctx, id);
+    if (!post) {
+      throw new AppError('POST_NOT_FOUND', 'Post not found', 404);
+    }
 
     const workspace = await prisma.workspace.findUnique({
       where: { id: ctx.workspaceId },
@@ -590,51 +594,34 @@ export class PostsService {
       throw new AppError('FORBIDDEN', 'Your role requires approval before publishing.', 403);
     }
 
+    if (!post.targets || post.targets.length === 0) {
+      throw new AppError('VALIDATION_ERROR', 'Please select at least one channel to publish to.', 400);
+    }
+
     const now = new Date();
-
-    // In mock mode: immediately mark targets published and post published!
-    await prisma.$transaction(async (tx) => {
-      await tx.post.update({
-        where: { id },
-        data: {
-          status: 'PUBLISHED',
-          scheduledAt: now,
-          publishedAt: now,
-        },
-      });
-
-      for (const t of post.targets) {
-        await tx.postTarget.update({
-          where: { id: t.id },
-          data: {
-            status: 'PUBLISHED',
-            externalPostId: `ext_live_${id.slice(-6)}_${t.channel.network}`,
-            publishedAt: now,
-            metrics: {
-              impressions: 150,
-              reach: 120,
-              likes: 14,
-              comments: 2,
-              shares: 1,
-              clicks: 5,
-            },
-          },
-        });
-      }
-
-      await tx.auditLog.create({
-        data: {
-          workspaceId: ctx.workspaceId,
-          actorId: ctx.userId,
-          action: 'post.published_now',
-          entity: 'Post',
-          entityId: id,
-          brandId: post.brandId,
-        },
-      });
+    await prisma.post.update({
+      where: { id },
+      data: {
+        status: PostStatus.PUBLISHING,
+        scheduledAt: now,
+      },
     });
 
-    return await this.getById(ctx, id);
+    const errors: string[] = [];
+    for (const t of post.targets) {
+      try {
+        await handlePublishTarget({ targetId: t.id, postId: id });
+      } catch (err: any) {
+        errors.push(`${t.channel?.network || 'Channel'}: ${err.message}`);
+      }
+    }
+
+    const updatedPost = await this.getById(ctx, id);
+    if (errors.length > 0 && updatedPost.status === 'FAILED') {
+      throw new AppError('PUBLISH_FAILED', `Publishing failed: ${errors.join('; ')}`, 502);
+    }
+
+    return updatedPost;
   }
 
   static async publishManually(ctx: UserContext, id: string) {

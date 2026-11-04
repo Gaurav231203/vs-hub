@@ -279,30 +279,41 @@ export function ComposeView() {
   const blockingErrors = issues.filter((i) => i.severity === 'error');
   const warnings = issues.filter((i) => i.severity === 'warning');
 
+  // Helper: Save current post draft directly without toast
+  const saveCurrentPost = async () => {
+    const payload = {
+      brandId: selectedBrandId || brands[0]?.id,
+      caption,
+      firstComment: firstComment || null,
+      mediaUrls,
+      channelIds: selectedChannelIds,
+      scheduledAt: scheduledDate ? new Date(scheduledDate).toISOString() : null,
+      publishMode,
+    };
+
+    let res: any;
+    if (currentPostId) {
+      res = await apiFetch(`/posts/${currentPostId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    } else {
+      res = await apiFetch('/posts', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    }
+    const savedPost = res.post;
+    if (savedPost?.id) {
+      setCurrentPostId(savedPost.id);
+    }
+    return res;
+  };
+
   // 4. Save Draft Mutation
   const saveDraftMutation = useMutation({
-    mutationFn: async (_isAutosave?: boolean) => {
-      const payload = {
-        brandId: selectedBrandId || brands[0]?.id,
-        caption,
-        firstComment: firstComment || null,
-        mediaUrls,
-        channelIds: selectedChannelIds,
-        scheduledAt: scheduledDate ? new Date(scheduledDate).toISOString() : null,
-        publishMode,
-      };
-
-      if (currentPostId) {
-        return await apiFetch(`/posts/${currentPostId}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-        });
-      } else {
-        return await apiFetch('/posts', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      }
+    mutationFn: async () => {
+      return await saveCurrentPost();
     },
     onSuccess: (data) => {
       const savedPost = data.post;
@@ -319,7 +330,7 @@ export function ComposeView() {
   // 5. Submit for Approval Mutation
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const saveRes = await saveDraftMutation.mutateAsync(false);
+      const saveRes = await saveCurrentPost();
       const targetId = saveRes.post.id;
       return await apiFetch(`/posts/${targetId}/submit`, { method: 'POST' });
     },
@@ -338,7 +349,7 @@ export function ComposeView() {
   // 6. Direct Schedule Mutation
   const scheduleMutation = useMutation({
     mutationFn: async () => {
-      const saveRes = await saveDraftMutation.mutateAsync(false);
+      const saveRes = await saveCurrentPost();
       const targetId = saveRes.post.id;
       return await apiFetch(`/posts/${targetId}/schedule`, { method: 'POST' });
     },
@@ -357,7 +368,7 @@ export function ComposeView() {
   // 7. Publish Now Mutation
   const publishNowMutation = useMutation({
     mutationFn: async () => {
-      const saveRes = await saveDraftMutation.mutateAsync(false);
+      const saveRes = await saveCurrentPost();
       const targetId = saveRes.post.id;
       return await apiFetch(`/posts/${targetId}/publish-now`, { method: 'POST' });
     },
@@ -1861,11 +1872,11 @@ export function ComposeView() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => saveDraftMutation.mutate(false)}
+                  onClick={() => saveDraftMutation.mutate()}
                   disabled={saveDraftMutation.isPending}
                   className="btn cm-sec magnetic"
                 >
-                  Save draft
+                  {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
                 </button>
               </>
             ) : canPublish ? (
@@ -1885,15 +1896,15 @@ export function ComposeView() {
                   disabled={publishNowMutation.isPending || blockingErrors.length > 0 || (!caption && mediaUrls.length === 0)}
                   className="btn cm-sec magnetic"
                 >
-                  Publish now
+                  {publishNowMutation.isPending ? 'Publishing live...' : 'Publish now'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => saveDraftMutation.mutate(false)}
+                  onClick={() => saveDraftMutation.mutate()}
                   disabled={saveDraftMutation.isPending}
                   className="btn cm-sec magnetic"
                 >
-                  Save draft
+                  {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
                 </button>
               </>
             ) : (
@@ -1909,11 +1920,11 @@ export function ComposeView() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => saveDraftMutation.mutate(false)}
+                  onClick={() => saveDraftMutation.mutate()}
                   disabled={saveDraftMutation.isPending}
                   className="btn cm-sec magnetic"
                 >
-                  Save draft
+                  {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
                 </button>
               </>
             )}
