@@ -45,7 +45,7 @@ export function SettingsView() {
       '',
       `Invoice ${inv.id}`,
       `Date: ${inv.month.replace(' ', ' 1, ')}`,
-      `Billed to: ${profileName ? 'Northlight Studio' : 'Workspace'}`,
+      `Billed to: ${profileName ? 'VS Adda Agency' : 'Workspace'}`,
       '',
       `Agency plan ........................ $249.00`,
       `Extra seats ......................... $${inv.amount - 249}.00`,
@@ -66,9 +66,9 @@ export function SettingsView() {
   };
 
   // Form states
-  const [profileName, setProfileName] = useState(user?.name || 'Camila Ortiz');
+  const [profileName, setProfileName] = useState(user?.name || 'Admin');
   const [profileTitle, setProfileTitle] = useState(user?.title || 'Founder');
-  const [profileEmail, setProfileEmail] = useState(user?.email || 'camila@northlight.studio');
+  const [profileEmail, setProfileEmail] = useState(user?.email || 'admin@vs-adda.com');
   const [avatarMode, setAvatarMode] = useState<'photo' | 'initials'>('photo');
 
   // Notifications state (Screenshot 1)
@@ -78,7 +78,7 @@ export function SettingsView() {
   const [notifDigest, setNotifDigest] = useState(false);
 
   // Workspace settings state (Screenshot 2)
-  const [workspaceName, setWorkspaceName] = useState('Northlight Studio');
+  const [workspaceName, setWorkspaceName] = useState('VS Adda Agency');
   const [timezone, setTimezone] = useState('Europe/Lisbon');
   const [weekStart, setWeekStart] = useState<number>(1);
   const [shortenLinks, setShortenLinks] = useState(true);
@@ -1235,7 +1235,7 @@ export function SettingsView() {
                         { code: 'HH', name: 'Hollow Home', color: '#f2b740' },
                         { code: 'VG', name: 'Vantage Garage', color: '#1c1d22' },
                         { code: 'WB', name: 'Wildroot Botanics', color: '#2d7a5b' },
-                        { code: 'NS', name: 'Northlight Studio', color: '#3b82f6' },
+                        { code: 'NS', name: 'VS Adda Agency', color: '#3b82f6' },
                       ].map((b) => (
                         <span key={b.code} className="bchip">
                           <span

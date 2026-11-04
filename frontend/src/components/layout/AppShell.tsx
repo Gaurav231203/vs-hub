@@ -73,7 +73,7 @@ export function AppShell() {
     },
     {
       id: 'notif-2',
-      title: 'Vantage Garage · Facebook disconnected — 1 post failed',
+      title: 'Channel connection verified',
       time: '2 h ago',
       unread: true,
       link: '/channels',
@@ -81,7 +81,7 @@ export function AppShell() {
     },
     {
       id: 'notif-3',
-      title: 'Hollow Home · YouTube access expires in 3 days',
+      title: 'Workspace ready',
       time: '5 h ago',
       unread: true,
       link: '/channels',

@@ -76,309 +76,7 @@ const NETWORK_NAMES: Record<string, string> = {
   linkedin: 'LinkedIn',
 };
 
-const NETWORK_ACCOUNTS: Record<string, NetworkAccountRow[]> = {
-  tiktok: [
-    {
-      id: 'vg-tt',
-      net: 'tiktok',
-      brandCode: 'VG',
-      brandTone: 'ink',
-      name: 'Brand',
-      handle: '@vantagegarage',
-      status: 'connected',
-      followers: 201500,
-      growth: 4.6,
-      impressions: 2290000,
-      eng: 8.8,
-      posts: 6,
-      trend: [180, 185, 189, 192, 196, 199, 201.5],
-    },
-    {
-      id: 'eo-tt',
-      net: 'tiktok',
-      brandCode: 'EO',
-      brandTone: 'coral',
-      name: 'Brand',
-      handle: '@emberandoak',
-      status: 'connected',
-      followers: 63900,
-      growth: 9.7,
-      impressions: 692200,
-      eng: 9.3,
-      posts: 10,
-      trend: [56, 57.5, 59, 60.5, 61.8, 62.9, 63.9],
-    },
-    {
-      id: 'wb-tt',
-      net: 'tiktok',
-      brandCode: 'WB',
-      brandTone: 'pine',
-      name: 'Wildroot Botanics',
-      handle: '@wildroot',
-      status: 'connected',
-      followers: 41200,
-      growth: 15.2,
-      impressions: 454300,
-      eng: 8.1,
-      posts: 7,
-      trend: [34, 35.2, 36.8, 38, 39.4, 40.2, 41.2],
-    },
-  ],
-  instagram: [
-    {
-      id: 'hh-ig',
-      net: 'instagram',
-      brandCode: 'HH',
-      brandTone: 'butter',
-      name: 'Brand',
-      handle: '@hollowhome',
-      status: 'connected',
-      followers: 112400,
-      growth: 12.4,
-      impressions: 1280000,
-      eng: 8.4,
-      posts: 15,
-      trend: [98, 101, 104, 107, 109, 111, 112.4],
-    },
-    {
-      id: 'vg-ig',
-      net: 'instagram',
-      brandCode: 'VG',
-      brandTone: 'ink',
-      name: 'Brand',
-      handle: '@vantagegarage',
-      status: 'connected',
-      followers: 74300,
-      growth: 4.0,
-      impressions: 840000,
-      eng: 7.6,
-      posts: 9,
-      trend: [71, 71.8, 72.5, 73.1, 73.8, 74.0, 74.3],
-    },
-    {
-      id: 'wb-ig',
-      net: 'instagram',
-      brandCode: 'WB',
-      brandTone: 'pine',
-      name: 'Wildroot Botanics',
-      handle: '@wildroot',
-      status: 'connected',
-      followers: 56800,
-      growth: 7.9,
-      impressions: 650000,
-      eng: 8.0,
-      posts: 8,
-      trend: [52, 53, 54, 55, 55.8, 56.4, 56.8],
-    },
-    {
-      id: 'eo-ig',
-      net: 'instagram',
-      brandCode: 'EO',
-      brandTone: 'coral',
-      name: 'Brand',
-      handle: '@emberandoak',
-      status: 'connected',
-      followers: 48200,
-      growth: 8.2,
-      impressions: 500000,
-      eng: 7.5,
-      posts: 8,
-      trend: [44, 44.8, 45.6, 46.5, 47.2, 47.8, 48.2],
-    },
-  ],
-  youtube: [
-    {
-      id: 'vg-yt',
-      net: 'youtube',
-      brandCode: 'VG',
-      brandTone: 'ink',
-      name: 'Brand',
-      handle: 'Brand',
-      status: 'connected',
-      followers: 129800,
-      growth: 18.9,
-      impressions: 1390000,
-      eng: 8.3,
-      posts: 11,
-      trend: [108, 112, 117, 121, 125, 127.5, 129.8],
-    },
-    {
-      id: 'hh-yt',
-      net: 'youtube',
-      brandCode: 'HH',
-      brandTone: 'butter',
-      name: 'Brand',
-      handle: 'Brand',
-      status: 'expiring',
-      followers: 18700,
-      growth: 16.2,
-      impressions: 200000,
-      eng: 7.2,
-      posts: 2,
-      trend: [15.8, 16.3, 16.9, 17.4, 17.9, 18.3, 18.7],
-    },
-  ],
-  pinterest: [
-    {
-      id: 'hh-pin',
-      net: 'pinterest',
-      brandCode: 'HH',
-      brandTone: 'butter',
-      name: 'Brand',
-      handle: '@hollowhome',
-      status: 'connected',
-      followers: 86300,
-      growth: 10.3,
-      impressions: 930000,
-      eng: 7.1,
-      posts: 9,
-      trend: [77, 79, 81, 82.5, 84, 85.2, 86.3],
-    },
-    {
-      id: 'wb-pin',
-      net: 'pinterest',
-      brandCode: 'WB',
-      brandTone: 'pine',
-      name: 'Wildroot Botanics',
-      handle: '@wildroot',
-      status: 'connected',
-      followers: 23900,
-      growth: 16.2,
-      impressions: 260000,
-      eng: 6.8,
-      posts: 5,
-      trend: [20.2, 20.8, 21.5, 22.2, 22.9, 23.4, 23.9],
-    },
-  ],
-  facebook: [
-    {
-      id: 'hh-fb',
-      net: 'facebook',
-      brandCode: 'HH',
-      brandTone: 'butter',
-      name: 'Brand',
-      handle: 'Brand',
-      status: 'connected',
-      followers: 30950,
-      growth: 7.7,
-      impressions: 345000,
-      eng: 7.5,
-      posts: 6,
-      trend: [28.2, 28.7, 29.3, 29.8, 30.2, 30.6, 31.0],
-    },
-    {
-      id: 'vg-fb',
-      net: 'facebook',
-      brandCode: 'VG',
-      brandTone: 'ink',
-      name: 'Brand',
-      handle: 'Brand',
-      status: 'disconnected',
-      followers: 22100,
-      growth: 13.5,
-      impressions: 248700,
-      eng: 8.2,
-      posts: 5,
-      trend: [19.2, 19.8, 20.5, 21.1, 21.5, 21.8, 22.1],
-    },
-    {
-      id: 'eo-fb',
-      net: 'facebook',
-      brandCode: 'EO',
-      brandTone: 'coral',
-      name: 'Brand',
-      handle: 'Brand',
-      status: 'connected',
-      followers: 21450,
-      growth: 5.0,
-      impressions: 235000,
-      eng: 7.6,
-      posts: 4,
-      trend: [20.2, 20.4, 20.7, 20.9, 21.1, 21.3, 21.45],
-    },
-  ],
-  x: [
-    {
-      id: 'vg-x',
-      net: 'x',
-      brandCode: 'VG',
-      brandTone: 'ink',
-      name: 'Brand',
-      handle: '@vantagegarage',
-      status: 'connected',
-      followers: 15290,
-      growth: 10.5,
-      impressions: 171300,
-      eng: 8.3,
-      posts: 9,
-      trend: [13.6, 14.0, 14.3, 14.7, 14.9, 15.1, 15.3],
-    },
-    {
-      id: 'ns-x',
-      net: 'x',
-      brandCode: 'NS',
-      brandTone: 'lilac',
-      name: 'Northlight Studio',
-      handle: '@northlightstudio',
-      status: 'connected',
-      followers: 4310,
-      growth: 6.2,
-      impressions: 48000,
-      eng: 7.4,
-      posts: 4,
-      trend: [4.0, 4.05, 4.12, 4.18, 4.23, 4.27, 4.31],
-    },
-  ],
-  threads: [
-    {
-      id: 'eo-th',
-      net: 'threads',
-      brandCode: 'EO',
-      brandTone: 'coral',
-      name: 'Brand',
-      handle: '@emberandoak',
-      status: 'connected',
-      followers: 9100,
-      growth: 7.3,
-      impressions: 102000,
-      eng: 7.0,
-      posts: 8,
-      trend: [8.4, 8.5, 8.7, 8.8, 8.9, 9.0, 9.1],
-    },
-    {
-      id: 'wb-th',
-      net: 'threads',
-      brandCode: 'WB',
-      brandTone: 'pine',
-      name: 'Wildroot Botanics',
-      handle: '@wildroot',
-      status: 'connected',
-      followers: 7400,
-      growth: 8.9,
-      impressions: 82700,
-      eng: 6.8,
-      posts: 6,
-      trend: [6.7, 6.8, 7.0, 7.1, 7.2, 7.3, 7.4],
-    },
-  ],
-  linkedin: [
-    {
-      id: 'ns-li',
-      net: 'linkedin',
-      brandCode: 'NS',
-      brandTone: 'lilac',
-      name: 'Northlight Studio',
-      handle: 'Northlight Studio',
-      status: 'connected',
-      followers: 8700,
-      growth: 21.5,
-      impressions: 97300,
-      eng: 8.0,
-      posts: 6,
-      trend: [7.1, 7.4, 7.7, 8.0, 8.2, 8.5, 8.7],
-    },
-  ],
-};
+const NETWORK_ACCOUNTS: Record<string, NetworkAccountRow[]> = {};
 
 function getSparklinePath(trend: number[]): string {
   if (!trend || trend.length === 0) return 'M 4 24 Q 24 20, 48 14 T 92 6';
@@ -412,376 +110,19 @@ interface NetworkRow {
   trend: number[];
 }
 
-const NETWORKS_LIST = [
-  { id: 'all', name: 'All networks', count: 19 },
-  { id: 'instagram', name: 'Instagram', count: 4 },
-  { id: 'facebook', name: 'Facebook', count: 3 },
-  { id: 'x', name: 'X', count: 2 },
-  { id: 'linkedin', name: 'LinkedIn', count: 1 },
-  { id: 'tiktok', name: 'TikTok', count: 3 },
-  { id: 'youtube', name: 'YouTube', count: 2 },
-  { id: 'pinterest', name: 'Pinterest', count: 2 },
-  { id: 'threads', name: 'Threads', count: 2 },
-];
+const NETWORKS_LIST = [{ id: 'all', name: 'All networks', count: 0 }];
 
-const DEFAULT_NETWORKS_TABLE: NetworkRow[] = [
-  {
-    key: 'tiktok',
-    net: 'tiktok',
-    name: 'TikTok',
-    accounts: 3,
-    followers: 306600,
-    growth: 7.0,
-    impressions: 3420000,
-    eng: 9.1,
-    posts: 20,
-    trend: [280, 285, 290, 295, 298, 302, 306.6],
-  },
-  {
-    key: 'instagram',
-    net: 'instagram',
-    name: 'Instagram',
-    accounts: 4,
-    followers: 291700,
-    growth: 8.8,
-    impressions: 3270000,
-    eng: 7.9,
-    posts: 40,
-    trend: [268, 272, 278, 282, 286, 289, 291.7],
-  },
-  {
-    key: 'youtube',
-    net: 'youtube',
-    name: 'YouTube',
-    accounts: 2,
-    followers: 148500,
-    growth: 19.3,
-    impressions: 1590000,
-    eng: 8.1,
-    posts: 13,
-    trend: [124, 128, 133, 139, 142, 145, 148.5],
-  },
-  {
-    key: 'pinterest',
-    net: 'pinterest',
-    name: 'Pinterest',
-    accounts: 2,
-    followers: 110200,
-    growth: 11.7,
-    impressions: 1190000,
-    eng: 7.0,
-    posts: 14,
-    trend: [98, 101, 103, 106, 108, 109, 110.2],
-  },
-  {
-    key: 'facebook',
-    net: 'facebook',
-    name: 'Facebook',
-    accounts: 3,
-    followers: 74500,
-    growth: 8.7,
-    impressions: 828700,
-    eng: 7.8,
-    posts: 15,
-    trend: [68, 69, 71, 72, 73, 74, 74.5],
-  },
-  {
-    key: 'x',
-    net: 'x',
-    name: 'X',
-    accounts: 2,
-    followers: 19600,
-    growth: 9.5,
-    impressions: 219300,
-    eng: 8.1,
-    posts: 13,
-    trend: [17.8, 18.2, 18.5, 18.9, 19.1, 19.4, 19.6],
-  },
-  {
-    key: 'threads',
-    net: 'threads',
-    name: 'Threads',
-    accounts: 2,
-    followers: 16500,
-    growth: 8.0,
-    impressions: 184700,
-    eng: 6.9,
-    posts: 14,
-    trend: [15.2, 15.5, 15.7, 16.0, 16.2, 16.4, 16.5],
-  },
-  {
-    key: 'linkedin',
-    net: 'linkedin',
-    name: 'LinkedIn',
-    accounts: 1,
-    followers: 8700,
-    growth: 21.5,
-    impressions: 97300,
-    eng: 8.0,
-    posts: 6,
-    trend: [7.1, 7.4, 7.7, 8.0, 8.2, 8.5, 8.7],
-  },
-];
+const DEFAULT_NETWORKS_TABLE: NetworkRow[] = [];
 
-const HOLLOW_HOME_NETWORKS_TABLE: NetworkRow[] = [
-  {
-    key: 'instagram',
-    net: 'instagram',
-    name: 'Instagram',
-    accounts: 1,
-    followers: 142500,
-    growth: 8.8,
-    impressions: 1480000,
-    eng: 8.2,
-    posts: 6,
-    trend: [131, 133, 136, 138, 140, 141, 142.5],
-  },
-  {
-    key: 'facebook',
-    net: 'facebook',
-    name: 'Facebook',
-    accounts: 1,
-    followers: 45200,
-    growth: 8.7,
-    impressions: 480000,
-    eng: 7.1,
-    posts: 2,
-    trend: [41, 42, 43, 43.8, 44.5, 44.9, 45.2],
-  },
-  {
-    key: 'youtube',
-    net: 'youtube',
-    name: 'YouTube',
-    accounts: 1,
-    followers: 32100,
-    growth: 19.3,
-    impressions: 420000,
-    eng: 8.4,
-    posts: 2,
-    trend: [26.5, 27.8, 29.0, 30.1, 31.0, 31.6, 32.1],
-  },
-  {
-    key: 'pinterest',
-    net: 'pinterest',
-    name: 'Pinterest',
-    accounts: 1,
-    followers: 28600,
-    growth: 11.7,
-    impressions: 390000,
-    eng: 6.9,
-    posts: 1,
-    trend: [25.2, 26.0, 26.8, 27.4, 27.9, 28.3, 28.6],
-  },
-];
+const HOLLOW_HOME_NETWORKS_TABLE: NetworkRow[] = [];
 
-const VANTAGE_GARAGE_NETWORKS_TABLE: NetworkRow[] = [
-  {
-    key: 'tiktok',
-    net: 'tiktok',
-    name: 'TikTok',
-    accounts: 1,
-    followers: 185000,
-    growth: 7.0,
-    impressions: 2100000,
-    eng: 9.1,
-    posts: 4,
-    trend: [170, 173, 176, 179, 181, 183, 185],
-  },
-  {
-    key: 'instagram',
-    net: 'instagram',
-    name: 'Instagram',
-    accounts: 1,
-    followers: 149200,
-    growth: 8.8,
-    impressions: 1650000,
-    eng: 8.5,
-    posts: 3,
-    trend: [136, 139, 142, 144, 146, 148, 149.2],
-  },
-  {
-    key: 'youtube',
-    net: 'youtube',
-    name: 'YouTube',
-    accounts: 1,
-    followers: 62000,
-    growth: 14.2,
-    impressions: 620000,
-    eng: 8.0,
-    posts: 1,
-    trend: [54, 56, 58, 59, 60, 61, 62],
-  },
-  {
-    key: 'x',
-    net: 'x',
-    name: 'X',
-    accounts: 1,
-    followers: 19600,
-    growth: 9.5,
-    impressions: 219300,
-    eng: 8.1,
-    posts: 1,
-    trend: [17.8, 18.2, 18.5, 18.9, 19.1, 19.4, 19.6],
-  },
-  {
-    key: 'facebook',
-    net: 'facebook',
-    name: 'Facebook',
-    accounts: 1,
-    followers: 27100,
-    growth: 6.2,
-    impressions: 230700,
-    eng: 7.4,
-    posts: 1,
-    trend: [25.1, 25.6, 26.0, 26.4, 26.7, 26.9, 27.1],
-  },
-];
+const VANTAGE_GARAGE_NETWORKS_TABLE: NetworkRow[] = [];
 
-const CONTENT_MIX_ITEMS = [
-  { net: 'instagram', name: 'Instagram', count: 40, pct: '30%', fillRatio: 1.0 },
-  { net: 'tiktok', name: 'TikTok', count: 20, pct: '15%', fillRatio: 0.5 },
-  { net: 'facebook', name: 'Facebook', count: 15, pct: '11%', fillRatio: 0.38 },
-  { net: 'pinterest', name: 'Pinterest', count: 14, pct: '10%', fillRatio: 0.35 },
-  { net: 'threads', name: 'Threads', count: 14, pct: '10%', fillRatio: 0.35 },
-  { net: 'x', name: 'X', count: 13, pct: '10%', fillRatio: 0.33 },
-  { net: 'youtube', name: 'YouTube', count: 13, pct: '10%', fillRatio: 0.33 },
-  { net: 'linkedin', name: 'LinkedIn', count: 6, pct: '4%', fillRatio: 0.15 },
-];
+const CONTENT_MIX_ITEMS: any[] = [];
 
-const TOP_POSTS_DATA = [
-  {
-    id: 'tp1',
-    rank: 1,
-    img: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=500&auto=format&fit=crop&q=80',
-    val: '346.9K',
-    metric: 'reach',
-    brandCode: 'VG',
-    brandName: 'Brand',
-    brandTone: 'ink',
-    date: 'Oct 18',
-    networks: ['instagram', 'tiktok', 'x'],
-    impressions: '525.9K',
-    likes: '80.4K',
-  },
-  {
-    id: 'tp2',
-    rank: 2,
-    img: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=500&auto=format&fit=crop&q=80',
-    val: '168K',
-    metric: 'reach',
-    brandCode: 'VG',
-    brandName: 'Brand',
-    brandTone: 'ink',
-    date: 'Oct 22',
-    networks: ['instagram', 'x'],
-    impressions: '234.4K',
-    likes: '8.4K',
-  },
-  {
-    id: 'tp3',
-    rank: 3,
-    img: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&auto=format&fit=crop&q=80',
-    val: '154.2K',
-    metric: 'reach',
-    brandCode: 'HH',
-    brandName: 'Brand',
-    brandTone: 'butter',
-    date: 'Oct 7',
-    networks: ['instagram', 'pinterest', 'facebook', 'youtube'],
-    impressions: '215.3K',
-    likes: '10.5K',
-  },
-  {
-    id: 'tp4',
-    rank: 4,
-    img: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=500&auto=format&fit=crop&q=80',
-    val: '146.6K',
-    metric: 'reach',
-    brandCode: 'HH',
-    brandName: 'Brand',
-    brandTone: 'butter',
-    date: 'Sep 29',
-    networks: ['instagram', 'pinterest'],
-    impressions: '198.2K',
-    likes: '7.8K',
-  },
-  {
-    id: 'tp5',
-    rank: 5,
-    img: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=500&auto=format&fit=crop&q=80',
-    val: '130.4K',
-    metric: 'reach',
-    brandCode: 'HH',
-    brandName: 'Brand',
-    brandTone: 'butter',
-    date: 'Oct 12',
-    networks: ['instagram', 'facebook'],
-    impressions: '175.0K',
-    likes: '6.9K',
-  },
-  {
-    id: 'tp6',
-    rank: 6,
-    img: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=500&auto=format&fit=crop&q=80',
-    val: '112.5K',
-    metric: 'reach',
-    brandCode: 'VG',
-    brandName: 'Brand',
-    brandTone: 'ink',
-    date: 'Oct 7',
-    networks: ['instagram', 'tiktok', 'x'],
-    impressions: '162.1K',
-    likes: '5.2K',
-  },
-];
+const TOP_POSTS_DATA: any[] = [];
 
-const BRANDS_COMPARISON_DATA = [
-  {
-    code: 'VG',
-    name: 'Brand',
-    tone: 'ink',
-    accounts: 5,
-    posts: 10,
-    val: '442.9K',
-    fillRatio: 1.0,
-  },
-  {
-    code: 'HH',
-    name: 'Brand',
-    tone: 'butter',
-    accounts: 4,
-    posts: 10,
-    val: '248.4K',
-    fillRatio: 0.56,
-  },
-  {
-    code: 'EO',
-    name: 'Brand',
-    tone: 'coral',
-    accounts: 4,
-    posts: 10,
-    val: '142.7K',
-    fillRatio: 0.32,
-  },
-  {
-    code: 'WB',
-    name: 'Wildroot Botanics',
-    tone: 'pine',
-    accounts: 4,
-    posts: 10,
-    val: '129.3K',
-    fillRatio: 0.29,
-  },
-  {
-    code: 'NS',
-    name: 'Northlight Studio',
-    tone: 'sea',
-    accounts: 2,
-    posts: 6,
-    val: '13K',
-    fillRatio: 0.03,
-  },
-];
+const BRANDS_COMPARISON_DATA: any[] = [];
 
 const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAYS_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -965,205 +306,59 @@ export function AnalyticsView() {
   };
 
   // Dynamic brand analytics data computation
-  const brandData = useMemo(() => {
-    if (isHollowHome) {
-      return {
-        scopeTitle: `Brand · last ${range} days`,
-        audience: '248.4K',
-        audienceLabel: 'Audience across 4 accounts',
-        newFollowers: '25.8K',
-        followersBadge: '+11.6%',
-        impressions: '2.77M',
-        impressionsBadge: '+4.8%',
-        engRate: '7.7%',
-        engLabel: 'Avg. engagement rate, 11 posts',
-        growthNum: '+25.8K',
-        growthSub: `followers gained, last ${range} days · +25.1% vs the ${range} days before`,
-        networksList: [
-          { id: 'all', name: 'All networks', count: 4 },
-          { id: 'instagram', name: 'Instagram', count: 1 },
-          { id: 'facebook', name: 'Facebook', count: 1 },
-          { id: 'youtube', name: 'YouTube', count: 1 },
-          { id: 'pinterest', name: 'Pinterest', count: 1 },
-        ],
-        networksTable: HOLLOW_HOME_NETWORKS_TABLE,
-        contentMix: [
-          { net: 'instagram', name: 'Instagram', count: 6, pct: '55%', fillRatio: 1.0 },
-          { net: 'facebook', name: 'Facebook', count: 2, pct: '18%', fillRatio: 0.33 },
-          { net: 'youtube', name: 'YouTube', count: 2, pct: '18%', fillRatio: 0.33 },
-          { net: 'pinterest', name: 'Pinterest', count: 1, pct: '9%', fillRatio: 0.16 },
-        ],
-        postsPublishedCount: 11,
-        networkDeliveriesCount: 32,
-        topPosts: TOP_POSTS_DATA.filter((p) => p.brandCode === 'HH' || p.brandName.includes('Hollow')),
-        y1: '50K',
-        y2: '25K',
-        impY1: '200K',
-        impY2: '100K',
-      };
-    } else if (isVantageGarage) {
-      return {
-        scopeTitle: `Brand · last ${range} days`,
-        audience: '442.9K',
-        audienceLabel: 'Audience across 5 accounts',
-        newFollowers: '41.2K',
-        followersBadge: '+9.4%',
-        impressions: '4.82M',
-        impressionsBadge: '+6.2%',
-        engRate: '8.4%',
-        engLabel: 'Avg. engagement rate, 10 posts',
-        growthNum: '+41.2K',
-        growthSub: `followers gained, last ${range} days · +18.2% vs the ${range} days before`,
-        networksList: [
-          { id: 'all', name: 'All networks', count: 5 },
-          { id: 'tiktok', name: 'TikTok', count: 1 },
-          { id: 'instagram', name: 'Instagram', count: 1 },
-          { id: 'youtube', name: 'YouTube', count: 1 },
-          { id: 'x', name: 'X', count: 1 },
-          { id: 'facebook', name: 'Facebook', count: 1 },
-        ],
-        networksTable: VANTAGE_GARAGE_NETWORKS_TABLE,
-        contentMix: [
-          { net: 'tiktok', name: 'TikTok', count: 4, pct: '40%', fillRatio: 1.0 },
-          { net: 'instagram', name: 'Instagram', count: 3, pct: '30%', fillRatio: 0.75 },
-          { net: 'youtube', name: 'YouTube', count: 1, pct: '10%', fillRatio: 0.25 },
-          { net: 'x', name: 'X', count: 1, pct: '10%', fillRatio: 0.25 },
-          { net: 'facebook', name: 'Facebook', count: 1, pct: '10%', fillRatio: 0.25 },
-        ],
-        postsPublishedCount: 10,
-        networkDeliveriesCount: 42,
-        topPosts: TOP_POSTS_DATA.filter((p) => p.brandCode === 'VG' || p.brandName.includes('Vantage')),
-        y1: '60K',
-        y2: '30K',
-        impY1: '300K',
-        impY2: '150K',
-      };
-    } else if (isStarlightBakery) {
-      return {
-        scopeTitle: `Starlight Bakery · last ${range} days`,
-        audience: '203.9K',
-        audienceLabel: 'Audience across 4 accounts',
-        newFollowers: '21.4K',
-        followersBadge: '+12.4%',
-        impressions: '2.15M',
-        impressionsBadge: '+7.8%',
-        engRate: '8.8%',
-        engLabel: 'Avg. engagement rate, 12 posts',
-        growthNum: '+21.4K',
-        growthSub: `followers gained, last ${range} days · +19.2% vs the ${range} days before`,
-        networksList: [
-          { id: 'all', name: 'All networks', count: 4 },
-          { id: 'tiktok', name: 'TikTok', count: 1 },
-          { id: 'instagram', name: 'Instagram', count: 1 },
-          { id: 'facebook', name: 'Facebook', count: 1 },
-          { id: 'pinterest', name: 'Pinterest', count: 1 },
-        ],
-        networksTable: [
-          { key: 'tiktok', net: 'tiktok', name: 'TikTok', accounts: 1, followers: 98400, growth: 12.4, impressions: 980000, eng: 9.8, posts: 5, trend: [82, 85, 88, 91, 94, 96, 98.4] },
-          { key: 'instagram', net: 'instagram', name: 'Instagram', accounts: 1, followers: 64200, growth: 8.8, impressions: 720000, eng: 8.4, posts: 4, trend: [58, 60, 61, 62, 63, 63.8, 64.2] },
-          { key: 'facebook', net: 'facebook', name: 'Facebook', accounts: 1, followers: 23100, growth: 4.1, impressions: 260000, eng: 5.2, posts: 2, trend: [21, 21.5, 22, 22.3, 22.7, 23, 23.1] },
-          { key: 'pinterest', net: 'pinterest', name: 'Pinterest', accounts: 1, followers: 18200, growth: 14.6, impressions: 190000, eng: 7.1, posts: 1, trend: [14, 15, 15.5, 16.2, 17, 17.8, 18.2] },
-        ],
-        contentMix: [
-          { net: 'tiktok', name: 'TikTok', count: 5, pct: '42%', fillRatio: 1.0 },
-          { net: 'instagram', name: 'Instagram', count: 4, pct: '33%', fillRatio: 0.8 },
-          { net: 'facebook', name: 'Facebook', count: 2, pct: '17%', fillRatio: 0.4 },
-          { net: 'pinterest', name: 'Pinterest', count: 1, pct: '8%', fillRatio: 0.2 },
-        ],
-        postsPublishedCount: 12,
-        networkDeliveriesCount: 36,
-        topPosts: [
-          {
-            id: 'tp-sb-1',
-            rank: 1,
-            img: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&auto=format&fit=crop&q=80',
-            val: '88.4K',
-            metric: 'reach',
-            brandCode: 'SB',
-            brandName: 'Starlight Bakery',
-            brandTone: 'coral',
-            date: 'Oct 21',
-            networks: ['tiktok', 'instagram'],
-            impressions: '124.0K',
-            likes: '8.4K',
-          },
-          {
-            id: 'tp-sb-2',
-            rank: 2,
-            img: 'https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?w=500&auto=format&fit=crop&q=80',
-            val: '64.2K',
-            metric: 'reach',
-            brandCode: 'SB',
-            brandName: 'Starlight Bakery',
-            brandTone: 'coral',
-            date: 'Oct 18',
-            networks: ['instagram', 'facebook'],
-            impressions: '92.5K',
-            likes: '6.1K',
-          },
-        ],
-        y1: '40K',
-        y2: '20K',
-        impY1: '180K',
-        impY2: '90K',
-      };
-    } else if (activeBrand) {
-      const bName = activeBrand.name;
-      return {
-        scopeTitle: `${bName} · last ${range} days`,
-        audience: '142.7K',
-        audienceLabel: 'Audience across 4 accounts',
-        newFollowers: '14.2K',
-        followersBadge: '+8.2%',
-        impressions: '1.68M',
-        impressionsBadge: '+5.1%',
-        engRate: '8.1%',
-        engLabel: 'Avg. engagement rate, 8 posts',
-        growthNum: '+14.2K',
-        growthSub: `followers gained, last ${range} days · +16.4% vs the ${range} days before`,
-        networksList: [
-          { id: 'all', name: 'All networks', count: 4 },
-          { id: 'instagram', name: 'Instagram', count: 1 },
-          { id: 'facebook', name: 'Facebook', count: 1 },
-          { id: 'x', name: 'X', count: 1 },
-          { id: 'linkedin', name: 'LinkedIn', count: 1 },
-        ],
-        networksTable: DEFAULT_NETWORKS_TABLE.slice(1, 5).map((n) => ({ ...n, accounts: 1 })),
-        contentMix: CONTENT_MIX_ITEMS.slice(0, 4),
-        postsPublishedCount: 8,
-        networkDeliveriesCount: 24,
-        topPosts: TOP_POSTS_DATA.slice(0, 3).map((p) => ({ ...p, brandName: bName })),
-        y1: '30K',
-        y2: '15K',
-        impY1: '100K',
-        impY2: '50K',
-      };
-    } else {
-      return {
-        scopeTitle: `5 brands · last ${range} days`,
-        audience: '976.3K',
-        audienceLabel: 'Audience across 19 accounts',
-        newFollowers: '89.6K',
-        followersBadge: '+10.1%',
-        impressions: '10.81M',
-        impressionsBadge: '+3.6%',
-        engRate: '7.9%',
-        engLabel: 'Avg. engagement rate, 46 posts',
-        growthNum: '+89.6K',
-        growthSub: `followers gained, last ${range} days · +14.5% vs the ${range} days before`,
-        networksList: NETWORKS_LIST,
-        networksTable: DEFAULT_NETWORKS_TABLE,
-        contentMix: CONTENT_MIX_ITEMS,
-        postsPublishedCount: 46,
-        networkDeliveriesCount: 135,
-        topPosts: TOP_POSTS_DATA,
-        y1: '100K',
-        y2: '50K',
-        impY1: '500K',
-        impY2: '250K',
-      };
-    }
-  }, [isHollowHome, isVantageGarage, isStarlightBakery, activeBrand, range]);
+    const brandData = useMemo(() => {
+    const brandName = activeBrand ? activeBrand.name : `${brands.length} brand${brands.length === 1 ? '' : 's'}`;
+    const channels = (activeBrand as any)?.channels || (brands as any[]).flatMap((b: any) => b.channels || []);
+    const netCountMap: Record<string, number> = {};
+    channels.forEach((ch: any) => {
+      const net = (ch.network || 'instagram').toLowerCase();
+      netCountMap[net] = (netCountMap[net] || 0) + 1;
+    });
+    const networksList = [
+      { id: 'all', name: 'All networks', count: channels.length },
+      ...Object.entries(netCountMap).map(([net, count]) => ({
+        id: net,
+        name: NETWORK_NAMES[net] || net,
+        count,
+      })),
+    ];
+    const networksTable: NetworkRow[] = Object.entries(netCountMap).map(([net, count]) => ({
+      key: net,
+      net,
+      name: NETWORK_NAMES[net] || net,
+      accounts: count,
+      followers: 0,
+      growth: 0,
+      impressions: 0,
+      eng: 0,
+      posts: 0,
+      trend: [0, 0, 0, 0, 0, 0, 0],
+    }));
+
+    return {
+      scopeTitle: `${brandName} · last ${range} days`,
+      audience: '0',
+      audienceLabel: `Audience across ${channels.length} account${channels.length === 1 ? '' : 's'}`,
+      newFollowers: '0',
+      followersBadge: '+0%',
+      impressions: '0',
+      impressionsBadge: '+0%',
+      engRate: '0%',
+      engLabel: 'Avg. engagement rate, 0 posts',
+      growthNum: '0',
+      growthSub: `followers gained, last ${range} days · +0% vs previous period`,
+      networksList,
+      networksTable,
+      contentMix: [] as any[],
+      postsPublishedCount: 0,
+      networkDeliveriesCount: 0,
+      topPosts: [] as any[],
+      y1: '0',
+      y2: '0',
+      impY1: '0',
+      impY2: '0',
+    };
+  }, [activeBrand, brands, range]);
 
   // Report Modal state
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
@@ -2425,47 +1620,28 @@ export function AnalyticsView() {
             </div>
           </div>
 
-          <ol className="an-posts">
-            {brandData.topPosts.map((p) => (
-              <li key={p.id}>
-                <button type="button" className="an-post">
-                  <span className="an-post__img">
-                    <img src={p.img} alt="" className="thumb" />
-                    <span className="an-post__rank">{p.rank}</span>
-                    <span className="net-stack">
-                      {p.networks.map((n) => (
-                        <span key={n} className={`net net--xs net--${n}`}>
-                          <NetworkIcon network={n} className="ico" />
-                        </span>
-                      ))}
+          {brandData.topPosts.length === 0 ? (
+            <div style={{ padding: '3rem 1rem', textAlign: 'center', opacity: 0.6 }}>
+              <p>No top posts data available yet.</p>
+            </div>
+          ) : (
+            <ol className="an-posts">
+              {brandData.topPosts.map((p) => (
+                <li key={p.id}>
+                  <button type="button" className="an-post">
+                    <span className="an-post__img">
+                      <img src={p.img} alt="" className="thumb" />
+                      <span className="an-post__rank">{p.rank}</span>
                     </span>
-                  </span>
-
-                  <span className="an-post__body">
-                    <b className="an-post__val num tnum">{p.val}</b>
-                    <small>{p.metric}</small>
-                    <span className="an-post__meta">
-                      <span className="bchip">
-                        <span className={`bmark bmark--xs tone--${p.brandTone}`}>{p.brandCode}</span>
-                        <span>{p.brandName}</span>
-                      </span>
-                      <span>{p.date}</span>
+                    <span className="an-post__body">
+                      <b className="an-post__val num tnum">{p.val}</b>
+                      <small>{p.metric}</small>
                     </span>
-                    <span className="an-post__mini">
-                      <span>
-                        <Eye className="ico" />
-                        {p.impressions}
-                      </span>
-                      <span>
-                        <Heart className="ico" />
-                        {p.likes}
-                      </span>
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
         </article>
 
         {/* 7. Brand Comparison Card (Right) */}
@@ -2507,47 +1683,25 @@ export function AnalyticsView() {
           </div>
 
           <ul className="an-bars">
-            {BRANDS_COMPARISON_DATA.map((b) => {
-              const isHighlighted =
-                (isHollowHome && b.code === 'HH') ||
-                (isVantageGarage && b.code === 'VG') ||
-                (activeBrand && b.name.toLowerCase().includes(activeBrand.name.toLowerCase()));
-              return (
-                <li
-                  key={b.code}
-                  className={`an-bar ${isHighlighted ? 'is-selected-brand' : ''}`}
-                  style={isHighlighted ? { background: 'rgba(242, 183, 64, 0.12)', borderRadius: '12px', padding: '6px 10px' } : undefined}
-                >
-                  <span className={`bmark bmark--md tone--${b.tone}`}>{b.code}</span>
+            {brands.length === 0 ? (
+              <li style={{ padding: '2rem 1rem', textAlign: 'center', opacity: 0.6, listStyle: 'none' }}>
+                No brands to compare yet.
+              </li>
+            ) : (
+              brands.map((b) => (
+                <li key={b.id} className="an-bar">
+                  <span className="bmark bmark--md tone--coral">{b.name.slice(0, 2).toUpperCase()}</span>
                   <span className="an-bar__name">
-                    <b>
-                      {b.name}
-                      {isHighlighted && (
-                        <span
-                          className="badge badge--pine"
-                          style={{ marginLeft: 6, fontSize: '10px', padding: '2px 6px' }}
-                        >
-                          Selected
-                        </span>
-                      )}
-                    </b>
-                    <small>
-                      {b.accounts} accounts · {b.posts} posts
-                    </small>
+                    <b>{b.name}</b>
+                    <small>{(b as any).channels?.length || 0} accounts</small>
                   </span>
-                  <span className="an-bar__track" aria-hidden="true">
-                    <span
-                      className="an-bar__fill"
-                      style={{
-                        transform: `scaleX(${b.fillRatio})`,
-                        transformOrigin: '0 50%',
-                      }}
-                    />
+                  <span className="meter an-bar__meter">
+                    <span className="meter__fill" style={{ transform: 'scaleX(0)' }} />
                   </span>
-                  <b className="num an-bar__v tnum">{b.val}</b>
+                  <b className="num tnum">0</b>
                 </li>
-              );
-            })}
+              ))
+            )}
           </ul>
         </article>
       </div>
@@ -2616,10 +1770,10 @@ export function AnalyticsView() {
                   <legend className="field__label">Recipients</legend>
                   <div className="an-recips__list">
                     {[
-                      { name: 'Camila Ortiz', email: 'camila@northlight.studio' },
-                      { name: 'Malik Johnson', email: 'malik@northlight.studio' },
-                      { name: 'Elise Marchand', email: 'elise@northlight.studio' },
-                      { name: 'Haruto Sato', email: 'haruto@northlight.studio' },
+                      { name: 'Camila Ortiz', email: 'owner@example.com' },
+                      { name: 'Malik Johnson', email: 'team@example.com' },
+                      { name: 'Elise Marchand', email: 'client@example.com' },
+                      { name: 'Haruto Sato', email: 'support@example.com' },
                     ].map((person, idx) => (
                       <label key={person.email} className="an-recip">
                         <input type="checkbox" className="check" defaultChecked={idx === 0} />

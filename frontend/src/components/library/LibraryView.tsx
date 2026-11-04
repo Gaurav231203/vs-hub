@@ -59,48 +59,7 @@ interface PostReference {
   status: 'published' | 'scheduled' | 'pending';
 }
 
-const INITIAL_PHOTOS: LibraryPhoto[] = [
-  // Starlight Bakery (6)
-  { id: 'sb-croissant', brandId: 'starlight', title: 'Flaky butter croissant', tags: ['pastry', 'bakery'], w: 720, h: 900, src: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=900&auto=format&fit=crop&q=80', starred: true, usedCount: 5, addedAgo: '2 days ago', authorName: 'Sophia' },
-  { id: 'sb-sourdough', brandId: 'starlight', title: 'Country sourdough loaf', tags: ['sourdough', 'bread'], w: 900, h: 675, src: 'https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?w=900&auto=format&fit=crop&q=80', starred: false, usedCount: 3, addedAgo: '4 days ago', authorName: 'Devon' },
-  { id: 'sb-tart', brandId: 'starlight', title: 'Seasonal fruit tart', tags: ['pastry', 'dessert'], w: 720, h: 900, src: 'https://images.unsplash.com/photo-1519869325930-281384150729?w=900&auto=format&fit=crop&q=80', starred: false, usedCount: 2, addedAgo: '1 week ago', authorName: 'Sophia' },
-  { id: 'sb-baguette', brandId: 'starlight', title: 'Fresh warm baguettes', tags: ['bread', 'morning'], w: 900, h: 600, src: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=900&auto=format&fit=crop&q=80', starred: true, usedCount: 4, addedAgo: '1 week ago', authorName: 'Devon' },
-  { id: 'sb-cinnamon', brandId: 'starlight', title: 'Cardamom morning buns', tags: ['pastry', 'morning'], w: 720, h: 900, src: 'https://images.unsplash.com/photo-1509365465985-25d11c17e812?w=900&auto=format&fit=crop&q=80', starred: false, usedCount: 3, addedAgo: '2 weeks ago', authorName: 'Sophia' },
-  { id: 'sb-flour', brandId: 'starlight', title: 'Dough kneading by hand', tags: ['process', 'behind the scenes'], w: 900, h: 600, src: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=900&auto=format&fit=crop&q=80', starred: false, usedCount: 1, addedAgo: '3 weeks ago', authorName: 'Devon' },
-
-  // Hollow Home (7)
-  { id: 'hollow-room', brandId: 'hollow', title: 'Reading corner', tags: ['interior', 'chair'], w: 720, h: 900, src: '/murmura/photos/murmura/posts/hollow-room-sm.jpg', starred: false, usedCount: 2, addedAgo: '3 weeks ago', authorName: 'Haruto' },
-  { id: 'hollow-chair', brandId: 'hollow', title: 'Bouclé lounge chair', tags: ['product', 'chair'], w: 720, h: 900, src: '/murmura/photos/murmura/posts/hollow-chair-sm.jpg', starred: true, usedCount: 3, addedAgo: '1 month ago', authorName: 'Peter' },
-  { id: 'hollow-lamp', brandId: 'hollow', title: 'Pleat table lamp', tags: ['product', 'lighting'], w: 720, h: 900, src: '/murmura/photos/murmura/posts/hollow-lamp-sm.jpg', starred: false, usedCount: 1, addedAgo: '2 months ago', authorName: 'Haruto' },
-  { id: 'hollow-throw', brandId: 'hollow', title: 'Wool throw', tags: ['product', 'textiles'], w: 720, h: 900, src: '/murmura/photos/murmura/posts/hollow-throw-sm.jpg', starred: false, usedCount: 2, addedAgo: '2 weeks ago', authorName: 'Peter' },
-  { id: 'hollow-sofa', brandId: 'hollow', title: 'Friends on the Låg sofa', tags: ['lifestyle', 'sofa'], w: 900, h: 600, src: '/murmura/photos/murmura/posts/hollow-sofa-sm.jpg', starred: false, usedCount: 2, addedAgo: '1 month ago', authorName: 'Freya' },
-  { id: 'hollow-detail', brandId: 'hollow', title: 'Oak side table', tags: ['product', 'detail'], w: 900, h: 900, src: '/murmura/photos/murmura/posts/hollow-detail-sm.jpg', starred: false, usedCount: 3, addedAgo: '5 days ago', authorName: 'Haruto' },
-  { id: 'hollow-living', brandId: 'hollow', title: 'Living room, full set', tags: ['interior', 'campaign'], w: 900, h: 600, src: '/murmura/photos/murmura/posts/hollow-living-sm.jpg', starred: false, usedCount: 2, addedAgo: '3 weeks ago', authorName: 'Peter' },
-
-  // Vantage Garage (6)
-  { id: 'vantage-gauge', brandId: 'vantage', title: 'Redline', tags: ['detail', 'night'], w: 720, h: 900, src: '/murmura/photos/murmura/posts/vantage-gauge-sm.jpg', starred: true, usedCount: 3, addedAgo: '10 days ago', authorName: 'Omar' },
-  { id: 'vantage-wheel', brandId: 'vantage', title: 'Fresh ceramic coat', tags: ['wheels', 'detail'], w: 900, h: 675, src: '/murmura/photos/murmura/posts/vantage-wheel-sm.jpg', starred: false, usedCount: 2, addedAgo: '2 weeks ago', authorName: 'Kwame' },
-  { id: 'vantage-night', brandId: 'vantage', title: 'Parking deck reveal', tags: ['reveal', 'night'], w: 900, h: 675, src: '/murmura/photos/murmura/posts/vantage-night-sm.jpg', starred: false, usedCount: 2, addedAgo: '1 month ago', authorName: 'Omar' },
-  { id: 'vantage-lift', brandId: 'vantage', title: 'Wheel balancing', tags: ['workshop', 'wheels'], w: 720, h: 900, src: '/murmura/photos/murmura/posts/vantage-lift-sm.jpg', starred: false, usedCount: 2, addedAgo: '3 weeks ago', authorName: 'Kwame' },
-  { id: 'vantage-drive', brandId: 'vantage', title: 'Delivery drive', tags: ['customer', 'drive'], w: 720, h: 900, src: '/murmura/photos/murmura/posts/vantage-drive-sm.jpg', starred: false, usedCount: 1, addedAgo: '1 month ago', authorName: 'Omar' },
-  { id: 'vantage-engine', brandId: 'vantage', title: 'Engine bay detail', tags: ['workshop', 'engine'], w: 900, h: 675, src: '/murmura/photos/murmura/posts/vantage-engine-sm.jpg', starred: false, usedCount: 2, addedAgo: '2 weeks ago', authorName: 'Omar' },
-
-  // Ember & Oak (5)
-  { id: 'ember-shot', brandId: 'ember', title: 'Espresso pull', tags: ['espresso', 'process'], w: 725, h: 900, src: '/murmura/photos/murmura/posts/ember-shot-sm.jpg', starred: false, usedCount: 4, addedAgo: '4 days ago', authorName: 'Nia' },
-  { id: 'ember-pour', brandId: 'ember', title: 'Milk pour', tags: ['latte', 'process'], w: 725, h: 900, src: '/murmura/photos/murmura/posts/ember-pour-sm.jpg', starred: false, usedCount: 7, addedAgo: '1 week ago', authorName: 'Elise' },
-  { id: 'ember-latte', brandId: 'ember', title: 'Latte art, close', tags: ['latte', 'cafe'], w: 900, h: 603, src: '/murmura/photos/murmura/posts/ember-latte-sm.jpg', starred: false, usedCount: 2, addedAgo: '2 weeks ago', authorName: 'Nia' },
-  { id: 'ember-roastery', brandId: 'ember', title: 'The roastery', tags: ['roastery', 'behind the scenes'], w: 900, h: 502, src: '/murmura/photos/murmura/posts/ember-roastery-sm.jpg', starred: false, usedCount: 1, addedAgo: '1 month ago', authorName: 'Elise' },
-  { id: 'ember-weigh', brandId: 'ember', title: 'Weighing the dose', tags: ['process', 'beans'], w: 725, h: 900, src: '/murmura/photos/murmura/posts/ember-weigh-sm.jpg', starred: false, usedCount: 2, addedAgo: '3 weeks ago', authorName: 'Nia' },
-
-  // Wildroot Botanics (7)
-  { id: 'wild-golden', brandId: 'wild', title: 'Golden hour dropper', tags: ['product', 'campaign'], w: 599, h: 900, src: '/murmura/photos/murmura/posts/wild-golden-sm.jpg', starred: true, usedCount: 4, addedAgo: '6 days ago', authorName: 'Camila' },
-  { id: 'wild-daisy', brandId: 'wild', title: 'Daisy bath', tags: ['ritual', 'flowers'], w: 900, h: 599, src: '/murmura/photos/murmura/posts/wild-daisy-sm.jpg', starred: false, usedCount: 2, addedAgo: '2 weeks ago', authorName: 'Elise' },
-  { id: 'wild-dried', brandId: 'wild', title: 'Dried botanicals', tags: ['ingredients', 'flatlay'], w: 600, h: 900, src: '/murmura/photos/murmura/posts/wild-dried-sm.jpg', starred: false, usedCount: 3, addedAgo: '3 weeks ago', authorName: 'Nia' },
-  { id: 'wild-dropper', brandId: 'wild', title: 'Facial oil drop', tags: ['product', 'oil'], w: 900, h: 599, src: '/murmura/photos/murmura/posts/wild-dropper-sm.jpg', starred: false, usedCount: 2, addedAgo: '1 month ago', authorName: 'Camila' },
-  { id: 'wild-petals', brandId: 'wild', title: 'Rose petals', tags: ['ingredients'], w: 600, h: 900, src: '/murmura/photos/murmura/posts/wild-petals-sm.jpg', starred: false, usedCount: 3, addedAgo: '2 weeks ago', authorName: 'Elise' },
-  { id: 'wild-bloom', brandId: 'wild', title: 'Rose & jasmine', tags: ['ingredients', 'flowers'], w: 671, h: 900, src: '/murmura/photos/murmura/posts/wild-bloom-sm.jpg', starred: false, usedCount: 2, addedAgo: '1 month ago', authorName: 'Nia' },
-  { id: 'wild-vials', brandId: 'wild', title: 'Tincture vials', tags: ['product', 'lab'], w: 900, h: 596, src: '/murmura/photos/murmura/posts/wild-vials-sm.jpg', starred: false, usedCount: 1, addedAgo: '2 months ago', authorName: 'Camila' },
-];
+const INITIAL_PHOTOS: LibraryPhoto[] = [];
 
 const SAMPLE_POST_REFERENCES: Record<string, PostReference[]> = {
   'hollow-room': [
@@ -139,44 +98,7 @@ interface TemplateItem {
   text: string;
 }
 
-const INITIAL_TEMPLATES: TemplateItem[] = [
-  {
-    id: 't1',
-    brandId: null,
-    name: 'Launch countdown',
-    text: 'In {days} days: {product}. Turn on notifications so you’re first in line.',
-  },
-  {
-    id: 't2',
-    brandId: null,
-    name: 'Giveaway rules',
-    text: 'GIVEAWAY 🎁 Win {prize}.\n\nHow to enter:\n1. Follow us\n2. Like this post\n3. Tag {friend_count} friends in the comments\n\nWinner picked on {date}. Good luck!',
-  },
-  {
-    id: 't3',
-    brandId: 'ember',
-    name: 'Weekly roast spotlight',
-    text: 'Behind the roast this week: {origin} {process}. Tasting notes: {notes}. Bags ship {day} ☕',
-  },
-  {
-    id: 't4',
-    brandId: 'hollow',
-    name: 'Room styling notes',
-    text: 'Styling {room} around one key piece: the {piece}. Keep the palette to {colors} and add {texture} for depth.',
-  },
-  {
-    id: 't5',
-    brandId: 'vantage',
-    name: 'Ceramic package slots',
-    text: 'Slots open for {month}: full paint correction and {coating} on {slots} cars only. Link in bio to book.',
-  },
-  {
-    id: 't6',
-    brandId: 'wild',
-    name: 'Evening ritual steps',
-    text: 'Evening ritual: {step_1}, then three drops of {product}, then {step_3}. Wake up with hydrated, calm skin.',
-  },
-];
+const INITIAL_TEMPLATES: TemplateItem[] = [];
 
 interface HashtagSetItem {
   id: string;
@@ -185,38 +107,7 @@ interface HashtagSetItem {
   tags: string[];
 }
 
-const INITIAL_HASHTAGS: HashtagSetItem[] = [
-  {
-    id: 'h0',
-    brandId: 'starlight',
-    name: 'Artisan bakery',
-    tags: ['#artisanbakery', '#sourdough', '#croissant', '#frenchpastry', '#organicbaking', '#bakerlife', '#morningpastry'],
-  },
-  {
-    id: 'h1',
-    brandId: 'ember',
-    name: 'Coffee core',
-    tags: ['#specialtycoffee', '#slowcoffee', '#portlandcoffee', '#pourover', '#coffeeroasters', '#baristadaily', '#singleorigin'],
-  },
-  {
-    id: 'h2',
-    brandId: 'hollow',
-    name: 'Interiors',
-    tags: ['#scandihome', '#interiordesign', '#slowliving', '#boucle', '#danishdesign', '#nordichome', '#interiorstyling'],
-  },
-  {
-    id: 'h3',
-    brandId: 'vantage',
-    name: 'Detailing',
-    tags: ['#ceramiccoating', '#paintcorrection', '#detailing', '#carsofinstagram', '#austincars', '#paintprotection', '#supercars'],
-  },
-  {
-    id: 'h4',
-    brandId: 'wild',
-    name: 'Skin rituals',
-    tags: ['#cleanbeauty', '#botanicalskincare', '#facialoil', '#selfcareritual', '#lisbon', '#organicskincare', '#glowingskin'],
-  },
-];
+const INITIAL_HASHTAGS: HashtagSetItem[] = [];
 
 interface SavedReplyItem {
   id: string;
@@ -224,33 +115,7 @@ interface SavedReplyItem {
   text: string;
 }
 
-const INITIAL_REPLIES: SavedReplyItem[] = [
-  {
-    id: 'r1',
-    title: 'Thanks!',
-    text: 'Thank you so much — that means a lot to the whole team 🧡',
-  },
-  {
-    id: 'r2',
-    title: 'Shipping',
-    text: 'We ship worldwide! Orders leave within 2 working days and you’ll get tracking by email.',
-  },
-  {
-    id: 'r3',
-    title: 'Sorry + DM',
-    text: 'We’re really sorry about this. Could you send us your order number in a DM? We’ll sort it today.',
-  },
-  {
-    id: 'r4',
-    title: 'Booking',
-    text: 'We’d love to have you in. You can pick a slot here: link in bio, or reply with your preferred week.',
-  },
-  {
-    id: 'r5',
-    title: 'Sensitive skin',
-    text: 'Bloom is fragrance-free and patch-tested, but we always suggest a small test on your wrist first.',
-  },
-];
+const INITIAL_REPLIES: SavedReplyItem[] = [];
 
 export function LibraryView() {
   const navigate = useNavigate();
