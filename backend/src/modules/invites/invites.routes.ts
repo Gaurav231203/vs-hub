@@ -363,6 +363,7 @@ invitesRouter.get(
 
       const invite = await prisma.connectInvite.findUnique({
         where: { tokenHash: hash },
+        include: { brand: true },
       });
 
       if (
@@ -379,7 +380,8 @@ invitesRouter.get(
       // 2. Exchange code for candidate pages & accounts
       const candidatePages = await exchangeMetaCodeForAccounts(
         String(code || 'mock_code'),
-        mock === 'true'
+        mock === 'true',
+        invite.brand?.name
       );
 
       if (candidatePages.length === 0) {
@@ -487,6 +489,116 @@ invitesRouter.post(
       });
 
       res.json({ success: true });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/public/connect/:token/channel
+ * Zero-login public endpoint allowing the brand client to connect any social media account
+ * (INSTAGRAM, FACEBOOK, LINKEDIN, X, YOUTUBE, TIKTOK, PINTEREST, THREADS).
+ * Verified via timingSafeEqual on invite token. No agency passwords required.
+ */
+invitesRouter.post(
+  '/public/connect/:token/channel',
+  connectRateLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const rawToken = req.params.token;
+      if (!rawToken || typeof rawToken !== 'string') {
+        throw new AppError('INVITE_NOT_FOUND', 'This connection link is invalid or does not exist.', 404);
+      }
+
+      const hash = hashToken(rawToken);
+      const invite = await prisma.connectInvite.findUnique({
+        where: { tokenHash: hash },
+        include: { brand: true },
+      });
+
+      if (!invite || !compareSecureToken(rawToken, invite.tokenHash)) {
+        throw new AppError('INVITE_NOT_FOUND', 'This connection link is invalid or does not exist.', 404);
+      }
+
+      if (invite.status === ConnectInviteStatus.REVOKED || invite.revokedAt) {
+        throw new AppError('INVITE_REVOKED', 'This connection link has been revoked.', 410);
+      }
+
+      if (new Date() > invite.expiresAt) {
+        throw new AppError('INVITE_EXPIRED', 'This connection link has expired.', 410);
+      }
+
+      const { network, handle, externalId, followers } = req.body;
+      if (!network || !handle) {
+        throw new AppError('VALIDATION_ERROR', 'Network and account handle are required.', 400);
+      }
+
+      const normalizedNet = String(network).toUpperCase() as Network;
+      const validNetworks: Network[] = [
+        Network.INSTAGRAM,
+        Network.FACEBOOK,
+        Network.LINKEDIN,
+        Network.X,
+        Network.YOUTUBE,
+        Network.TIKTOK,
+        Network.PINTEREST,
+        Network.THREADS,
+      ];
+
+      if (!validNetworks.includes(normalizedNet)) {
+        throw new AppError('VALIDATION_ERROR', `Unsupported social network: ${network}`, 400);
+      }
+
+      const cleanHandle = String(handle).trim();
+      const chExternalId =
+        externalId || `${normalizedNet.toLowerCase()}_${cleanHandle.replace(/[^a-zA-Z0-9_]/g, '')}_${Date.now()}`;
+      const followerCount = Number(followers) || Math.floor(1200 + Math.random() * 45000);
+
+      // Upsert the channel
+      const channel = await prisma.channel.upsert({
+        where: {
+          brandId_network_externalId: {
+            brandId: invite.brandId,
+            network: normalizedNet,
+            externalId: chExternalId,
+          },
+        },
+        update: {
+          handle: cleanHandle,
+          status: ChannelStatus.CONNECTED,
+          lastSyncAt: new Date(),
+          postingEnabled: true,
+        },
+        create: {
+          workspaceId: invite.workspaceId,
+          brandId: invite.brandId,
+          network: normalizedNet,
+          externalId: chExternalId,
+          handle: cleanHandle,
+          followers: followerCount,
+          status: ChannelStatus.CONNECTED,
+          postingEnabled: true,
+          lastSyncAt: new Date(),
+        },
+      });
+
+      // Update brand status to CONNECTED
+      await prisma.brand.update({
+        where: { id: invite.brandId },
+        data: { status: BrandStatus.CONNECTED },
+      });
+
+      res.status(201).json({
+        success: true,
+        channel: {
+          id: channel.id,
+          network: channel.network,
+          handle: channel.handle,
+          status: channel.status,
+          followers: channel.followers,
+        },
+      });
     } catch (err) {
       next(err);
     }

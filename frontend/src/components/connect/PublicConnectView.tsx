@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { API_BASE } from '../../lib/api.js';
+import { NetworkIcon } from '../common/NetworkIcon.js';
 
 const getPublicApiUrl = (endpoint: string) => {
   const clean = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -32,6 +33,100 @@ interface PageCandidate {
   };
 }
 
+interface SupportedNetwork {
+  id: string;
+  name: string;
+  network: string;
+  description: string;
+  color: string;
+  gradient: string;
+  defaultPrefix: string;
+  scopes: string[];
+}
+
+const SUPPORTED_NETWORKS: SupportedNetwork[] = [
+  {
+    id: 'facebook',
+    name: 'Facebook Page',
+    network: 'FACEBOOK',
+    description: 'Publish posts, reels, video updates & monitor page engagement',
+    color: '#1877F2',
+    gradient: 'linear-gradient(135deg, #1877F2 0%, #0c56c2 100%)',
+    defaultPrefix: '',
+    scopes: ['Manage & publish posts to your Page', 'View Page reach and engagement metrics'],
+  },
+  {
+    id: 'instagram',
+    name: 'Instagram Business',
+    network: 'INSTAGRAM',
+    description: 'Schedule reels, carousels, stories & track follower growth',
+    color: '#E1306C',
+    gradient: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+    defaultPrefix: '@',
+    scopes: ['Publish reels, stories & photo posts', 'Access account analytics & performance insights'],
+  },
+  {
+    id: 'linkedin',
+    name: 'LinkedIn Company / Profile',
+    network: 'LINKEDIN',
+    description: 'Publish business updates, articles, company news & lead metrics',
+    color: '#0A66C2',
+    gradient: 'linear-gradient(135deg, #0A66C2 0%, #004182 100%)',
+    defaultPrefix: '',
+    scopes: ['Publish posts & articles to Company Page', 'Monitor visitor engagement & member reactions'],
+  },
+  {
+    id: 'x',
+    name: 'X (Twitter)',
+    network: 'X',
+    description: 'Post tweets, threads, video clips & engage with mentions',
+    color: '#0f172a',
+    gradient: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+    defaultPrefix: '@',
+    scopes: ['Publish posts and threads on your behalf', 'Monitor brand replies and impressions'],
+  },
+  {
+    id: 'youtube',
+    name: 'YouTube Channel',
+    network: 'YOUTUBE',
+    description: 'Schedule YouTube Shorts, long-form videos & track subscriber growth',
+    color: '#FF0000',
+    gradient: 'linear-gradient(135deg, #cc0000 0%, #ff0000 100%)',
+    defaultPrefix: '',
+    scopes: ['Upload & schedule video content & Shorts', 'Read watch time and viewer reach statistics'],
+  },
+  {
+    id: 'tiktok',
+    name: 'TikTok Business',
+    network: 'TIKTOK',
+    description: 'Publish short-form video reels, trends & monitor viewer reach',
+    color: '#fe2c55',
+    gradient: 'linear-gradient(135deg, #010101 0%, #16181f 100%)',
+    defaultPrefix: '@',
+    scopes: ['Publish video content directly to TikTok', 'View audience trends and demographic analytics'],
+  },
+  {
+    id: 'pinterest',
+    name: 'Pinterest',
+    network: 'PINTEREST',
+    description: 'Publish product pins, visual collections & track saves and clicks',
+    color: '#E60023',
+    gradient: 'linear-gradient(135deg, #ad081b 0%, #e60023 100%)',
+    defaultPrefix: '',
+    scopes: ['Create & publish Pins to public boards', 'Read Pin impressions, repins & outbound clicks'],
+  },
+  {
+    id: 'threads',
+    name: 'Threads',
+    network: 'THREADS',
+    description: 'Share text thoughts, media updates & join brand conversations',
+    color: '#111827',
+    gradient: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+    defaultPrefix: '@',
+    scopes: ['Publish threads, quotes and photo updates', 'Access thread reach and follower engagement'],
+  },
+];
+
 export function PublicConnectView() {
   const { token } = useParams<{ token: string }>();
   const [searchParams] = useSearchParams();
@@ -56,11 +151,17 @@ export function PublicConnectView() {
   const [isRequestingNewLink, setIsRequestingNewLink] = useState(false);
   const [requestLinkSent, setRequestLinkSent] = useState(false);
 
-  // Multi-page picker state
+  // Multi-page picker state (for Meta OAuth callback flow)
   const [candidates, setCandidates] = useState<PageCandidate[]>([]);
   const [selectedPageId, setSelectedPageId] = useState<string>('');
   const [isSubmittingPage, setIsSubmittingPage] = useState(false);
   const [isSuccess, setIsSuccess] = useState(urlStatus === 'success');
+
+  // Channel Connection Modal state
+  const [activeModalNet, setActiveModalNet] = useState<SupportedNetwork | null>(null);
+  const [customHandle, setCustomHandle] = useState<string>('');
+  const [isConnectingChannel, setIsConnectingChannel] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   // 1. Initial verify of token
   useEffect(() => {
@@ -155,6 +256,57 @@ export function PublicConnectView() {
     }
   };
 
+  // Action: Open connect modal for a specific network
+  const openConnectModal = (net: SupportedNetwork) => {
+    setActiveModalNet(net);
+    const brandName = brand?.name || 'brand';
+    const cleanBrand = brandName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const prefix = net.defaultPrefix;
+    setCustomHandle(prefix ? `${prefix}${cleanBrand}` : brandName);
+    setFeedbackMessage(null);
+  };
+
+  // Action: Connect any platform via the public channel endpoint
+  const handleConfirmChannelConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeModalNet || !customHandle.trim() || !token) return;
+
+    setIsConnectingChannel(true);
+    setFeedbackMessage(null);
+
+    try {
+      const res = await fetch(getPublicApiUrl(`/${token}/channel`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          network: activeModalNet.network,
+          handle: customHandle.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.channel) {
+        setExistingChannels((prev) => {
+          const filtered = prev.filter(
+            (ch) => ch.network.toUpperCase() !== activeModalNet.network.toUpperCase()
+          );
+          return [...filtered, data.channel];
+        });
+        setFeedbackMessage(`✅ ${activeModalNet.name} connected successfully!`);
+        setTimeout(() => {
+          setActiveModalNet(null);
+          setFeedbackMessage(null);
+        }, 1200);
+      } else {
+        alert(data?.error?.message || 'Failed to connect channel.');
+      }
+    } catch {
+      alert('Network error while connecting account. Please try again.');
+    } finally {
+      setIsConnectingChannel(false);
+    }
+  };
+
   // Action: Request New Link
   const handleRequestNewLink = async () => {
     if (!token) return;
@@ -176,7 +328,7 @@ export function PublicConnectView() {
     }
   };
 
-  // Action: Confirm multi-page selection
+  // Action: Confirm multi-page selection from Meta callback
   const handleConfirmSelectPage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPageId || !sessionId || !token) return;
@@ -211,14 +363,14 @@ export function PublicConnectView() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px 16px',
+        padding: '32px 16px',
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
       }}
     >
       {/* Brand Header & Card Container */}
       <div
         style={{
-          maxWidth: '520px',
+          maxWidth: '580px',
           width: '100%',
           background: '#ffffff',
           borderRadius: '24px',
@@ -230,7 +382,7 @@ export function PublicConnectView() {
         {/* Top Header Strip */}
         <div
           style={{
-            padding: '16px clamp(14px, 4vw, 24px)',
+            padding: '18px 24px',
             borderBottom: '1px solid #f1f5f9',
             background: '#ffffff',
             display: 'flex',
@@ -245,61 +397,65 @@ export function PublicConnectView() {
               <img
                 src={brand.logoUrl}
                 alt={brand.name}
-                style={{ width: '38px', height: '38px', borderRadius: '10px', objectFit: 'cover' }}
+                style={{ width: '42px', height: '42px', borderRadius: '12px', objectFit: 'cover' }}
               />
             ) : (
               <div
                 style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '10px',
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
                   background: brand?.color || '#4F46E5',
                   color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '15px',
+                  fontWeight: 800,
+                  fontSize: '16px',
                   display: 'grid',
                   placeItems: 'center',
+                  textTransform: 'uppercase',
+                  boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
                 }}
               >
-                {brand?.name ? brand.name.slice(0, 2).toUpperCase() : 'VA'}
+                {brand?.name ? brand.name.slice(0, 2) : 'VS'}
               </div>
             )}
             <div>
-              <h2 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                {brand?.name || 'Social Connect'}
-              </h2>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>
-                Managed by <strong>{agencyName}</strong>
-              </span>
+              <div style={{ fontWeight: 800, fontSize: '17px', color: '#0f172a' }}>
+                {brand?.name || 'Your Brand'}
+              </div>
+              <div style={{ fontSize: '12.5px', color: '#64748b' }}>
+                Managed by <strong style={{ color: '#334155' }}>{agencyName || 'Agency'}</strong>
+              </div>
             </div>
           </div>
 
-          <span
+          <div
             style={{
-              fontSize: '11px',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '999px',
               background: '#f1f5f9',
               color: '#475569',
-              padding: '4px 8px',
-              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 700,
+              letterSpacing: '0.02em',
             }}
           >
-            Zero Login
-          </span>
+            <span>🔒</span> ZERO PASSWORD
+          </div>
         </div>
 
-        {/* Content Body */}
-        <div style={{ padding: 'clamp(20px, 5vw, 32px) clamp(16px, 4vw, 28px)' }}>
+        {/* Card Body */}
+        <div style={{ padding: '24px clamp(16px, 5vw, 28px)' }}>
           {isLoading ? (
-            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
               <div
                 style={{
                   width: '36px',
                   height: '36px',
                   border: '3px solid #e2e8f0',
-                  borderTopColor: '#4F46E5',
+                  borderTopColor: '#0f172a',
                   borderRadius: '50%',
                   animation: 'spin 0.8s linear infinite',
                   margin: '0 auto 16px',
@@ -308,8 +464,8 @@ export function PublicConnectView() {
               <span style={{ fontSize: '14px', color: '#64748b' }}>Verifying secure connection link...</span>
             </div>
           ) : errorState ? (
-            /* Requirement 5: Friendly Expired / Revoked Message + Request New Link */
-            <div style={{ textAlign: 'center' }}>
+            /* Expired / Revoked Message + Request New Link */
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
               <div
                 style={{
                   width: '56px',
@@ -366,10 +522,6 @@ export function PublicConnectView() {
                       fontSize: '14px',
                       fontWeight: 600,
                       cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
                     }}
                   >
                     {isRequestingNewLink ? 'Sending Request...' : 'Request New Link'}
@@ -380,55 +532,14 @@ export function PublicConnectView() {
                 </div>
               )}
             </div>
-          ) : isSuccess ? (
-            /* Success State */
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  width: '60px',
-                  height: '60px',
-                  borderRadius: '50%',
-                  background: 'rgba(34, 197, 94, 0.12)',
-                  color: '#16a34a',
-                  display: 'grid',
-                  placeItems: 'center',
-                  margin: '0 auto 16px',
-                }}
-              >
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </div>
-
-              <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', margin: '0 0 8px 0' }}>
-                Accounts Connected!
-              </h3>
-              <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.5, margin: '0 0 24px 0' }}>
-                Your Facebook Page and Instagram accounts have been linked to <strong>{brand?.name}</strong>.
-                Your agency <strong>{agencyName}</strong> can now publish and manage scheduled posts.
-              </p>
-
-              <div
-                style={{
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  padding: '14px',
-                  fontSize: '13px',
-                  color: '#475569',
-                }}
-              >
-                🔒 Authorization tokens are encrypted with AES-256-GCM. You can safely close this browser window.
-              </div>
-            </div>
           ) : step === 'select-page' && candidates.length > 0 ? (
-            /* Multi-Page Selection Screen */
+            /* Multi-Page Selection Screen (From Meta OAuth) */
             <form onSubmit={handleConfirmSelectPage}>
               <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '0 0 6px 0' }}>
                 Select Your Facebook Page
               </h3>
               <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px 0' }}>
-                Multiple Facebook Pages were found under your Meta profile. Please choose which one belongs to <strong>{brand?.name}</strong>:
+                Choose which Page belongs to <strong>{brand?.name}</strong>:
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
@@ -452,14 +563,14 @@ export function PublicConnectView() {
                       value={cand.pageId}
                       checked={selectedPageId === cand.pageId}
                       onChange={() => setSelectedPageId(cand.pageId)}
-                      style={{ width: '16px', height: '16px' }}
+                      style={{ accentColor: '#0f172a' }}
                     />
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', display: 'block' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>
                         {cand.pageName}
-                      </span>
+                      </strong>
                       {cand.instagram && (
-                        <span style={{ fontSize: '12px', color: '#64748b' }}>
+                        <span style={{ fontSize: '12px', color: '#e1306c', display: 'block', marginTop: '2px' }}>
                           Linked Instagram: @{cand.instagram.username}
                         </span>
                       )}
@@ -487,7 +598,7 @@ export function PublicConnectView() {
               </button>
             </form>
           ) : (
-            /* Default: Step 1 Initial Connect Screen */
+            /* Multi-Platform Social Media Hub */
             <div>
               {urlError && (
                 <div
@@ -505,19 +616,61 @@ export function PublicConnectView() {
                 </div>
               )}
 
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '0 0 8px 0' }}>
+              {isSuccess && (
+                <div
+                  style={{
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '12px',
+                    padding: '14px',
+                    color: '#166534',
+                    fontSize: '13.5px',
+                    fontWeight: 600,
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <span>🎉</span> Accounts linked successfully! You can connect additional channels below.
+                </div>
+              )}
+
+              <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
                 Connect Social Media Channels
-              </h3>
-              <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.5, margin: '0 0 24px 0' }}>
-                Authenticate your Facebook Pages & Instagram Business accounts to allow <strong>{agencyName}</strong> to schedule and publish content for <strong>{brand?.name}</strong>.
+              </h2>
+              <p style={{ fontSize: '13.5px', color: '#64748b', lineHeight: 1.5, margin: '0 0 20px 0' }}>
+                Link your official brand channels below. <strong>You never share your personal password</strong> with {agencyName}.
               </p>
 
-              {/* Connected channels preview if any */}
+              {/* Security Banner */}
+              <div
+                style={{
+                  background: 'rgba(79, 70, 229, 0.05)',
+                  border: '1px solid rgba(79, 70, 229, 0.15)',
+                  borderRadius: '14px',
+                  padding: '12px 14px',
+                  fontSize: '12.5px',
+                  color: '#4338ca',
+                  lineHeight: 1.45,
+                  marginBottom: '22px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                }}
+              >
+                <span style={{ fontSize: '16px', lineHeight: 1 }}>🛡️</span>
+                <span>
+                  <strong>Client Security Guarantee:</strong> Tokens are encrypted with AES-256-GCM. Your agency receives publishing &amp; analytics access only. Your login password is 100% private.
+                </span>
+              </div>
+
+              {/* Currently Connected Channels Pill List */}
               {existingChannels.length > 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '8px' }}>
-                    Currently Connected:
-                  </span>
+                <div style={{ marginBottom: '22px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                    Currently Connected ({existingChannels.length}):
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {existingChannels.map((ch) => (
                       <div
@@ -525,55 +678,328 @@ export function PublicConnectView() {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '13px',
-                          padding: '6px 10px',
-                          borderRadius: '8px',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          borderRadius: '10px',
                           background: '#f8fafc',
-                          color: '#334155',
+                          border: '1px solid #e2e8f0',
                         }}
                       >
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e' }} />
-                        <strong>{ch.network}</strong>: {ch.handle}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px rgba(34, 197, 94, 0.6)' }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <NetworkIcon network={ch.network} className="w-4 h-4" />
+                            <strong style={{ fontSize: '13px', color: '#0f172a' }}>{ch.network}</strong>
+                          </div>
+                          <span style={{ fontSize: '12.5px', color: '#64748b', fontFamily: 'monospace' }}>
+                            {ch.handle}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: 700, background: '#dcfce7', padding: '2px 8px', borderRadius: '6px' }}>
+                          Active
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={handleConnectMeta}
-                style={{
-                  width: '100%',
-                  background: '#1877F2',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '14px',
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  boxShadow: '0 4px 12px rgba(24, 119, 242, 0.25)',
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                </svg>
-                Connect Facebook & Instagram
-              </button>
+              {/* Grid of All 8 Supported Platforms */}
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px' }}>
+                Choose Platform to Connect:
+              </div>
 
-              <p style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', margin: '16px 0 0 0', lineHeight: 1.4 }}>
-                🔒 Zero agency login required. You retain full control over your social permissions.
-              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {SUPPORTED_NETWORKS.map((net) => {
+                  const isConnected = existingChannels.some(
+                    (ch) => ch.network.toUpperCase() === net.network.toUpperCase()
+                  );
+                  const connectedHandle = existingChannels.find(
+                    (ch) => ch.network.toUpperCase() === net.network.toUpperCase()
+                  )?.handle;
+
+                  return (
+                    <div
+                      key={net.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '14px 16px',
+                        borderRadius: '14px',
+                        border: isConnected ? '1.5px solid #bbf7d0' : '1px solid #e2e8f0',
+                        background: isConnected ? 'rgba(240, 253, 244, 0.6)' : '#ffffff',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0, flex: 1, marginRight: '12px' }}>
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            background: net.color,
+                            color: '#ffffff',
+                            display: 'grid',
+                            placeItems: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <NetworkIcon network={net.network} className="w-4 h-4 text-white" />
+                        </div>
+
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <strong style={{ fontSize: '14px', color: '#0f172a' }}>{net.name}</strong>
+                            {isConnected && (
+                              <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700, background: '#dcfce7', padding: '1px 6px', borderRadius: '4px' }}>
+                                Connected
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0', lineHeight: 1.35, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {isConnected ? `Linked as ${connectedHandle}` : net.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => openConnectModal(net)}
+                        style={{
+                          background: isConnected ? '#f1f5f9' : '#0f172a',
+                          color: isConnected ? '#475569' : '#ffffff',
+                          border: 'none',
+                          borderRadius: '10px',
+                          padding: '8px 14px',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          transition: 'transform 0.1s ease',
+                        }}
+                      >
+                        {isConnected ? 'Update' : 'Connect'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div style={{ marginTop: '24px', textAlign: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  Connected channels will appear instantly in {agencyName}&apos;s dashboard.
+                </span>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modal: Self-Serve Zero-Password Connection Dialog */}
+      {activeModalNet && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setActiveModalNet(null)}
+        >
+          <div
+            style={{
+              maxWidth: '460px',
+              width: '100%',
+              background: '#ffffff',
+              borderRadius: '20px',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.3)',
+              overflow: 'hidden',
+              border: '1px solid rgba(226, 232, 240, 0.8)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid #f1f5f9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: activeModalNet.color,
+                    color: '#ffffff',
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  <NetworkIcon network={activeModalNet.network} className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                    Connect {activeModalNet.name}
+                  </h3>
+                  <span style={{ fontSize: '11.5px', color: '#64748b' }}>For {brand?.name}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveModalNet(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '20px',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: '20px' }}>
+              {feedbackMessage ? (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '24px 0',
+                    fontSize: '15px',
+                    color: '#16a34a',
+                    fontWeight: 700,
+                  }}
+                >
+                  {feedbackMessage}
+                </div>
+              ) : (
+                <>
+                  {/* Meta 1-Click Option (If Facebook or Instagram) */}
+                  {(activeModalNet.id === 'facebook' || activeModalNet.id === 'instagram') && (
+                    <div style={{ marginBottom: '18px' }}>
+                      <button
+                        type="button"
+                        onClick={handleConnectMeta}
+                        style={{
+                          width: '100%',
+                          background: '#1877F2',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '12px',
+                          padding: '12px',
+                          fontSize: '14px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          boxShadow: '0 4px 12px rgba(24, 119, 242, 0.25)',
+                        }}
+                      >
+                        <NetworkIcon network="FACEBOOK" className="w-4 h-4 text-white" />
+                        1-Click Meta (Facebook &amp; Instagram) OAuth
+                      </button>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          margin: '16px 0 12px 0',
+                          color: '#94a3b8',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        <span style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+                        <span>OR CONNECT MANUALLY BELOW</span>
+                        <span style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Scopes description */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                      Permissions Granted:
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12.5px', color: '#64748b', lineHeight: 1.5 }}>
+                      {activeModalNet.scopes.map((s, idx) => (
+                        <li key={idx}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Manual / Direct Handle Form */}
+                  <form onSubmit={handleConfirmChannelConnect}>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                        {activeModalNet.name} Handle / Page Name:
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={customHandle}
+                        onChange={(e) => setCustomHandle(e.target.value)}
+                        placeholder={`e.g. ${activeModalNet.defaultPrefix}mybrand`}
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          border: '1.5px solid #cbd5e1',
+                          fontSize: '14px',
+                          color: '#0f172a',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                      <span style={{ display: 'block', fontSize: '11.5px', color: '#94a3b8', marginTop: '4px' }}>
+                        🔒 Password is never requested or shared.
+                      </span>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isConnectingChannel || !customHandle.trim()}
+                      style={{
+                        width: '100%',
+                        background: '#0f172a',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '13px',
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        opacity: isConnectingChannel || !customHandle.trim() ? 0.7 : 1,
+                      }}
+                    >
+                      {isConnectingChannel ? 'Connecting Account...' : `Confirm & Connect ${activeModalNet.name}`}
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

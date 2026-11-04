@@ -94,25 +94,28 @@ export function getMetaAuthorizeUrl(state: string, req?: Request): string {
  */
 export async function exchangeMetaCodeForAccounts(
   code: string,
-  isMock = false
+  isMock = false,
+  brandName?: string
 ): Promise<MetaPageCandidate[]> {
   // If mock mode or no credentials, return realistic candidate accounts
   if (isMock || !env.META_APP_ID || !env.META_APP_SECRET) {
     logger.info('Using simulated Meta accounts (Mock mode / No Meta App Credentials in .env)');
+    const name = (brandName || 'Brand').trim();
+    const cleanSlug = name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'brand';
     return [
       {
         pageId: `fb_page_${Date.now()}`,
-        pageName: 'Ember & Oak Coffee Co.',
+        pageName: `${name} (Official Page)`,
         pageToken: `mock_long_lived_token_fb_${Date.now()}`,
         instagram: {
           id: `ig_account_${Date.now()}`,
-          username: 'emberandoak',
+          username: `@${cleanSlug}`,
           profilePictureUrl: '/murmura/photos/murmura/posts/ember-shot.jpg',
         },
       },
       {
         pageId: `fb_page_alt_${Date.now()}`,
-        pageName: 'Ember & Oak Roastery & Lab',
+        pageName: `${name} (Store & Community)`,
         pageToken: `mock_long_lived_token_fb_alt_${Date.now()}`,
       },
     ];

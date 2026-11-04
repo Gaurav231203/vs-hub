@@ -17,8 +17,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(4000),
-  API_URL: z.string().default('http://localhost:4000'),
-  WEB_URL: z.string().default('http://localhost:5173'),
+  API_URL: z.string().default(process.env.NODE_ENV === 'production' ? 'https://vs-hub-1.onrender.com' : 'http://localhost:4000'),
+  WEB_URL: z.string().default(process.env.NODE_ENV === 'production' ? 'https://vs-hub-ruddy.vercel.app' : 'http://localhost:5173'),
 
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
@@ -31,12 +31,12 @@ const envSchema = z.object({
   COOKIE_DOMAIN: z.string().default('localhost'),
   COOKIE_SECURE: z.coerce.boolean().default(false),
 
-  SMTP_HOST: z.string().default('localhost'),
-  SMTP_PORT: z.coerce.number().default(1025),
+  SMTP_HOST: z.string().default('smtp-relay.brevo.com'),
+  SMTP_PORT: z.coerce.number().default(587),
   SMTP_SECURE: z.coerce.boolean().default(false),
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
-  EMAIL_FROM: z.string().default('VS Adda <noreply@vsadda.local>'),
+  EMAIL_FROM: z.string().default('VS Adda <washingtonjosh770@gmail.com>'),
   BREVO_API_KEY: z.string().default(''),
 
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
