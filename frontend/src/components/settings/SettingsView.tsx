@@ -1232,9 +1232,6 @@ export function SettingsView() {
                     <div className="st-access__brands">
                       {[
                         { code: 'EO', name: 'Ember & Oak', color: '#e06b53' },
-                        { code: 'HH', name: 'Hollow Home', color: '#f2b740' },
-                        { code: 'VG', name: 'Vantage Garage', color: '#1c1d22' },
-                        { code: 'WB', name: 'Wildroot Botanics', color: '#2d7a5b' },
                         { code: 'NS', name: 'VS Adda Agency', color: '#3b82f6' },
                       ].map((b) => (
                         <span key={b.code} className="bchip">

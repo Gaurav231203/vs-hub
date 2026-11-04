@@ -16,15 +16,15 @@ interface BrandMeta {
 }
 
 const BRAND_METAS: Record<string, BrandMeta> = {
-  starlight: { id: 'starlight', name: 'Starlight Bakery', short: 'Starlight', tone: 'coral', monogram: 'SB' },
-  hollow: { id: 'hollow', name: 'Hollow Home', short: 'Hollow', tone: 'butter', monogram: 'HH' },
-  vantage: { id: 'vantage', name: 'Vantage Garage', short: 'Vantage', tone: 'ink', monogram: 'VG' },
+  
+  
+  
   acme: { id: 'acme', name: 'Acme Corp', short: 'Acme', tone: 'sea', monogram: 'AC' },
   nexus: { id: 'nexus', name: 'Nexus Tech', short: 'Nexus', tone: 'sea', monogram: 'NT' },
   zenith: { id: 'zenith', name: 'Zenith Fitness', short: 'Zenith', tone: 'pine', monogram: 'ZF' },
   ember: { id: 'ember', name: 'Ember & Oak', short: 'Ember', tone: 'coral', monogram: 'EO' },
-  wild: { id: 'wild', name: 'Wildroot Botanics', short: 'Wildroot', tone: 'pine', monogram: 'WB' },
-  north: { id: 'north', name: 'Northlight Studio', short: 'Northlight', tone: 'sea', monogram: 'NS' },
+  
+  
 };
 
 interface LibraryPhoto {

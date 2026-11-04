@@ -120,160 +120,31 @@ export function ListeningView() {
   const [keywords, setKeywords] = useState<KeywordItem[]>(DEFAULT_KEYWORDS);
   const [mentions, setMentions] = useState<MentionItem[]>(DEFAULT_MENTIONS);
 
-  // Dynamic brand-specific dataset calculation
+  // Clean brand listening data
   const brandListeningData = useMemo(() => {
-    if (isHollowHome) {
-      return {
-        mentionsCount: 22,
-        sentiment: '23%',
-        sentimentLabel: 'Net sentiment, positive − negative',
-        reach: '546.4K',
-        reachLabel: 'Potential reach this week',
-        sovPct: '29%',
-        sovBrandLabel: 'Share of voice, Hollow Home',
-        sovBars: [
-          { code: 'H', name: 'Hay', pct: '44%', ratio: 1.0, isUs: false, tone: 'default' },
-          { code: 'HH', name: 'Hollow Home', sub: 'You', pct: '29%', ratio: 0.66, isUs: true, tone: 'butter' },
-          { code: 'F', name: 'Ferm Living', pct: '27%', ratio: 0.61, isUs: false, tone: 'default' },
-        ],
-        competitors: [
-          { name: 'Hollow Home', sub: 'You · last 30 days', code: 'HH', isUs: true, followers: '248.4K', growth: '+11.6%', engagement: '7.7%', postsWeek: '4' },
-          { name: 'Hay', sub: '@haydesign', code: 'H', isUs: false, followers: '520K', growth: '+3.2%', engagement: '4.5%', postsWeek: '6' },
-          { name: 'Ferm Living', sub: '@fermliving', code: 'F', isUs: false, followers: '380K', growth: '+2.8%', engagement: '3.9%', postsWeek: '5' },
-          { name: 'Muuto', sub: '@muutodesign', code: 'M', isUs: false, followers: '290K', growth: '+1.9%', engagement: '3.1%', postsWeek: '4' },
-        ],
-        trendingTerms: [
-          { term: 'boucle chair', count: 6, size: 4 },
-          { term: '#scandihome', count: 6, size: 3 },
-          { term: 'Hollow Home', count: 10, size: 4 },
-          { term: 'autumn collection', count: 4, size: 2 },
-          { term: 'oak table', count: 5, size: 3 },
-          { term: 'nordic design', count: 7, size: 3 },
-          { term: 'packaging', count: 3, size: 2 },
-        ],
-      };
-    } else if (isVantageGarage) {
-      return {
-        mentionsCount: 31,
-        sentiment: '45%',
-        sentimentLabel: 'Net sentiment, positive − negative',
-        reach: '812.5K',
-        reachLabel: 'Potential reach this week',
-        sovPct: '38%',
-        sovBrandLabel: 'Share of voice, Vantage Garage',
-        sovBars: [
-          { code: 'VG', name: 'Vantage Garage', sub: 'You', pct: '38%', ratio: 1.0, isUs: true, tone: 'ink' },
-          { code: 'P', name: 'Porsche Club', pct: '35%', ratio: 0.92, isUs: false, tone: 'default' },
-          { code: 'D', name: 'Detailing World', pct: '27%', ratio: 0.71, isUs: false, tone: 'default' },
-        ],
-        competitors: [
-          { name: 'Vantage Garage', sub: 'You · last 30 days', code: 'VG', isUs: true, followers: '442.9K', growth: '+9.4%', engagement: '8.4%', postsWeek: '5' },
-          { name: 'Porsche Club', sub: '@porscheclub', code: 'P', isUs: false, followers: '680K', growth: '+2.4%', engagement: '5.1%', postsWeek: '7' },
-          { name: 'Detailing World', sub: '@detailingworld', code: 'D', isUs: false, followers: '310K', growth: '+3.1%', engagement: '4.2%', postsWeek: '4' },
-        ],
-        trendingTerms: [
-          { term: 'paint correction', count: 8, size: 4 },
-          { term: '#ceramiccoating', count: 7, size: 3 },
-          { term: 'Vantage Garage', count: 9, size: 4 },
-          { term: 'motorsport', count: 5, size: 2 },
-          { term: 'detailing', count: 6, size: 3 },
-        ],
-      };
-    } else if (isStarlightBakery) {
-      return {
-        mentionsCount: 28,
-        sentiment: '46%',
-        sentimentLabel: 'Net sentiment, positive − negative',
-        reach: '482.5K',
-        reachLabel: 'Potential reach this week',
-        sovPct: '34%',
-        sovBrandLabel: 'Share of voice, Starlight Bakery',
-        sovBars: [
-          { code: 'SB', name: 'Starlight Bakery', sub: 'You', pct: '34%', ratio: 1.0, isUs: true, tone: 'coral' },
-          { code: 'BP', name: 'Boulangerie Paul', pct: '36%', ratio: 1.05, isUs: false, tone: 'default' },
-          { code: 'MM', name: 'Maison Kayser', pct: '30%', ratio: 0.88, isUs: false, tone: 'default' },
-        ],
-        competitors: [
-          { name: 'Starlight Bakery', sub: 'You · last 30 days', code: 'SB', isUs: true, followers: '203.9K', growth: '+12.4%', engagement: '8.8%', postsWeek: '4' },
-          { name: 'Boulangerie Paul', sub: '@paul_bakery', code: 'BP', isUs: false, followers: '340K', growth: '+2.8%', engagement: '4.1%', postsWeek: '5' },
-        ],
-        trendingTerms: [
-          { term: 'sourdough', count: 18, size: 4 },
-          { term: 'croissant', count: 14, size: 3 },
-          { term: 'cardamom', count: 10, size: 2 },
-          { term: 'flour', count: 7, size: 1 },
-        ],
-      };
-    } else if (activeBrand) {
-      const bName = activeBrand.name;
-      return {
-        mentionsCount: 20,
-        sentiment: '32%',
-        sentimentLabel: 'Net sentiment, positive − negative',
-        reach: '410K',
-        reachLabel: 'Potential reach this week',
-        sovPct: '20%',
-        sovBrandLabel: `Share of voice, ${bName}`,
-        sovBars: [
-          { code: 'S', name: 'Competitor A', pct: '40%', ratio: 1.0, isUs: false, tone: 'default' },
-          { code: 'US', name: bName, sub: 'You', pct: '20%', ratio: 0.5, isUs: true, tone: 'coral' },
-          { code: 'C', name: 'Competitor B', pct: '40%', ratio: 1.0, isUs: false, tone: 'default' },
-        ],
-        competitors: [
-          { name: bName, sub: 'You · last 30 days', code: 'US', isUs: true, followers: '142.7K', growth: '+8.5%', engagement: '9.2%', postsWeek: '3' },
-          { name: 'Competitor Market', sub: '@competitor', code: 'CM', isUs: false, followers: '412K', growth: '+2.1%', engagement: '3.4%', postsWeek: '4' },
-        ],
-        trendingTerms: [
-          { term: bName, count: 8, size: 4 },
-          { term: 'quality', count: 6, size: 3 },
-          { term: 'service', count: 5, size: 2 },
-        ],
-      };
-    } else {
-      return {
-        mentionsCount: 90,
-        sentiment: '39%',
-        sentimentLabel: 'Net sentiment, positive − negative',
-        reach: '2.27M',
-        reachLabel: 'Potential reach this week',
-        sovPct: '100%',
-        sovBrandLabel: 'Share of voice, All brands',
-        sovBars: [
-          { code: 'VG', name: 'Vantage Garage', sub: 'You', pct: '38%', ratio: 1.0, isUs: true, tone: 'ink' },
-          { code: 'HH', name: 'Hollow Home', sub: 'You', pct: '29%', ratio: 0.76, isUs: true, tone: 'butter' },
-          { code: 'EO', name: 'Ember & Oak', sub: 'You', pct: '20%', ratio: 0.52, isUs: true, tone: 'coral' },
-          { code: 'WB', name: 'Wildroot', sub: 'You', pct: '13%', ratio: 0.34, isUs: true, tone: 'pine' },
-        ],
-        competitors: COMPETITORS_DATA,
-        trendingTerms: TRENDING_TERMS,
-      };
-    }
-  }, [isHollowHome, isVantageGarage, isStarlightBakery, activeBrand]);
+    return {
+      mentionsCount: 0,
+      sentiment: '0%',
+      sentimentLabel: 'Net sentiment, positive − negative',
+      reach: '0',
+      reachLabel: 'Potential reach this week',
+      sovPct: '0%',
+      sovBrandLabel: 'Share of voice',
+      sovBars: [] as any[],
+      competitors: [] as any[],
+      trendingTerms: [] as any[],
+    };
+  }, []);
 
   // Brand-filtered keywords
   const visibleKeywords = useMemo(() => {
-    if (isHollowHome) {
-      return keywords.filter(
-        (k) => k.brandId === 'hollow' || k.term.toLowerCase().includes('hollow') || k.term.toLowerCase().includes('scandi') || k.term.toLowerCase().includes('boucle')
-      );
-    }
-    if (isVantageGarage) {
-      return keywords.filter(
-        (k) => k.brandId === 'vantage' || k.term.toLowerCase().includes('vantage') || k.term.toLowerCase().includes('coating') || k.term.toLowerCase().includes('paint')
-      );
-    }
-    if (isStarlightBakery) {
-      return keywords.filter(
-        (k) => k.brandId === 'starlight' || k.term.toLowerCase().includes('starlight') || k.term.toLowerCase().includes('sourdough') || k.term.toLowerCase().includes('croissant')
-      );
-    }
     if (activeBrand) {
       const bLower = activeBrand.name.toLowerCase();
       const matched = keywords.filter((k) => k.brandId === activeBrand.id || k.term.toLowerCase().includes(bLower));
-      return matched.length > 0 ? matched : keywords.slice(0, 3);
+      return matched;
     }
     return keywords;
-  }, [keywords, isHollowHome, isVantageGarage, isStarlightBakery, activeBrand]);
+  }, [keywords, activeBrand]);
 
   // Filtered mentions
   const visibleMentions = useMemo(() => {
@@ -284,33 +155,7 @@ export function ListeningView() {
       if (filterNet !== 'all' && m.net !== filterNet) return false;
 
       // Filter by active brand if specified
-      if (isHollowHome) {
-        const isHHMention =
-          m.id.startsWith('mn_hh') ||
-          m.keywordTerm.toLowerCase().includes('hollow') ||
-          m.keywordTerm.toLowerCase().includes('scandi') ||
-          m.keywordTerm.toLowerCase().includes('boucle') ||
-          m.text.toLowerCase().includes('hollow') ||
-          m.text.toLowerCase().includes('boucle');
-        if (!isHHMention) return false;
-      } else if (isVantageGarage) {
-        const isVGMention =
-          m.keywordTerm.toLowerCase().includes('vantage') ||
-          m.keywordTerm.toLowerCase().includes('coating') ||
-          m.keywordTerm.toLowerCase().includes('paint') ||
-          m.text.toLowerCase().includes('vantage');
-        if (!isVGMention) return false;
-      } else if (isStarlightBakery) {
-        const isSBMention =
-          m.id.startsWith('mn-sb') ||
-          m.keywordTerm.toLowerCase().includes('starlight') ||
-          m.keywordTerm.toLowerCase().includes('croissant') ||
-          m.keywordTerm.toLowerCase().includes('sourdough') ||
-          m.text.toLowerCase().includes('starlight') ||
-          m.text.toLowerCase().includes('sourdough') ||
-          m.text.toLowerCase().includes('croissant');
-        if (!isSBMention) return false;
-      } else if (activeBrand) {
+      if (activeBrand) {
         const bLower = activeBrand.name.toLowerCase();
         if (!m.keywordTerm.toLowerCase().includes(bLower) && !m.text.toLowerCase().includes(bLower)) {
           return false;

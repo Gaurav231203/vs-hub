@@ -89,7 +89,7 @@ export function AppShell() {
     },
     {
       id: 'notif-4',
-      title: 'A Wildroot post is trending: 3.1× usual reach',
+      title: 'Analytics report ready',
       time: '1 d ago',
       unread: false,
       link: '/analytics',
@@ -1521,7 +1521,7 @@ export function AppShell() {
                 <div>
                   <h3 className="mform__title">Invite a teammate</h3>
                   <p className="mform__sub">
-                    They get an email with a link to join {workspace?.name || 'Northlight Studio'}.
+                    They get an email with a link to join {workspace?.name || 'VS Adda Agency'}.
                   </p>
                 </div>
                 <button

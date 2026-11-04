@@ -931,55 +931,9 @@ export function OverviewView() {
           <header className="card__head">
             <h2 className="card__title">Top post this month</h2>
           </header>
-
-          <button
-            type="button"
-            className="ov-topcard"
-            onClick={() => navigate('/analytics')}
-          >
-            <img
-              src="https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?w=1000&auto=format&fit=crop&q=80"
-              alt="Porsche 911 GT detailing"
-              loading="lazy"
-            />
-            <span className="ov-topcard__shade"></span>
-            <span className="ov-topcard__badge badge badge--butter">
-              8.9× usual reach
-            </span>
-
-            <span className="ov-topcard__body">
-              <span className="ov-topcard__brand">
-                <span className="bchip">
-                  <span className="bmark bmark--xs tone--ink">VG</span>
-                  Vantage Garage
-                </span>
-                <span className="net-stack">
-                  <span className="net net--instagram net--xs">
-                    <SvgIco name="instagram" />
-                  </span>
-                  <span className="net net--facebook net--xs">
-                    <SvgIco name="facebook" />
-                  </span>
-                  <span className="net net--tiktok net--xs">
-                    <SvgIco name="tiktok" />
-                  </span>
-                  <span className="net net--x net--xs">
-                    <SvgIco name="x" />
-                  </span>
-                </span>
-              </span>
-
-              <span className="ov-topcard__text">
-                Wheels off, barrels done, balanced to the gram. Nobody sees it. We do.
-              </span>
-
-              <span className="ov-topcard__nums">
-                <span><b>346.9K</b>reach</span>
-                <span><b>23.2%</b>eng. rate</span>
-                <span><b>2.8K</b>saves</span>
-              </span>
-            </span>
-          </button>
+          <div style={{ padding: '3rem 1.5rem', textAlign: 'center', opacity: 0.6 }}>
+            <p style={{ margin: 0 }}>No top posts data available for this month yet.</p>
+          </div>
         </section>
 
         {/* === CARD 5: THE WEEK AHEAD === */}
@@ -998,150 +952,17 @@ export function OverviewView() {
             </div>
           </header>
 
-          <div className="ov-week__days">
-            {/* Mon 26 (Today, Dark Card) */}
-            <div className="ov-day is-today">
-              <span className="ov-day__head">
-                <b>Mon</b>
-                <span className="num">26</span>
-              </span>
-              <span className="ov-day__list">
-                <span className="ov-chip tone--coral">
-                  <span className="ov-chip__t num">8:30 AM</span>
-                  <span className="bmark bmark--xs tone--ink">VG</span>
+                    <div className="ov-week__days">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
+              <div key={day} className={`ov-day ${i === 0 ? 'is-today' : ''}`}>
+                <span className="ov-day__head">
+                  <b>{day}</b>
+                  <span className="num">{26 + i}</span>
                 </span>
-              </span>
-              <span className="ov-day__n">1 post</span>
-            </div>
-
-            {/* Tue 27 */}
-            <div className="ov-day">
-              <span className="ov-day__head">
-                <b>Tue</b>
-                <span className="num">27</span>
-              </span>
-              <span className="ov-day__list">
-                <span className="ov-chip tone--butter">
-                  <span className="ov-chip__t num">9 AM</span>
-                  <span className="bmark bmark--xs tone--coral">EO</span>
-                </span>
-                <span className="ov-chip tone--sea">
-                  <span className="ov-chip__t num">9:30 AM</span>
-                  <span className="bmark bmark--xs tone--coral">EO</span>
-                </span>
-                <span className="ov-chip tone--sea">
-                  <span className="ov-chip__t num">12 PM</span>
-                  <span className="bmark bmark--xs tone--pine">WB</span>
-                </span>
-                <span className="ov-chip ov-chip--more">+3</span>
-              </span>
-              <span className="ov-day__n">6 posts</span>
-            </div>
-
-            {/* Wed 28 */}
-            <div className="ov-day">
-              <span className="ov-day__head">
-                <b>Wed</b>
-                <span className="num">28</span>
-              </span>
-              <span className="ov-day__list">
-                <span className="ov-chip tone--butter">
-                  <span className="ov-chip__t num">10 AM</span>
-                  <span className="bmark bmark--xs tone--butter">HH</span>
-                </span>
-                <span className="ov-chip tone--sea">
-                  <span className="ov-chip__t num">12 PM</span>
-                  <span className="bmark bmark--xs tone--sea">NS</span>
-                </span>
-                <span className="ov-chip tone--butter">
-                  <span className="ov-chip__t num">7 PM</span>
-                  <span className="bmark bmark--xs tone--ink">VG</span>
-                </span>
-              </span>
-              <span className="ov-day__n">3 posts</span>
-            </div>
-
-            {/* Thu 29 */}
-            <div className="ov-day">
-              <span className="ov-day__head">
-                <b>Thu</b>
-                <span className="num">29</span>
-              </span>
-              <span className="ov-day__list">
-                <span className="ov-chip tone--sea">
-                  <span className="ov-chip__t num">5 PM</span>
-                  <span className="bmark bmark--xs tone--ink">VG</span>
-                </span>
-                <span className="ov-chip tone--sea">
-                  <span className="ov-chip__t num">6 PM</span>
-                  <span className="bmark bmark--xs tone--pine">WB</span>
-                </span>
-                <span className="ov-chip tone--butter">
-                  <span className="ov-chip__t num">6 PM</span>
-                  <span className="bmark bmark--xs tone--coral">EO</span>
-                </span>
-                <span className="ov-chip ov-chip--more">+1</span>
-              </span>
-              <span className="ov-day__n">4 posts</span>
-            </div>
-
-            {/* Fri 30 */}
-            <div className="ov-day">
-              <span className="ov-day__head">
-                <b>Fri</b>
-                <span className="num">30</span>
-              </span>
-              <span className="ov-day__list">
-                <span className="ov-chip tone--coral">
-                  <span className="ov-chip__t num">12 PM</span>
-                  <span className="bmark bmark--xs tone--ink">VG</span>
-                </span>
-                <span className="ov-chip tone--sea">
-                  <span className="ov-chip__t num">6:15 PM</span>
-                  <span className="bmark bmark--xs tone--coral">EO</span>
-                </span>
-              </span>
-              <span className="ov-day__n">2 posts</span>
-            </div>
-
-            {/* Sat 31 */}
-            <div className="ov-day">
-              <span className="ov-day__head">
-                <b>Sat</b>
-                <span className="num">31</span>
-              </span>
-              <span className="ov-day__list">
-                <span className="ov-chip tone--coral">
-                  <span className="ov-chip__t num">9 AM</span>
-                  <span className="bmark bmark--xs tone--pine">WB</span>
-                </span>
-              </span>
-              <span className="ov-day__n">1 post</span>
-            </div>
-
-            {/* Sun 1 */}
-            <div className="ov-day">
-              <span className="ov-day__head">
-                <b>Sun</b>
-                <span className="num">1</span>
-              </span>
-              <span className="ov-day__list">
-                <span className="ov-chip tone--sea">
-                  <span className="ov-chip__t num">9:30 AM</span>
-                  <span className="bmark bmark--xs tone--coral">EO</span>
-                </span>
-                <span className="ov-chip tone--butter">
-                  <span className="ov-chip__t num">9:30 AM</span>
-                  <span className="bmark bmark--xs tone--butter">HH</span>
-                </span>
-                <span className="ov-chip tone--sea">
-                  <span className="ov-chip__t num">5 PM</span>
-                  <span className="bmark bmark--xs tone--ink">VG</span>
-                </span>
-                <span className="ov-chip ov-chip--more">+1</span>
-              </span>
-              <span className="ov-day__n">4 posts</span>
-            </div>
+                <span className="ov-day__list" />
+                <span className="ov-day__n">0 posts</span>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -1163,29 +984,9 @@ export function OverviewView() {
           </header>
 
           <ul className="ov-netlist">
-            {NETWORK_PULSE.map((item) => (
-              <li key={item.net} className="ov-net">
-                <span className={`net net--${item.net} net--md`}>
-                  <SvgIco name={item.net} />
-                </span>
-                <div className="ov-net__main">
-                  <p>
-                    <b>{item.name}</b>
-                    <span className="num">{item.followers}</span>
-                  </p>
-                  <span className="meter">
-                    <span
-                      className="meter__fill meter__fill--sea"
-                      style={{ transform: `scaleX(${item.scale})` }}
-                    ></span>
-                  </span>
-                </div>
-                <div className="ov-net__side">
-                  <span className="ov-net__g is-up">{item.growth}</span>
-                  <small>{item.eng} eng.</small>
-                </div>
-              </li>
-            ))}
+            <li style={{ padding: '2rem 1rem', textAlign: 'center', opacity: 0.6, listStyle: 'none' }}>
+              No connected networks found. Connect social accounts in Channels.
+            </li>
           </ul>
         </section>
 
@@ -1205,117 +1006,9 @@ export function OverviewView() {
               </button>
             </div>
           </header>
-
-          <div className="ov-ib__nums">
-            <p>
-              <b className="num">21</b>
-              <span>open</span>
-            </p>
-            <p>
-              <b className="num">13</b>
-              <span>unread</span>
-            </p>
-            <p>
-              <b className="num">4</b>
-              <span>priority</span>
-            </p>
+          <div style={{ padding: '3rem 1.5rem', textAlign: 'center', opacity: 0.6 }}>
+            <p style={{ margin: 0 }}>No unread conversations or messages.</p>
           </div>
-
-          <div className="ov-ib__bar" role="img" aria-label="11 positive, 6 neutral, 4 negative">
-            <span className="tone--pine" style={{ flex: 11 / 21 }}></span>
-            <span className="ov-ib__neu" style={{ flex: 6 / 21 }}></span>
-            <span className="tone--coral" style={{ flex: 4 / 21 }}></span>
-          </div>
-
-          <p className="legend">
-            <span><i className="tone--pine"></i>Positive 11</span>
-            <span><i className="ov-ib__neu"></i>Neutral 6</span>
-            <span><i className="tone--coral"></i>Negative 4</span>
-          </p>
-
-          <ul className="ov-ib__list" style={{ minWidth: 0, width: '100%' }}>
-            <li style={{ minWidth: 0, width: '100%', overflow: 'hidden' }}>
-              <a
-                href="#/inbox"
-                className="ov-ib__row"
-                style={{ width: 'calc(100% + 16px)', maxWidth: 'calc(100% + 16px)', minWidth: 0, textAlign: 'left' }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/inbox');
-                }}
-              >
-                <div className="av av--md av--t1" style={{ flex: 'none' }}>OF</div>
-                <span className="ov-ib__txt" style={{ minWidth: 0, overflow: 'hidden' }}>
-                  <b>Owen Fletcher</b>
-                  <small style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', display: 'block', maxWidth: '100%' }}>
-                    Just tried the Oak blend as a cold brew and wow. Is the 1kg bag coming back...
-                  </small>
-                </span>
-                <span className="ov-ib__tail" style={{ flex: 'none', flexShrink: 0 }}>
-                  <span className="net net--instagram net--xs">
-                    <SvgIco name="instagram" />
-                  </span>
-                  <span className="spill spill--pine">
-                    <i />Positive
-                  </span>
-                </span>
-              </a>
-            </li>
-            <li style={{ minWidth: 0, width: '100%', overflow: 'hidden' }}>
-              <a
-                href="#/inbox"
-                className="ov-ib__row"
-                style={{ width: 'calc(100% + 16px)', maxWidth: 'calc(100% + 16px)', minWidth: 0, textAlign: 'left' }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/inbox');
-                }}
-              >
-                <div className="av av--md av--t2" style={{ flex: 'none' }}>AS</div>
-                <span className="ov-ib__txt" style={{ minWidth: 0, overflow: 'hidden' }}>
-                  <b>Abigail Shaw</b>
-                  <small style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', display: 'block', maxWidth: '100%' }}>
-                    This is the best flat white in Portland and I will not be taking questions 😍
-                  </small>
-                </span>
-                <span className="ov-ib__tail" style={{ flex: 'none', flexShrink: 0 }}>
-                  <span className="net net--instagram net--xs">
-                    <SvgIco name="instagram" />
-                  </span>
-                  <span className="spill spill--pine">
-                    <i />Positive
-                  </span>
-                </span>
-              </a>
-            </li>
-            <li style={{ minWidth: 0, width: '100%', overflow: 'hidden' }}>
-              <a
-                href="#/inbox"
-                className="ov-ib__row"
-                style={{ width: 'calc(100% + 16px)', maxWidth: 'calc(100% + 16px)', minWidth: 0, textAlign: 'left' }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/inbox');
-                }}
-              >
-                <div className="av av--md av--t3" style={{ flex: 'none' }}>AR</div>
-                <span className="ov-ib__txt" style={{ minWidth: 0, overflow: 'hidden' }}>
-                  <b>Ananya Rao</b>
-                  <small style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', display: 'block', maxWidth: '100%' }}>
-                    Hi! Do you ship the Huila beans to Canada? And is the bag whole bean only?
-                  </small>
-                </span>
-                <span className="ov-ib__tail" style={{ flex: 'none', flexShrink: 0 }}>
-                  <span className="net net--instagram net--xs">
-                    <SvgIco name="instagram" />
-                  </span>
-                  <span className="spill spill--plain">
-                    <i />Neutral
-                  </span>
-                </span>
-              </a>
-            </li>
-          </ul>
         </section>
 
         {/* === CARD 8: TEAM ACTIVITY === */}
@@ -1336,18 +1029,24 @@ export function OverviewView() {
           </header>
 
           <ol className="ov-feed">
-            {AUDIT_FEED.map((event) => (
-              <li key={event.id} className="ov-feed__item">
-                <div className="av av--sm av--t0">{event.initial}</div>
-                <p>
-                  <b>{event.name}</b> {event.text}
-                  <small>
-                    <SvgIco name="clock" />
-                    {event.time}
-                  </small>
-                </p>
+            {AUDIT_FEED.length === 0 ? (
+              <li style={{ padding: '2rem 1rem', textAlign: 'center', opacity: 0.6, listStyle: 'none' }}>
+                No recent team activity logged yet.
               </li>
-            ))}
+            ) : (
+              AUDIT_FEED.map((event) => (
+                <li key={event.id} className="ov-feed__item">
+                  <div className="av av--sm av--t0">{event.initial}</div>
+                  <p>
+                    <b>{event.name}</b> {event.text}
+                    <small>
+                      <SvgIco name="clock" />
+                      {event.time}
+                    </small>
+                  </p>
+                </li>
+              ))
+            )}
           </ol>
         </section>
       </div>

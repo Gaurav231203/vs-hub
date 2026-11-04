@@ -15,12 +15,12 @@ interface BrandDef {
 
 const BRANDS_DEF: Record<string, BrandDef> = {
   ember: { id: 'ember', name: 'Ember & Oak', short: 'EO', color: '#e06b53' },
-  hollow: { id: 'hollow', name: 'Hollow Home', short: 'HH', color: '#f2b740', textColor: '#1c1b18' },
-  vantage: { id: 'vantage', name: 'Vantage Garage', short: 'VG', color: '#1c1d22' },
-  wild: { id: 'wild', name: 'Wildroot Botanics', short: 'WB', color: '#2d7a5b' },
-  north: { id: 'north', name: 'Northlight Studio', short: 'NS', color: '#3b82f6' },
+  
+  
+  
+  
   acme: { id: 'acme', name: 'Acme Corp', short: 'AC', color: '#4f46e5' },
-  starlight: { id: 'starlight', name: 'Starlight Bakery', short: 'SB', color: '#ec4899' },
+  
   nexus: { id: 'nexus', name: 'Nexus Tech', short: 'NT', color: '#0ea5e9' },
   zenith: { id: 'zenith', name: 'Zenith Fitness', short: 'ZF', color: '#10b981' },
 };
@@ -2106,7 +2106,7 @@ export function TeamView() {
                 <div>
                   <h2 className="mform__title">Invite a teammate</h2>
                   <p className="mform__sub">
-                    They get an email with a link to join Northlight Studio.
+                    They get an email with a link to join VS Adda Agency.
                   </p>
                 </div>
                 <button
