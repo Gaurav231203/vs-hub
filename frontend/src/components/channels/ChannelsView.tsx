@@ -1147,8 +1147,34 @@ export function ChannelsView() {
             >
               <form
                 className="mform"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
+                  if (wizardNet === 'facebook' || wizardNet === 'instagram') {
+                    try {
+                      setShowConnectModal(false);
+                      addToast({
+                        type: 'info',
+                        message: `Connecting to official ${NETWORK_METAS[wizardNet]?.name} (Meta)...`,
+                      });
+                      const inviteRes: any = await apiFetch('/invites/connect', {
+                        method: 'POST',
+                        body: JSON.stringify({ brandId: wizardBrand }),
+                      });
+                      if (inviteRes?.rawToken) {
+                        const authRes: any = await apiFetch(`/invites/${inviteRes.rawToken}/meta-auth`);
+                        if (authRes?.authUrl) {
+                          window.location.href = authRes.authUrl;
+                          return;
+                        }
+                      }
+                    } catch (err: any) {
+                      console.warn('Real Meta OAuth redirect error:', err);
+                      addToast({
+                        type: 'error',
+                        message: err.message || 'Could not start Meta login. Make sure Meta App ID is configured.',
+                      });
+                    }
+                  }
                   setActiveOAuthNet(wizardNet as OAuthNetwork);
                 }}
               >
@@ -1156,7 +1182,7 @@ export function ChannelsView() {
                   <div>
                     <h3 className="mform__title">Connect a channel</h3>
                     <p className="mform__sub">
-                      You’ll sign in to the network and choose which account Murmura may post to.
+                      Select your social network below. For Facebook &amp; Instagram, you will authenticate directly via Meta Graph API.
                     </p>
                   </div>
                   <button
@@ -1172,7 +1198,7 @@ export function ChannelsView() {
                   </button>
                 </div>
 
-                {/* 8 Networks Grid - Each card is directly clickable to open its login page */}
+                {/* 8 Networks Grid - Click to select */}
                 <div className="cc-nets" role="radiogroup" aria-label="Network">
                   {Object.entries(NETWORK_METAS).map(([key, val]) => {
                     const isSelected = wizardNet === key;
@@ -1182,15 +1208,11 @@ export function ChannelsView() {
                         role="button"
                         tabIndex={0}
                         className="cc-net"
-                        onClick={() => {
-                          setWizardNet(key);
-                          setActiveOAuthNet(key as OAuthNetwork);
-                        }}
+                        onClick={() => setWizardNet(key)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             setWizardNet(key);
-                            setActiveOAuthNet(key as OAuthNetwork);
                           }
                         }}
                         style={{
@@ -1207,7 +1229,7 @@ export function ChannelsView() {
                           borderRadius: '18px',
                           userSelect: 'none',
                         }}
-                        title={`Click to open ${val.name} login page`}
+                        title={`Select ${val.name}`}
                       >
                         <span className={`net net--md net--${key}`}>
                           <NetworkIcon network={key} className="ico" />
@@ -1215,13 +1237,36 @@ export function ChannelsView() {
                         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
                           {val.name}
                         </span>
-                        <span style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '-2px' }}>
-                          Log in →
+                        <span style={{ fontSize: '11px', color: isSelected ? 'var(--butter, #f2b740)' : 'var(--muted)', marginTop: '-2px' }}>
+                          {isSelected ? '✓ Selected' : 'Choose'}
                         </span>
                       </div>
                     );
                   })}
                 </div>
+
+                {/* Meta official badge explanation */}
+                {(wizardNet === 'facebook' || wizardNet === 'instagram') && (
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      background: 'rgba(24, 119, 242, 0.12)',
+                      border: '1px solid rgba(24, 119, 242, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      fontSize: '12.5px',
+                      color: '#93c5fd',
+                    }}
+                  >
+                    <span style={{ fontSize: '16px' }}>🔒</span>
+                    <span>
+                      Will redirect to official <b>Meta Login</b>. You can choose which Facebook Page to connect. Real access token will be issued for live posting.
+                    </span>
+                  </div>
+                )}
 
                 {/* For Brand Selection */}
                 <div className="field field--wide" style={{ marginTop: '20px' }}>
@@ -1254,7 +1299,9 @@ export function ChannelsView() {
                     Cancel
                   </button>
                   <button type="submit" className="btn btn--ink">
-                    Continue to {NETWORK_METAS[wizardNet]?.name || 'Login'} →
+                    {wizardNet === 'facebook' || wizardNet === 'instagram'
+                      ? `Continue to Official ${NETWORK_METAS[wizardNet]?.name} Login →`
+                      : `Continue to ${NETWORK_METAS[wizardNet]?.name || 'Login'} →`}
                   </button>
                 </div>
               </form>

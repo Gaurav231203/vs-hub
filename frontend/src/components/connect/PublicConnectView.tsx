@@ -641,17 +641,36 @@ export function PublicConnectView() {
                     background: '#f0fdf4',
                     border: '1px solid #bbf7d0',
                     borderRadius: '12px',
-                    padding: '14px',
+                    padding: '14px 18px',
                     color: '#166534',
                     fontSize: '13.5px',
                     fontWeight: 600,
                     marginBottom: '20px',
                     display: 'flex',
-                    alignItems: 'center',
+                    flexDirection: 'column',
                     gap: '10px',
                   }}
                 >
-                  <span>🎉</span> Accounts linked successfully! You can connect additional channels below.
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🎉</span> Accounts linked successfully to your brand!
+                  </div>
+                  <a
+                    href="/channels"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '8px 16px',
+                      background: '#16a34a',
+                      color: '#ffffff',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      textDecoration: 'none',
+                      width: 'fit-content',
+                    }}
+                  >
+                    Return to VS Adda Channels →
+                  </a>
                 </div>
               )}
 
