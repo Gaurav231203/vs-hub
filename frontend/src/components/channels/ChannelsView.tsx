@@ -224,24 +224,37 @@ export function ChannelsView() {
     );
   };
 
-  // Disconnect channel
-  const handleDisconnect = (channelId: string) => {
-    setChannels((prev) =>
-      prev.map((c) => {
-        if (c.id === channelId) {
-          return {
-            ...c,
-            status: 'disconnected',
-            daysLeft: 0,
-            lastSync: 'Stopped just now',
-            postingEnabled: false,
-          };
-        }
-        return c;
-      })
-    );
-    setMenuOpenForChannel(null);
-    addToast({ type: 'info', message: 'Channel disconnected from workspace.' });
+  // Disconnect & permanently delete channel from database and local state
+  const handleDisconnect = async (channelId: string) => {
+    try {
+      await apiFetch(`/channels/${channelId}`, { method: 'DELETE' }).catch(() => {});
+      setChannels((prev) => {
+        const remaining = prev.filter((c) => c.id !== channelId);
+        try {
+          const customOnly = remaining.filter((c) => !INITIAL_CHANNELS.some((ic) => ic.id === c.id));
+          localStorage.setItem('vs_custom_channels', JSON.stringify(customOnly));
+        } catch {}
+        return remaining;
+      });
+      setMenuOpenForChannel(null);
+      addToast({ type: 'success', message: 'Channel deleted and disconnected permanently.' });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to disconnect channel' });
+    }
+  };
+
+  // One-click purge all seeded demo/mock channels
+  const handlePurgeAllDemoChannels = async () => {
+    try {
+      await apiFetch('/channels/purge-mocks', { method: 'DELETE' }).catch(() => {});
+      try {
+        localStorage.removeItem('vs_custom_channels');
+      } catch {}
+      setChannels([]);
+      addToast({ type: 'success', message: 'All demo channels removed from workspace!' });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to remove demo channels' });
+    }
   };
 
   const { brands, selectedBrandId: authBrandId } = useAuthStore();
@@ -425,7 +438,18 @@ export function ChannelsView() {
           </div>
         </div>
 
-        <div className="head__actions">
+        <div className="head__actions" style={{ display: 'flex', gap: '8px' }}>
+          {channels.length > 0 && (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={handlePurgeAllDemoChannels}
+              title="Remove all seeded demo/test channels from database"
+              style={{ color: 'var(--coral, #ef4444)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+            >
+              Clear Demo Channels
+            </button>
+          )}
           <button
             type="button"
             className="btn btn--ink magnetic"

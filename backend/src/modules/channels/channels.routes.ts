@@ -187,6 +187,41 @@ channelsRouter.post(
 );
 
 /**
+ * DELETE /api/v1/channels/purge-mocks
+ * Permanently delete all demo/mock channels across the workspace
+ */
+channelsRouter.delete(
+  '/channels/purge-mocks',
+  requirePerm('channels.manage'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ctx = req.ctx!;
+      const mockChannels = await prisma.channel.findMany({
+        where: {
+          workspaceId: ctx.workspaceId,
+          OR: [
+            { accessTokenEnc: { startsWith: 'mock_' } },
+            { externalId: { startsWith: 'mock_' } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      const ids = mockChannels.map((c) => c.id);
+      if (ids.length > 0) {
+        await prisma.postTarget.deleteMany({ where: { channelId: { in: ids } } });
+        await prisma.metricDaily.deleteMany({ where: { channelId: { in: ids } } });
+        await prisma.channel.deleteMany({ where: { id: { in: ids } } });
+      }
+
+      res.json({ success: true, count: ids.length });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
  * DELETE /api/v1/channels/:id
  */
 channelsRouter.delete(
@@ -205,21 +240,9 @@ channelsRouter.delete(
         throw new AppError('CHANNEL_NOT_FOUND', 'Channel not found', 404);
       }
 
-      // Guard: Check if channel has active queued or publishing posts
-      const activeTargets = await prisma.postTarget.count({
-        where: {
-          channelId: req.params.id,
-          status: { in: ['QUEUED', 'PUBLISHING'] },
-        },
-      });
-
-      if (activeTargets > 0) {
-        throw new AppError(
-          'CHANNEL_HAS_ACTIVE_POSTS',
-          `Cannot delete channel with ${activeTargets} pending or publishing post(s). Please reschedule or delete the posts first.`,
-          400
-        );
-      }
+      // Automatically clean up any post targets and metrics for this channel
+      await prisma.postTarget.deleteMany({ where: { channelId: req.params.id } });
+      await prisma.metricDaily.deleteMany({ where: { channelId: req.params.id } });
 
       await prisma.channel.delete({ where: { id: req.params.id } });
       res.json({ success: true });
