@@ -167,41 +167,7 @@ export function ApprovalsView() {
       ),
   });
 
-  const hollowHomeFallbackPosts = [
-    {
-      id: 'p_hh_ro',
-      caption: 'New in: the Ro side table in smoked oak. Same joinery, darker mood, made for small rooms.',
-      status: 'PENDING',
-      scheduledAt: '2026-10-30T10:00:00.000Z',
-      createdAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-      version: 1,
-      brandId: 'b_hh',
-      brand: {
-        id: 'b_hh',
-        name: 'Hollow Home',
-        color: '#f2b740',
-      },
-      authorId: 'u_freya',
-      author: {
-        id: 'u_freya',
-        name: 'Freya Nilsen',
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        title: 'Editor',
-      },
-      media: [
-        {
-          id: 'm_ro_1',
-          url: 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=900&auto=format&fit=crop&q=80',
-          kind: 'IMAGE',
-        },
-      ],
-      channels: [
-        { id: 'ch_ig', network: 'INSTAGRAM' },
-        { id: 'ch_pin', network: 'PINTEREST' },
-      ],
-      reviews: [],
-    },
-  ];
+  const hollowHomeFallbackPosts: any[] = [];
 
   const posts: any[] = React.useMemo(() => {
     if (queueData?.posts && queueData.posts.length > 0) {

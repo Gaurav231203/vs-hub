@@ -132,7 +132,7 @@ const INITIAL_AUDIT_LOGS: AuditItem[] = [];
 
 export function TeamView() {
   const queryClient = useQueryClient();
-  const { user, selectedBrandId } = useAuthStore();
+  const { user, selectedBrandId, brands } = useAuthStore();
   const addToast = useToastStore((state) => state.addToast);
 
   // Active top-level subtab
@@ -1887,117 +1887,63 @@ export function TeamView() {
                       </button>
                     </div>
 
-                    {/* Row 2: Ember & Oak */}
-                    <div className="tm-drawer-brand-card">
-                      <div
-                        style={{
-                          width: '44px',
-                          height: '44px',
-                          borderRadius: '12px',
-                          background: '#d9483b',
-                          color: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 600,
-                          fontSize: '16px',
-                          flexShrink: 0,
-                        }}
-                      >
-                        EO
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <b
+                    {/* Dynamic Real Brands */}
+                    {(brands || []).map((b: any) => (
+                      <div key={b.id} className="tm-drawer-brand-card">
+                        <div
                           style={{
-                            display: 'block',
-                            fontSize: '16px',
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '12px',
+                            background: b.color || '#4F46E5',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             fontWeight: 600,
-                            color: 'var(--text, #16191d)',
-                          }}
-                        >
-                          Ember & Oak
-                        </b>
-                        <small
-                          style={{
-                            display: 'block',
-                            fontSize: '13px',
-                            color: 'var(--muted, #64748b)',
-                            marginTop: '2px',
-                          }}
-                        >
-                          Coffee roasters · Portland
-                        </small>
-                      </div>
-                      <button
-                        type="button"
-                        className="tm-switch"
-                        role="switch"
-                        aria-checked={
-                          drawerMember.brands === 'all' ||
-                          (Array.isArray(drawerMember.brands) && drawerMember.brands.includes('ember'))
-                        }
-                        disabled={drawerMember.brands === 'all' || drawerMember.role === 'owner'}
-                        onClick={() => handleToggleMemberBrand(drawerMember.id, 'ember')}
-                      >
-                        <span className="tm-switch-thumb" />
-                      </button>
-                    </div>
-
-                    {/* Row 3: Hollow Home */}
-                    <div className="tm-drawer-brand-card">
-                      <div
-                        style={{
-                          width: '44px',
-                          height: '44px',
-                          borderRadius: '12px',
-                          background: '#f5b800',
-                          color: '#1c1917',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 600,
-                          fontSize: '16px',
-                          flexShrink: 0,
-                        }}
-                      >
-                        HH
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <b
-                          style={{
-                            display: 'block',
                             fontSize: '16px',
-                            fontWeight: 600,
-                            color: 'var(--text, #16191d)',
+                            flexShrink: 0,
                           }}
                         >
-                          Hollow Home
-                        </b>
-                        <small
-                          style={{
-                            display: 'block',
-                            fontSize: '13px',
-                            color: 'var(--muted, #64748b)',
-                            marginTop: '2px',
-                          }}
+                          {b.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <b
+                            style={{
+                              display: 'block',
+                              fontSize: '16px',
+                              fontWeight: 600,
+                              color: 'var(--text, #16191d)',
+                            }}
+                          >
+                            {b.name}
+                          </b>
+                          <small
+                            style={{
+                              display: 'block',
+                              fontSize: '13px',
+                              color: 'var(--muted, #64748b)',
+                              marginTop: '2px',
+                            }}
+                          >
+                            {b.timezone || 'Connected brand'}
+                          </small>
+                        </div>
+                        <button
+                          type="button"
+                          className="tm-switch"
+                          role="switch"
+                          aria-checked={
+                            drawerMember.brands === 'all' ||
+                            (Array.isArray(drawerMember.brands) && drawerMember.brands.includes(b.id))
+                          }
+                          disabled={drawerMember.brands === 'all' || drawerMember.role === 'owner'}
+                          onClick={() => handleToggleMemberBrand(drawerMember.id, b.id)}
                         >
-                          Furniture & interiors · Copenhagen
-                        </small>
+                          <span className="tm-switch-thumb" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="tm-switch"
-                        role="switch"
-                        aria-checked={
-                          drawerMember.brands === 'all' ||
-                          (Array.isArray(drawerMember.brands) && drawerMember.brands.includes('hollow'))
-                        }
-                        disabled={drawerMember.brands === 'all' || drawerMember.role === 'owner'}
-                        onClick={() => handleToggleMemberBrand(drawerMember.id, 'hollow')}
-                      >
-                        <span className="tm-switch-thumb" />
-                      </button>
-                    </div>
+                    ))}
                   </div>
                 </section>
 
