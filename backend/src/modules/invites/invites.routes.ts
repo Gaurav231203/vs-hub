@@ -359,19 +359,19 @@ invitesRouter.get(
       if (
         !invite ||
         !compareSecureToken(inviteToken, invite.tokenHash) ||
-        invite.status !== ConnectInviteStatus.ACTIVE ||
-        invite.usedAt ||
+        invite.status === ConnectInviteStatus.REVOKED ||
         invite.revokedAt ||
         new Date() > invite.expiresAt
       ) {
-        throw new AppError('INVITE_INVALID', 'Invite link has expired or was already used', 400);
+        throw new AppError('INVITE_INVALID', 'Invite link has expired or is invalid', 400);
       }
 
       // 2. Exchange code for candidate pages & accounts
       const candidatePages = await exchangeMetaCodeForAccounts(
         String(code || 'mock_code'),
         mock === 'true',
-        invite.brand?.name
+        invite.brand?.name,
+        req
       );
 
       if (candidatePages.length === 0) {

@@ -52,7 +52,7 @@ const envSchema = z.object({
 
   META_APP_ID: z.string().default(''),
   META_APP_SECRET: z.string().default(''),
-  META_REDIRECT_URI: z.string().default('http://localhost:4000/api/v1/oauth/meta/callback'),
+  META_REDIRECT_URI: z.string().default('https://vs-hub-1.onrender.com/api/v1/oauth/meta/callback'),
 });
 
 const parsed = envSchema.safeParse(process.env);

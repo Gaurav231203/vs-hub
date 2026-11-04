@@ -67,6 +67,14 @@ export function verifyMetaOAuthState(state: string): { inviteToken: string; bran
   }
 }
 
+export function getMetaRedirectUri(req?: Request): string {
+  if (env.META_REDIRECT_URI && !env.META_REDIRECT_URI.includes('localhost') && !env.META_REDIRECT_URI.includes('127.0.0.1')) {
+    return env.META_REDIRECT_URI;
+  }
+  const apiBase = getApiUrl(req);
+  return `${apiBase}/api/v1/oauth/meta/callback`;
+}
+
 /**
  * Build Meta OAuth authorization dialog URL
  */
@@ -85,7 +93,7 @@ export function getMetaAuthorizeUrl(state: string, req?: Request): string {
     'instagram_content_publish',
   ].join(',');
 
-  const redirectUri = encodeURIComponent(env.META_REDIRECT_URI);
+  const redirectUri = encodeURIComponent(getMetaRedirectUri(req));
   return `https://www.facebook.com/v20.0/dialog/oauth?client_id=${env.META_APP_ID}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}&response_type=code`;
 }
 
@@ -95,7 +103,8 @@ export function getMetaAuthorizeUrl(state: string, req?: Request): string {
 export async function exchangeMetaCodeForAccounts(
   code: string,
   isMock = false,
-  brandName?: string
+  brandName?: string,
+  req?: Request
 ): Promise<MetaPageCandidate[]> {
   // If mock mode or no credentials, return realistic candidate accounts
   if (isMock || !env.META_APP_ID || !env.META_APP_SECRET) {
@@ -123,7 +132,8 @@ export async function exchangeMetaCodeForAccounts(
 
   try {
     // 1. Exchange code for Short-Lived User Access Token
-    const tokenUrl = `https://graph.facebook.com/v20.0/oauth/access_token?client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&redirect_uri=${encodeURIComponent(env.META_REDIRECT_URI)}&code=${code}`;
+    const redirectUri = encodeURIComponent(getMetaRedirectUri(req));
+    const tokenUrl = `https://graph.facebook.com/v20.0/oauth/access_token?client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&redirect_uri=${redirectUri}&code=${code}`;
     const tokenRes = await fetch(tokenUrl);
     const tokenData = (await tokenRes.json()) as any;
 
