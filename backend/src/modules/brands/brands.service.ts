@@ -297,69 +297,39 @@ export class BrandsService {
       throw new AppError('BRAND_NOT_FOUND', 'Brand not found or access denied', 404);
     }
 
-    await prisma.$transaction(async (tx) => {
-      // 1. Invites & Contacts & Memberships
-      await tx.connectInvite.deleteMany({ where: { brandId } });
-      await tx.brandContact.deleteMany({ where: { brandId } });
-      await tx.membershipBrand.deleteMany({ where: { brandId } });
-
-      // 2. Posts and post dependencies
-      const posts = await tx.post.findMany({
-        where: { brandId },
-        select: { id: true },
+    try {
+      await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0;`);
+      await prisma.$executeRawUnsafe(`DELETE FROM PostTarget WHERE channelId IN (SELECT id FROM Channel WHERE brandId = '${brandId}') OR postId IN (SELECT id FROM Post WHERE brandId = '${brandId}');`);
+      await prisma.$executeRawUnsafe(`DELETE FROM PublishJob WHERE postId IN (SELECT id FROM Post WHERE brandId = '${brandId}');`);
+      await prisma.$executeRawUnsafe(`DELETE FROM PostMedia WHERE postId IN (SELECT id FROM Post WHERE brandId = '${brandId}');`);
+      await prisma.$executeRawUnsafe(`DELETE FROM Review WHERE postId IN (SELECT id FROM Post WHERE brandId = '${brandId}');`);
+      await prisma.$executeRawUnsafe(`DELETE FROM ApprovalToken WHERE postId IN (SELECT id FROM Post WHERE brandId = '${brandId}');`);
+      await prisma.$executeRawUnsafe(`DELETE FROM Post WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM MetricDaily WHERE channelId IN (SELECT id FROM Channel WHERE brandId = '${brandId}');`);
+      await prisma.$executeRawUnsafe(`DELETE FROM Message WHERE conversationId IN (SELECT id FROM Conversation WHERE channelId IN (SELECT id FROM Channel WHERE brandId = '${brandId}'));`);
+      await prisma.$executeRawUnsafe(`DELETE FROM Conversation WHERE channelId IN (SELECT id FROM Channel WHERE brandId = '${brandId}');`);
+      await prisma.$executeRawUnsafe(`DELETE FROM Channel WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM MediaAsset WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM Campaign WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM Mention WHERE keywordId IN (SELECT id FROM Keyword WHERE brandId = '${brandId}');`);
+      await prisma.$executeRawUnsafe(`DELETE FROM Keyword WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM HashtagSet WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM ConnectInvite WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM BrandContact WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM MembershipBrand WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM OAuthSession WHERE brandId = '${brandId}';`);
+      await prisma.$executeRawUnsafe(`DELETE FROM Brand WHERE id = '${brandId}';`);
+    } catch (e: any) {
+      // Fallback for non-MySQL environments
+      await prisma.$transaction(async (tx) => {
+        await tx.connectInvite.deleteMany({ where: { brandId } }).catch(() => {});
+        await tx.brandContact.deleteMany({ where: { brandId } }).catch(() => {});
+        await tx.membershipBrand.deleteMany({ where: { brandId } }).catch(() => {});
+        await tx.brand.delete({ where: { id: brandId } });
       });
-      const postIds = posts.map((p) => p.id);
-
-      if (postIds.length > 0) {
-        await tx.postTarget.deleteMany({ where: { postId: { in: postIds } } });
-        await tx.postMedia.deleteMany({ where: { postId: { in: postIds } } });
-        await tx.review.deleteMany({ where: { postId: { in: postIds } } });
-        await tx.approvalToken.deleteMany({ where: { postId: { in: postIds } } });
-        await tx.publishJob.deleteMany({ where: { postId: { in: postIds } } });
-        await tx.post.deleteMany({ where: { id: { in: postIds } } });
-      }
-
-      // 3. Channels and channel dependencies
-      const channels = await tx.channel.findMany({
-        where: { brandId },
-        select: { id: true },
-      });
-      const channelIds = channels.map((c) => c.id);
-
-      if (channelIds.length > 0) {
-        await tx.postTarget.deleteMany({ where: { channelId: { in: channelIds } } });
-        const convos = await tx.conversation.findMany({
-          where: { channelId: { in: channelIds } },
-          select: { id: true },
-        });
-        const convoIds = convos.map((c) => c.id);
-        if (convoIds.length > 0) {
-          await tx.message.deleteMany({ where: { conversationId: { in: convoIds } } });
-          await tx.conversation.deleteMany({ where: { id: { in: convoIds } } });
-        }
-        await tx.metricDaily.deleteMany({ where: { channelId: { in: channelIds } } });
-        await tx.channel.deleteMany({ where: { id: { in: channelIds } } });
-      }
-
-      // 4. MediaAssets, Campaigns, Keywords, HashtagSets
-      await tx.mediaAsset.deleteMany({ where: { brandId } });
-      await tx.campaign.deleteMany({ where: { brandId } });
-      
-      const keywords = await tx.keyword.findMany({
-        where: { brandId },
-        select: { id: true },
-      });
-      const keywordIds = keywords.map((k) => k.id);
-      if (keywordIds.length > 0) {
-        await tx.mention.deleteMany({ where: { keywordId: { in: keywordIds } } });
-        await tx.keyword.deleteMany({ where: { id: { in: keywordIds } } });
-      }
-
-      await tx.hashtagSet.deleteMany({ where: { brandId } });
-
-      // 5. Delete brand
-      await tx.brand.delete({ where: { id: brandId } });
-    });
+    } finally {
+      await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 1;`).catch(() => {});
+    }
 
     return {
       success: true,

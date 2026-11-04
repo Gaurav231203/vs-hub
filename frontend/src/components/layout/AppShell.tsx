@@ -114,14 +114,12 @@ export function AppShell() {
       removeBrand(brand.id);
       addToast({
         type: 'success',
-        message: `Brand "${brand.name}" deleted successfully`,
+        message: `Brand "${brand.name}" deleted permanently`,
       });
-    } catch {
-      // If mock or offline, still remove from active store
-      removeBrand(brand.id);
+    } catch (err: any) {
       addToast({
-        type: 'success',
-        message: `Brand "${brand.name}" removed`,
+        type: 'error',
+        message: err.message || `Failed to delete brand "${brand.name}"`,
       });
     } finally {
       setDeletingBrandId(null);
