@@ -109,7 +109,15 @@ export async function handlePublishTarget(payload: { targetId: string; postId: s
     });
 
     const msg = (err.message || '').toLowerCase();
-    const isTokenRevoked = msg.includes('oauth') || msg.includes('token') || msg.includes('unauthorized') || msg.includes('invalidated');
+    // Only mark token revoked if it is an explicit OAuth invalidation from Meta/provider (e.g. Code 190, session expired).
+    // Standard publish errors (media dimensions, network timeouts, rate limits) must NEVER disconnect the social channel.
+    const isTokenRevoked =
+      err.code === 190 ||
+      err.error_subcode === 463 ||
+      err.error_subcode === 467 ||
+      msg.includes('error validating access token: the session has been invalidated') ||
+      msg.includes('session has expired') ||
+      msg.includes('token has been revoked');
     if (isTokenRevoked && target.channel) {
       await prisma.channel.update({
         where: { id: target.channel.id },

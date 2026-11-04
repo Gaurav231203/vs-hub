@@ -95,11 +95,12 @@ export class TokenRefreshService {
         const healthRes = await fetch(healthUrl);
         const healthData = (await healthRes.json()) as any;
 
-        if (!healthRes.ok || healthData.error) {
-          const errMsg = healthData.error?.message || 'Meta token validation failed';
+        // Only mark NEEDS_RECONNECT if Meta explicitly states code 190 (Invalid/Expired OAuth token)
+        if (healthData.error && (healthData.error.code === 190 || healthData.error.error_subcode === 463 || healthData.error.error_subcode === 467)) {
+          const errMsg = healthData.error?.message || 'Meta token has expired';
           await this.markNeedsReconnect(channel.id, errMsg);
           needsReconnect++;
-        } else {
+        } else if (healthRes.ok) {
           // Valid active token
           if (channel.status === 'NEEDS_RECONNECT') {
             await prisma.channel.update({
@@ -109,9 +110,8 @@ export class TokenRefreshService {
           }
         }
       } catch (err: any) {
-        logger.error({ channelId: channel.id, err: err.message }, '[TokenRefreshService] Check failed');
-        await this.markNeedsReconnect(channel.id, err.message);
-        needsReconnect++;
+        // Transient network error, rate limit, or Render wake delay — do not disconnect channel
+        logger.warn({ channelId: channel.id, err: err.message }, '[TokenRefreshService] Transient health check failure; preserving connected status');
       }
     }
 

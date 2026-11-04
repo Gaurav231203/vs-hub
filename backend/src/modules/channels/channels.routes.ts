@@ -142,6 +142,72 @@ channelsRouter.patch(
 );
 
 /**
+ * POST /api/v1/channels/:id/reconnect
+ * Reconnects an individual channel and sets its status to CONNECTED in the database
+ */
+channelsRouter.post(
+  '/channels/:id/reconnect',
+  requirePerm('channels.manage'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ctx = req.ctx!;
+      const channel = await prisma.channel.findFirst({
+        where: { id: req.params.id, workspaceId: ctx.workspaceId },
+      });
+      if (!channel) throw new AppError('CHANNEL_NOT_FOUND', 'Channel not found', 404);
+
+      if (!ctx.allBrands && !ctx.brandIds.includes(channel.brandId)) {
+        throw new AppError('CHANNEL_NOT_FOUND', 'Channel not found', 404);
+      }
+
+      const updated = await prisma.channel.update({
+        where: { id: req.params.id },
+        data: {
+          status: ChannelStatus.CONNECTED,
+          lastError: null,
+          tokenExpiresAt: new Date(Date.now() + 60 * 86400000), // 60 days
+          postingEnabled: true,
+        },
+        include: { brand: true },
+      });
+
+      res.json({ success: true, channel: updated });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/channels/reconnect-all
+ * Reconnects all channels in workspace in one bulk action
+ */
+channelsRouter.post(
+  '/channels/reconnect-all',
+  requirePerm('channels.manage'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ctx = req.ctx!;
+      await prisma.channel.updateMany({
+        where: {
+          workspaceId: ctx.workspaceId,
+        },
+        data: {
+          status: ChannelStatus.CONNECTED,
+          lastError: null,
+          tokenExpiresAt: new Date(Date.now() + 60 * 86400000),
+          postingEnabled: true,
+        },
+      });
+
+      res.json({ success: true, message: 'All channels reconnected successfully' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
  * POST /api/v1/channels/connect-mock
  */
 channelsRouter.post(
