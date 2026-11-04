@@ -1422,15 +1422,54 @@ export function AppShell() {
           setActiveOAuthNet(null);
           setShowConnectModal(true);
         }}
-        onSuccess={({ handle: newHandle, network: newNet, brandId: bId }) => {
+        onSuccess={async ({ handle: newHandle, network: newNet, brandId: bId }) => {
           const targetBrand = brands.find((b) => b.id === bId) || brands[0];
           const netName = NETWORKS.find((n) => n.id === newNet)?.name || 'Account';
+          
+          // Save locally so ChannelsView immediately sees it
+          try {
+            const saved = localStorage.getItem('vs_custom_channels');
+            const list = saved ? JSON.parse(saved) : [];
+            const newCh = {
+              id: `ch-${bId}-${newNet}-${Date.now()}`,
+              brandId: bId,
+              net: newNet as any,
+              handle: newHandle,
+              followers: Math.floor(12000 + Math.random() * 45000),
+              growthPct: 5.2,
+              daysLeft: 60,
+              totalDays: 60,
+              lastSync: 'Just now',
+              connectedBy: user?.name || 'Devon',
+              status: 'connected',
+              postingEnabled: true,
+            };
+            const filtered = list.filter((c: any) => !(c.brandId === bId && c.net === newNet));
+            localStorage.setItem('vs_custom_channels', JSON.stringify([newCh, ...filtered]));
+          } catch (e) {
+            console.error(e);
+          }
+
           addToast({
             type: 'success',
             message: `Successfully connected ${targetBrand?.name || 'Brand'} · ${netName} (${newHandle})`,
           });
           setActiveOAuthNet(null);
           setShowConnectModal(false);
+
+          // Persist to backend database
+          try {
+            await apiFetch('/channels/connect-mock', {
+              method: 'POST',
+              body: JSON.stringify({
+                brandId: bId,
+                network: newNet.toUpperCase(),
+                handle: newHandle,
+              }),
+            });
+          } catch (err) {
+            console.warn('Failed to persist channel to backend:', err);
+          }
         }}
       />
 

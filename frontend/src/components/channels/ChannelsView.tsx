@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useToastStore } from '../../stores/toastStore.js';
 import { NetworkIcon } from '../common/NetworkIcon.js';
 import { SocialOAuthModal, OAuthNetwork } from './SocialOAuthModal.js';
+import { apiFetch } from '../../lib/api.js';
 
 import { matchesBrand, getBrandCanonicalSlug } from '../../lib/brandHelper.js';
 
@@ -660,12 +661,74 @@ function formatCompactNumber(n: number): string {
   return String(n);
 }
 
+const getInitialChannels = (): ChannelItem[] => {
+  try {
+    const saved = localStorage.getItem('vs_custom_channels');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const savedIds = new Set(parsed.map((c: any) => c.id));
+        return [...parsed, ...INITIAL_CHANNELS.filter((c) => !savedIds.has(c.id))];
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse vs_custom_channels from localStorage', e);
+  }
+  return INITIAL_CHANNELS;
+};
+
 export function ChannelsView() {
   const navigate = useNavigate();
   const addToast = useToastStore((state) => state.addToast);
   const outletCtx = useOutletContext<{ selectedBrandId?: string; setSelectedBrandId?: (id: string) => void }>() || {};
 
-  const [channels, setChannels] = useState<ChannelItem[]>(INITIAL_CHANNELS);
+  const [channels, setChannels] = useState<ChannelItem[]>(getInitialChannels);
+
+  // Sync real channels from backend database on load
+  useEffect(() => {
+    const fetchDbChannels = async () => {
+      try {
+        const res: any = await apiFetch('/channels');
+        if (res && res.channels && Array.isArray(res.channels) && res.channels.length > 0) {
+          const dbChannels: ChannelItem[] = res.channels.map((ch: any) => {
+            const rawNet = (ch.network || 'instagram').toLowerCase();
+            const prefix = ['instagram', 'x', 'tiktok', 'threads'].includes(rawNet) ? '@' : '';
+            const cleanHandle = ch.handle?.startsWith('@') ? ch.handle : `${prefix}${ch.handle || 'account'}`;
+            return {
+              id: ch.id,
+              brandId: ch.brandId,
+              net: rawNet as any,
+              handle: cleanHandle,
+              followers: ch.followers || 14200,
+              growthPct: 4.8,
+              daysLeft: 60,
+              totalDays: 60,
+              lastSync: 'Synced with database',
+              connectedBy: 'Zero-Login Portal',
+              status: ch.status === 'CONNECTED' ? 'connected' : ch.status === 'EXPIRING' ? 'expiring' : 'disconnected',
+              postingEnabled: ch.postingEnabled ?? true,
+            };
+          });
+
+          setChannels((prev) => {
+            const dbIds = new Set(dbChannels.map((c) => c.id));
+            const dbKeys = new Set(dbChannels.map((c) => `${c.brandId}_${c.net}`));
+            const remaining = prev.filter((c) => !dbIds.has(c.id) && !dbKeys.has(`${c.brandId}_${c.net}`));
+            const merged = [...dbChannels, ...remaining];
+            try {
+              const customOnly = merged.filter((c) => !INITIAL_CHANNELS.some((ic) => ic.id === c.id));
+              localStorage.setItem('vs_custom_channels', JSON.stringify(customOnly));
+            } catch {}
+            return merged;
+          });
+        }
+      } catch {
+        // Fallback to localStorage / initial channels if offline
+      }
+    };
+
+    fetchDbChannels();
+  }, []);
   const [filter, setFilter] = useState<'all' | 'attention' | 'paused'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showConnectModal, setShowConnectModal] = useState(false);
@@ -1750,7 +1813,7 @@ export function ChannelsView() {
           setActiveOAuthNet(null);
           setShowConnectModal(true);
         }}
-        onSuccess={({ handle: newHandle, network: newNet, brandId: bId, followers }) => {
+        onSuccess={async ({ handle: newHandle, network: newNet, brandId: bId, followers }) => {
           const bName = allKnownBrands.find((b) => b.id === bId)?.name || 'Brand';
           const netMeta = NETWORK_METAS[newNet];
 
@@ -1769,13 +1832,38 @@ export function ChannelsView() {
             postingEnabled: true,
           };
 
-          setChannels((prev) => [newChannel, ...prev]);
+          setChannels((prev) => {
+            const filtered = prev.filter((c) => !(c.brandId === bId && c.net === newNet));
+            const updated = [newChannel, ...filtered];
+            try {
+              const customOnly = updated.filter((c) => !INITIAL_CHANNELS.some((ic) => ic.id === c.id));
+              localStorage.setItem('vs_custom_channels', JSON.stringify(customOnly));
+            } catch (e) {
+              console.error(e);
+            }
+            return updated;
+          });
+
           setActiveOAuthNet(null);
           setShowConnectModal(false);
           addToast({
             type: 'success',
             message: `Successfully connected ${netMeta?.name || newNet} account (${newHandle}) to ${bName}!`,
           });
+
+          // Persist to backend database so it stays across all devices and refreshes
+          try {
+            await apiFetch('/channels/connect-mock', {
+              method: 'POST',
+              body: JSON.stringify({
+                brandId: bId,
+                network: newNet.toUpperCase(),
+                handle: newHandle,
+              }),
+            });
+          } catch (err) {
+            console.warn('Backend channel persist warning:', err);
+          }
         }}
       />
     </div>

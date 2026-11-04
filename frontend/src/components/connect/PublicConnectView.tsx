@@ -205,7 +205,22 @@ export function PublicConnectView() {
 
         setAgencyName(data.agencyName || 'Your Agency');
         setBrand(data.brand);
-        setExistingChannels(data.existingChannels || []);
+        
+        // Merge DB existing channels with any local cached channels for this invite
+        let mergedChannels: ExistingChannel[] = data.existingChannels || [];
+        try {
+          const cached = localStorage.getItem(`vs_connected_${token}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) {
+              const dbNets = new Set(mergedChannels.map((c) => c.network.toUpperCase()));
+              const missing = parsed.filter((c: any) => !dbNets.has(c.network?.toUpperCase()));
+              mergedChannels = [...mergedChannels, ...missing];
+            }
+          }
+        } catch {}
+
+        setExistingChannels(mergedChannels);
         setExpiresAt(data.expiresAt);
       } catch (err: any) {
         setErrorState({
@@ -290,7 +305,11 @@ export function PublicConnectView() {
           const filtered = prev.filter(
             (ch) => ch.network.toUpperCase() !== activeModalNet.network.toUpperCase()
           );
-          return [...filtered, data.channel];
+          const updated = [...filtered, data.channel];
+          try {
+            localStorage.setItem(`vs_connected_${token}`, JSON.stringify(updated));
+          } catch {}
+          return updated;
         });
         setFeedbackMessage(`✅ ${activeModalNet.name} connected successfully!`);
         setTimeout(() => {

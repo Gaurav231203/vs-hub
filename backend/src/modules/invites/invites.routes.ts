@@ -178,16 +178,7 @@ invitesRouter.get(
         );
       }
 
-      // Check Used status
-      if (invite.status === ConnectInviteStatus.USED || invite.usedAt) {
-        throw new AppError(
-          'INVITE_ALREADY_USED',
-          'This connection link has already been used.',
-          410
-        );
-      }
-
-      // Check Expired status
+      // Check Expired status (7-day window)
       if (new Date() > invite.expiresAt || invite.status === ConnectInviteStatus.EXPIRED) {
         if (invite.status !== ConnectInviteStatus.EXPIRED) {
           await prisma.connectInvite.update({
@@ -316,8 +307,7 @@ invitesRouter.get(
       if (
         !invite ||
         !compareSecureToken(rawToken, invite.tokenHash) ||
-        invite.status !== ConnectInviteStatus.ACTIVE ||
-        invite.usedAt ||
+        invite.status === ConnectInviteStatus.REVOKED ||
         invite.revokedAt ||
         new Date() > invite.expiresAt
       ) {
