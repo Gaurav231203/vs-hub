@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../lib/api.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useToastStore } from '../../stores/toastStore.js';
+import { getBrandMeta } from '../../lib/brandHelper.js';
 
 interface BrandDef {
   id: string;
@@ -13,17 +14,7 @@ interface BrandDef {
   textColor?: string;
 }
 
-const BRANDS_DEF: Record<string, BrandDef> = {
-  ember: { id: 'ember', name: 'Ember & Oak', short: 'EO', color: '#e06b53' },
-  
-  
-  
-  
-  acme: { id: 'acme', name: 'Acme Corp', short: 'AC', color: '#4f46e5' },
-  
-  nexus: { id: 'nexus', name: 'Nexus Tech', short: 'NT', color: '#0ea5e9' },
-  zenith: { id: 'zenith', name: 'Zenith Fitness', short: 'ZF', color: '#10b981' },
-};
+const BRANDS_DEF: Record<string, BrandDef> = {};
 
 type RoleId = 'owner' | 'admin' | 'manager' | 'editor' | 'community' | 'analyst' | 'client';
 
@@ -435,26 +426,26 @@ export function TeamView() {
     if (Array.isArray(m.brands) && m.brands.length > 0) {
       return (
         <div className="tm-brands">
-          <span className="tm-bstack" title={m.brands.map((bKey) => BRANDS_DEF[bKey]?.name || bKey).join(', ')}>
+          <span className="tm-bstack" title={m.brands.map((bKey) => getBrandMeta(bKey, brands).name).join(', ')}>
             {m.brands.map((bKey) => {
-              const b = BRANDS_DEF[bKey] || { name: bKey, short: bKey.slice(0, 2).toUpperCase(), color: '#4f46e5' };
+              const b = getBrandMeta(bKey, brands);
               return (
                 <span
                   key={bKey}
                   className="bmark bmark--xs"
                   style={{
-                    backgroundColor: b.color,
-                    color: b.textColor || '#ffffff',
+                    backgroundColor: b.color || '#4f46e5',
+                    color: '#ffffff',
                   }}
                 >
-                  {b.short}
+                  {b.monogram}
                 </span>
               );
             })}
           </span>
           <span className="tm-bcount">
             {m.brands.length === 1
-              ? BRANDS_DEF[m.brands[0]]?.name || m.brands[0]
+              ? getBrandMeta(m.brands[0], brands).name
               : `${m.brands.length} brands`}
           </span>
         </div>
@@ -2158,7 +2149,7 @@ export function TeamView() {
                         onChange={(e) => setInviteBrandScope(e.target.value)}
                       >
                         <option value="all">All brands (Agency access)</option>
-                        {Object.values(BRANDS_DEF).map((b) => (
+                        {(brands || []).map((b) => (
                           <option key={b.id} value={b.id}>
                             {b.name} only
                           </option>

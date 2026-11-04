@@ -7,7 +7,7 @@ import { NetworkIcon } from '../common/NetworkIcon.js';
 import { SocialOAuthModal, OAuthNetwork } from './SocialOAuthModal.js';
 import { apiFetch } from '../../lib/api.js';
 
-import { matchesBrand, getBrandCanonicalSlug } from '../../lib/brandHelper.js';
+import { matchesBrand, getBrandCanonicalSlug, getBrandMeta } from '../../lib/brandHelper.js';
 
 interface BrandMeta {
   id: string;
@@ -200,7 +200,7 @@ export function ChannelsView() {
       })
     );
     const target = channels.find((c) => c.id === channelId);
-    const brandName = target ? BRANDS_DATA[target.brandId]?.name : 'Brand';
+    const brandName = target ? getBrandMeta(target.brandId, brands).name : 'Brand';
     addToast({
       type: 'success',
       message: `${brandName} ${target ? NETWORK_METAS[target.net]?.name : ''} reconnected · access token renewed.`,
@@ -260,7 +260,7 @@ export function ChannelsView() {
       if (filter === 'paused' && c.postingEnabled) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const brand = BRANDS_DATA[c.brandId]?.name?.toLowerCase() || '';
+        const brand = getBrandMeta(c.brandId, brands).name.toLowerCase();
         const netName = NETWORK_METAS[c.net]?.name?.toLowerCase() || '';
         return c.handle.toLowerCase().includes(q) || brand.includes(q) || netName.includes(q);
       }
@@ -309,21 +309,17 @@ export function ChannelsView() {
     return map;
   }, [scopedChannels]);
 
-  // Merge static demo brands + any custom brands created by user in authStore
+  // Dynamically resolve all brands from user's authStore
   const allKnownBrands = useMemo(() => {
-    const staticList = Object.values(BRANDS_DATA);
-    const customList: BrandMeta[] = (brands || [])
-      .filter((b) => !staticList.some((sb) => matchesBrand(sb.id, b.id, brands)))
-      .map((b) => ({
-        id: b.id,
-        name: b.name,
-        short: b.name.split(' ')[0] || b.name,
-        industry: b.description || 'Client brand',
-        tone: 'pine' as const,
-        monogram: (b.name.slice(0, 2) || 'BR').toUpperCase(),
-        cover: b.logoUrl || '/murmura/photos/murmura/posts/ember-roastery.jpg',
-      }));
-    return [...staticList, ...customList];
+    return (brands || []).map((b) => ({
+      id: b.id,
+      name: b.name,
+      short: b.name.split(' ')[0] || b.name,
+      industry: b.description || 'Client brand',
+      tone: 'pine' as const,
+      monogram: (b.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2) || 'BR').toUpperCase(),
+      cover: b.logoUrl || '/images/bakery.jpg',
+    }));
   }, [brands]);
 
   // Group by brand
@@ -485,7 +481,7 @@ export function ChannelsView() {
 
                 <ul className="ch-alert__list">
                   {brokenChannels.map((c) => {
-                    const bm = BRANDS_DATA[c.brandId] || BRANDS_DATA.ember;
+                    const bm = getBrandMeta(c.brandId, brands);
                     const isDis = c.status === 'disconnected';
                     return (
                       <li key={`a-${c.id}`}>

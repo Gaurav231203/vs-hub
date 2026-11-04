@@ -42,6 +42,44 @@ export function getActiveBrand(selectedBrandId: string | undefined | null, brand
   return null;
 }
 
+export interface ResolvedBrandMeta {
+  id: string;
+  name: string;
+  short: string;
+  monogram: string;
+  tone: 'coral' | 'butter' | 'ink' | 'pine' | 'sea';
+  color: string;
+}
+
+export function getBrandMeta(
+  brandId: string | undefined | null,
+  brands: BrandInfo[] = []
+): ResolvedBrandMeta {
+  const brand = brands.find(
+    (b) =>
+      b.id === brandId ||
+      (brandId && (b.name.toLowerCase() === brandId.toLowerCase() || b.id.toLowerCase() === brandId.toLowerCase()))
+  );
+
+  const name = brand?.name || 'Brand';
+  const monogram = (name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2) || 'BR').toUpperCase();
+  const tones: Array<'coral' | 'butter' | 'ink' | 'pine' | 'sea'> = ['pine', 'sea', 'coral', 'butter', 'ink'];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const tone = tones[Math.abs(hash) % tones.length];
+
+  return {
+    id: brand?.id || brandId || 'brand',
+    name,
+    short: name.split(' ')[0] || name,
+    monogram,
+    tone,
+    color: brand?.color || 'var(--pine)',
+  };
+}
+
 /**
  * Checks whether an item's brand identifier matches the selectedBrandId.
  * Always returns true if selectedBrandId is 'all' or falsy.

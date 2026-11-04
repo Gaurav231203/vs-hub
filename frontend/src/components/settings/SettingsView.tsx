@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../lib/api.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useToastStore } from '../../stores/toastStore.js';
+import { getBrandMeta } from '../../lib/brandHelper.js';
 
 export function SettingsView() {
   const queryClient = useQueryClient();
@@ -1230,20 +1231,20 @@ export function SettingsView() {
                       <span>Brands you can see</span>
                     </h3>
                     <div className="st-access__brands">
-                      {[
-                        { code: 'EO', name: 'Ember & Oak', color: '#e06b53' },
-                        { code: 'NS', name: 'VS Adda Agency', color: '#3b82f6' },
-                      ].map((b) => (
-                        <span key={b.code} className="bchip">
-                          <span
-                            className="bmark bmark--xs"
-                            style={{ backgroundColor: b.color, color: '#fff' }}
-                          >
-                            {b.code}
+                      {(brands || []).map((b) => {
+                        const bm = getBrandMeta(b.id, brands);
+                        return (
+                          <span key={b.id} className="bchip">
+                            <span
+                              className="bmark bmark--xs"
+                              style={{ backgroundColor: bm.color, color: '#fff' }}
+                            >
+                              {bm.monogram}
+                            </span>
+                            {bm.name}
                           </span>
-                          {b.name}
-                        </span>
-                      ))}
+                        );
+                      })}
                     </div>
                     <p className="card__sub">
                       Every brand, including new ones. You publish without approval.

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, getApiAccessToken } from '../../lib/api.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useToastStore } from '../../stores/toastStore.js';
-import { matchesBrand, getBrandCanonicalSlug } from '../../lib/brandHelper.js';
+import { matchesBrand, getBrandCanonicalSlug, getBrandMeta } from '../../lib/brandHelper.js';
 
 interface BrandMeta {
   id: string;
@@ -279,7 +279,7 @@ export function LibraryView() {
       // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const brandName = BRAND_METAS[photo.brandId]?.name?.toLowerCase() || '';
+        const brandName = getBrandMeta(photo.brandId, brands).name.toLowerCase();
         const haystack = `${photo.title} ${photo.tags.join(' ')} ${brandName}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
@@ -603,19 +603,22 @@ export function LibraryView() {
               >
                 All
               </button>
-              {Object.values(BRAND_METAS).map((bm) => (
-                <button
-                  key={bm.id}
-                  type="button"
-                  className="chip lb-bchip"
-                  aria-pressed={selectedBrand === bm.id || (selectedBrand !== 'all' && matchesBrand(bm.id, selectedBrand, brands))}
-                  onClick={() => handleBrandSelect(bm.id)}
-                  title={bm.name}
-                >
-                  <span className={`bmark bmark--xs tone--${bm.tone}`}>{bm.monogram}</span>
-                  <span>{bm.short}</span>
-                </button>
-              ))}
+              {brands.map((b) => {
+                const bm = getBrandMeta(b.id, brands);
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    className="chip lb-bchip"
+                    aria-pressed={selectedBrand === b.id || (selectedBrand !== 'all' && matchesBrand(b.id, selectedBrand, brands))}
+                    onClick={() => handleBrandSelect(b.id)}
+                    title={b.name}
+                  >
+                    <span className={`bmark bmark--xs tone--${bm.tone}`}>{bm.monogram}</span>
+                    <span>{bm.short}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <span className="toolbar__spacer" />
@@ -794,7 +797,7 @@ export function LibraryView() {
 
               {/* Authentic Photo Cards */}
               {filteredPhotos.map((photo) => {
-                const bm = BRAND_METAS[photo.brandId] || BRAND_METAS.hollow;
+                const bm = getBrandMeta(photo.brandId, brands);
                 const isSelected = selectedPhotos.has(photo.id);
                 const spanRows = spans[photo.id] || Math.max(14, Math.ceil((220 * (photo.h / photo.w) + 14) / 4));
 
@@ -968,7 +971,7 @@ export function LibraryView() {
             {templates
               .filter((tpl) => selectedBrand === 'all' || !tpl.brandId || matchesBrand(tpl.brandId, selectedBrand, brands))
               .map((tpl) => {
-                const bm = tpl.brandId ? BRAND_METAS[tpl.brandId] : null;
+                const bm = tpl.brandId ? getBrandMeta(tpl.brandId, brands) : null;
                 const blanks = Array.from(new Set(Array.from(tpl.text.matchAll(/\{([^{}\n]{1,30})\}/g)).map((m) => m[1])));
 
                 const renderHighlightedText = (text: string) => {
@@ -1103,7 +1106,7 @@ export function LibraryView() {
             {hashtagSets
               .filter((hs) => selectedBrand === 'all' || matchesBrand(hs.brandId, selectedBrand, brands))
               .map((hs) => {
-                const bm = BRAND_METAS[hs.brandId] || BRAND_METAS.ember;
+                const bm = getBrandMeta(hs.brandId, brands);
                 return (
                   <article key={hs.id} className="card lb-set" data-lift>
                     <header className="lb-set__head">
@@ -1373,10 +1376,17 @@ export function LibraryView() {
                 </h2>
                 <p className="lb-dr__meta">
                   <span className="bchip">
-                    <span className={`bmark bmark--xs tone--${BRAND_METAS[drawerPhoto.brandId]?.tone || 'coral'}`}>
-                      {BRAND_METAS[drawerPhoto.brandId]?.monogram || 'EO'}
-                    </span>
-                    <span>{BRAND_METAS[drawerPhoto.brandId]?.name}</span>
+                    {(() => {
+                      const bm = getBrandMeta(drawerPhoto.brandId, brands);
+                      return (
+                        <>
+                          <span className={`bmark bmark--xs tone--${bm.tone}`}>
+                            {bm.monogram}
+                          </span>
+                          <span>{bm.name}</span>
+                        </>
+                      );
+                    })()}
                   </span>
                   <span>
                     {drawerPhoto.w} × {drawerPhoto.h}
@@ -1441,7 +1451,7 @@ export function LibraryView() {
                 <label className="field">
                   <span className="field__label">Brand</span>
                   <select name="brandId" defaultValue={drawerPhoto.brandId}>
-                    {Object.values(BRAND_METAS).map((b) => (
+                    {brands.map((b) => (
                       <option key={b.id} value={b.id}>
                         {b.name}
                       </option>
@@ -1473,9 +1483,14 @@ export function LibraryView() {
                           className="lb-dr__post"
                           onClick={() => navigate('/compose', { state: { text: post.caption, brandId: drawerPhoto.brandId, media: [drawerPhoto.src] } })}
                         >
-                          <span className={`bmark bmark--sm tone--${BRAND_METAS[drawerPhoto.brandId]?.tone || 'coral'}`}>
-                            {BRAND_METAS[drawerPhoto.brandId]?.monogram || 'EO'}
-                          </span>
+                          {(() => {
+                            const bm = getBrandMeta(drawerPhoto.brandId, brands);
+                            return (
+                              <span className={`bmark bmark--sm tone--${bm.tone}`}>
+                                {bm.monogram}
+                              </span>
+                            );
+                          })()}
                           <span>
                             <b>{post.caption || 'Untitled Post'}</b>
                             <small>
@@ -1502,9 +1517,14 @@ export function LibraryView() {
                           className="lb-dr__post"
                           onClick={() => navigate('/compose', { state: { text: post.text, brandId: post.brandId, media: [drawerPhoto.src] } })}
                         >
-                          <span className={`bmark bmark--sm tone--${BRAND_METAS[post.brandId]?.tone || 'coral'}`}>
-                            {BRAND_METAS[post.brandId]?.monogram || 'EO'}
-                          </span>
+                          {(() => {
+                            const bm = getBrandMeta(post.brandId, brands);
+                            return (
+                              <span className={`bmark bmark--sm tone--${bm.tone}`}>
+                                {bm.monogram}
+                              </span>
+                            );
+                          })()}
                           <span>
                             <b>{post.text}</b>
                             <small>{post.at} · {post.networks.join(', ')}</small>
@@ -1677,7 +1697,7 @@ export function LibraryView() {
                     <span className="field__label">Brand</span>
                     <select name="tplBrand" defaultValue={editingTemplate?.brandId || ''}>
                       <option value="">Every brand</option>
-                      {Object.values(BRAND_METAS).map((b) => (
+                      {brands.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name}
                         </option>
@@ -1815,8 +1835,8 @@ export function LibraryView() {
                   </label>
                   <label className="field">
                     <span className="field__label">Brand</span>
-                    <select name="hsBrand" defaultValue={editingHashtag?.brandId || 'ember'}>
-                      {Object.values(BRAND_METAS).map((b) => (
+                    <select name="hsBrand" defaultValue={editingHashtag?.brandId || brands[0]?.id || ''}>
+                      {brands.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name}
                         </option>

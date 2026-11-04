@@ -417,11 +417,9 @@ export function CalendarView() {
                 Oct 26 – Nov 1, 2026
               </h2>
               <p className="card__sub">
-                {isHollowHome
-                  ? '4 posts · 1 brand'
-                  : isBrandFiltered
+                {isBrandFiltered
                   ? `${visiblePosts.length} posts · 1 brand`
-                  : '22 posts · 5 brands'}
+                  : `${visiblePosts.length} posts · ${brands.length} brand${brands.length === 1 ? '' : 's'}`}
               </p>
             </div>
             <div className="cl-cal__tools">

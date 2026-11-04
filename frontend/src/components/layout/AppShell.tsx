@@ -12,6 +12,7 @@ import { SocialOAuthModal, OAuthNetwork } from '../channels/SocialOAuthModal.js'
 import { apiFetch } from '../../lib/api.js';
 import { CheckCircle2, AlertTriangle, KeyRound, TrendingUp, Smartphone } from 'lucide-react';
 import { ManualPublishModal, ManualPublishPost } from '../common/ManualPublishModal.js';
+import { ErrorBoundary } from '../common/ErrorBoundary.js';
 
 const getBrandMonogram = (name: string) => {
   const parts = name.trim().split(/\s+/);
@@ -48,52 +49,12 @@ export function AppShell() {
   const [manualPostForModal, setManualPostForModal] = useState<ManualPublishPost | null>(null);
   const [notifications, setNotifications] = useState([
     {
-      id: 'notif-manual-1',
-      title: '⏰ Ready to post: Ember & Oak (Instagram Story & Reel)',
-      time: 'Just now',
-      unread: true,
-      link: '#manual-post',
-      icon: 'smartphone',
-      postData: {
-        id: 'post-manual-sample',
-        caption: 'The weekend roast is live. Stop by the roastery or order our single-origin whole bean collection online. Link in bio! ☕✨\n\n#specialtycoffee #emberandoak #coffeeroasters #artisan',
-        firstComment: 'Worldwide shipping available! Use code WEEKENDROAST for 10% off.',
-        mediaUrls: ['https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&auto=format&fit=crop&q=80'],
-        brand: { name: 'Ember & Oak', color: '#c43c30' },
-        channels: [{ network: 'INSTAGRAM', handle: '@emberandoak' }, { network: 'TIKTOK', handle: '@emberandoak' }],
-      },
-    },
-    {
-      id: 'notif-1',
-      title: '5 posts are waiting for your approval',
-      time: '48 min ago',
-      unread: true,
-      link: '/approvals',
-      icon: 'check',
-    },
-    {
-      id: 'notif-2',
-      title: 'Channel connection verified',
-      time: '2 h ago',
-      unread: true,
-      link: '/channels',
-      icon: 'disconnect',
-    },
-    {
       id: 'notif-3',
       title: 'Workspace ready',
-      time: '5 h ago',
-      unread: true,
+      time: 'Just now',
+      unread: false,
       link: '/channels',
       icon: 'key',
-    },
-    {
-      id: 'notif-4',
-      title: 'Analytics report ready',
-      time: '1 d ago',
-      unread: false,
-      link: '/analytics',
-      icon: 'trending',
     },
   ]);
   const unreadNotifCount = notifications.filter((n) => n.unread).length;
@@ -1608,7 +1569,9 @@ export function AppShell() {
       {/* Main Outlet */}
       <main id="main" className="main" ref={mainRef}>
         <section key={location.pathname} className="view" data-view={currentView}>
-          <Outlet context={{ selectedBrandId, setSelectedBrandId }} />
+          <ErrorBoundary fallbackTitle="Could not load this page">
+            <Outlet context={{ selectedBrandId, setSelectedBrandId }} />
+          </ErrorBoundary>
         </section>
       </main>
 

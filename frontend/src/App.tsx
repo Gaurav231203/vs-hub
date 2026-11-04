@@ -21,6 +21,7 @@ import { SettingsView } from './components/settings/SettingsView.js';
 import { ToastContainer } from './components/common/ToastContainer.js';
 import { CommandPalette } from './components/common/CommandPalette.js';
 import { SmoothScrollProvider } from './components/common/SmoothScrollProvider.js';
+import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -106,14 +107,16 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <SmoothScrollProvider>
-          <AppRoutes />
-          <ToastContainer />
-          <CommandPalette />
-        </SmoothScrollProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ErrorBoundary fallbackTitle="VS Adda encountered an unexpected error">
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <SmoothScrollProvider>
+            <AppRoutes />
+            <ToastContainer />
+            <CommandPalette />
+          </SmoothScrollProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

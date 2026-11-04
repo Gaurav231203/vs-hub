@@ -146,7 +146,7 @@ export class StorageService {
     }
 
     // Local Test / Development Provider Fallback (with HMAC signature)
-    const apiUrl = (process.env.API_URL || 'http://localhost:4000').replace(/\/$/, '');
+    const apiUrl = (process.env.API_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:4000').replace(/\/$/, '');
     const expires = Date.now() + expiresInSeconds * 1000;
     const signingKey = process.env.COOKIE_SECRET || process.env.JWT_ACCESS_SECRET || 'local-storage-secret';
     const sig = crypto.createHmac('sha256', signingKey).update(`${key}:${expires}`).digest('hex');
