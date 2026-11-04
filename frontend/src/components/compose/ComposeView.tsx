@@ -64,49 +64,8 @@ interface ChannelItem {
   postingEnabled?: boolean;
 }
 
-const ACME_CORP_CHANNELS: ChannelItem[] = [
-  { id: 'ch-acme-li', network: 'LINKEDIN', networkTitle: 'LinkedIn', handle: 'acme-corp-global', followers: 42800, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-acme-x', network: 'X', networkTitle: 'X', handle: 'AcmeHQ', followers: 28400, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-acme-ig', network: 'INSTAGRAM', networkTitle: 'Instagram', handle: 'acmecorp_official', followers: 18500, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-acme-fb', network: 'FACEBOOK', networkTitle: 'Facebook', handle: 'Acme Corporation', followers: 35000, status: 'CONNECTED', postingEnabled: true },
-];
+const DEFAULT_CHANNELS: ChannelItem[] = [];
 
-const HOLLOW_HOME_CHANNELS: ChannelItem[] = [
-  { id: 'ch-hh-ig', network: 'INSTAGRAM', networkTitle: 'Instagram', handle: '@hollowhome', followers: 248400, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-hh-pin', network: 'PINTEREST', networkTitle: 'Pinterest', handle: '@hollowhome', followers: 110200, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-hh-fb', network: 'FACEBOOK', networkTitle: 'Facebook', handle: 'Hollow Home', followers: 74500, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-hh-yt', network: 'YOUTUBE', networkTitle: 'YouTube', handle: 'Hollow Home', followers: 148500, status: 'CONNECTED', postingEnabled: true },
-];
-
-const VANTAGE_GARAGE_CHANNELS: ChannelItem[] = [
-  { id: 'ch-vg-ig', network: 'INSTAGRAM', networkTitle: 'Instagram', handle: '@vantagegarage', followers: 154200, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-vg-fb', network: 'FACEBOOK', networkTitle: 'Facebook', handle: 'Vantage Garage', followers: 82000, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-vg-yt', network: 'YOUTUBE', networkTitle: 'YouTube', handle: 'Vantage Garage', followers: 210000, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-vg-tt', network: 'TIKTOK', networkTitle: 'TikTok', handle: '@vantagegarage', followers: 98000, status: 'CONNECTED', postingEnabled: true },
-];
-
-const NEXUS_TECH_CHANNELS: ChannelItem[] = [
-  { id: 'ch-nx-x', network: 'X', networkTitle: 'X', handle: 'NexusTechAI', followers: 154000, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-nx-li', network: 'LINKEDIN', networkTitle: 'LinkedIn', handle: 'nexus-technologies', followers: 89000, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-nx-yt', network: 'YOUTUBE', networkTitle: 'YouTube', handle: 'NexusTechOfficial', followers: 210000, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-nx-tt', network: 'TIKTOK', networkTitle: 'TikTok', handle: 'nexustech', followers: 75000, status: 'CONNECTED', postingEnabled: true },
-];
-
-const STARLIGHT_BAKERY_CHANNELS: ChannelItem[] = [
-  { id: 'ch-sb-ig', network: 'INSTAGRAM', networkTitle: 'Instagram', handle: 'starlight_bakes', followers: 64200, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-sb-fb', network: 'FACEBOOK', networkTitle: 'Facebook', handle: 'StarlightBakeryShop', followers: 23100, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-sb-tt', network: 'TIKTOK', networkTitle: 'TikTok', handle: 'starlightbakery', followers: 98400, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-sb-pin', network: 'PINTEREST', networkTitle: 'Pinterest', handle: 'starlightbakery', followers: 45000, status: 'CONNECTED', postingEnabled: true },
-];
-
-const ZENITH_FITNESS_CHANNELS: ChannelItem[] = [
-  { id: 'ch-zf-ig', network: 'INSTAGRAM', networkTitle: 'Instagram', handle: 'zenith_fitclub', followers: 51200, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-zf-th', network: 'THREADS', networkTitle: 'Threads', handle: 'zenithfit', followers: 12400, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-zf-tt', network: 'TIKTOK', networkTitle: 'TikTok', handle: 'zenith_workouts', followers: 77900, status: 'CONNECTED', postingEnabled: true },
-  { id: 'ch-zf-yt', network: 'YOUTUBE', networkTitle: 'YouTube', handle: 'Zenith Fitness', followers: 92000, status: 'CONNECTED', postingEnabled: true },
-];
-
-const DEFAULT_CHANNELS: ChannelItem[] = ACME_CORP_CHANNELS;
 
 const NETWORK_LIMITS: Record<string, number> = {
   INSTAGRAM: 2200,
@@ -162,15 +121,7 @@ export function ComposeView() {
 
   const brandNameLower = (activeBrand?.name || '').toLowerCase();
   const isHollowHome = brandNameLower.includes('hollow') || selectedBrandId === 'b_hh';
-  const defaultBrandChannels = useMemo(() => {
-    if (brandNameLower.includes('acme')) return ACME_CORP_CHANNELS;
-    if (brandNameLower.includes('hollow')) return HOLLOW_HOME_CHANNELS;
-    if (brandNameLower.includes('vantage')) return VANTAGE_GARAGE_CHANNELS;
-    if (brandNameLower.includes('nexus')) return NEXUS_TECH_CHANNELS;
-    if (brandNameLower.includes('starlight')) return STARLIGHT_BAKERY_CHANNELS;
-    if (brandNameLower.includes('zenith')) return ZENITH_FITNESS_CHANNELS;
-    return ACME_CORP_CHANNELS;
-  }, [brandNameLower]);
+  const defaultBrandChannels: ChannelItem[] = useMemo(() => [], []);
 
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>(defaultBrandChannels.map((c) => c.id));
   const [caption, setCaption] = useState('');
@@ -464,7 +415,7 @@ export function ComposeView() {
 
   const handleAiAssist = () => {
     const suggestions = [
-      "Crafted with precision, delivered with intent. Discover what's new at Ember & Oak.",
+      "Crafted with precision, delivered with intent. Discover what's new at your brand.",
       "A season of bold vision and timeless design. Explore our latest pieces in-store and online.",
       "Details that matter. Form that endures. Experience the new collection today.",
     ];
@@ -1245,7 +1196,7 @@ export function ComposeView() {
                   </span>
                   <span className="cm-brand__t">
                     <small>Brand</small>
-                    <span className="cm-brand__n">{activeBrand?.name || 'Hollow Home'}</span>
+                    <span className="cm-brand__n">{activeBrand?.name || 'your brand'}</span>
                   </span>
                   <ChevronDown className="ico" />
                 </button>
@@ -1419,7 +1370,7 @@ export function ComposeView() {
               rows={7}
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
-              placeholder={`What’s new at ${activeBrand?.name || 'Ember & Oak'}? Write once — Murmura fits it to every network.`}
+              placeholder={`What’s new at ${activeBrand?.name || 'your brand'}? Write once — Murmura fits it to every network.`}
             />
 
             {/* Attached Media Strip */}
@@ -1483,7 +1434,7 @@ export function ComposeView() {
                 className="cm-tool btn"
                 onClick={() =>
                   setCaption(
-                    'Precision in every contour. Discover the latest editorial drop at Ember & Oak — live now.'
+                    'Precision in every contour. Discover the latest editorial drop at your brand — live now.'
                   )
                 }
               >
@@ -1856,7 +1807,7 @@ export function ComposeView() {
               <span>12a</span>
             </div>
             <p className="cm-day__note">
-              {isHollowHome ? '1 other post from Hollow Home that day, none close to this one' : `2 other posts from ${activeBrand?.name || 'Ember & Oak'} that day, none close to this one`}
+              {isHollowHome ? '1 other post from your brand that day, none close to this one' : `2 other posts from ${activeBrand?.name || 'your brand'} that day, none close to this one`}
             </p>
           </div>
 

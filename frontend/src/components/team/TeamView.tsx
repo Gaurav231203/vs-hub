@@ -275,18 +275,7 @@ interface AuditItem {
   at: string;
 }
 
-const INITIAL_AUDIT_LOGS: AuditItem[] = [
-  { id: 'au1', whoId: 'm-elise', whoName: 'Elise Marchand', kind: 'approval', text: 'approved “New harvest from Huila…” for Ember & Oak', at: '18m ago' },
-  { id: 'au2', whoId: 'm-malik', whoName: 'Malik Johnson', kind: 'channel', text: 'reconnected Hollow Home on Pinterest', at: '2h ago' },
-  { id: 'au3', whoId: 'm-haruto', whoName: 'Haruto Sato', kind: 'approval', text: 'requested changes on a Vantage Garage post', at: '6h ago' },
-  { id: 'au4', whoId: 'm-camila', whoName: 'Camila Ortiz', kind: 'team', text: 'invited Sara Whitfield as Editor', at: '1d ago' },
-  { id: 'au5', whoId: 'm-malik', whoName: 'Malik Johnson', kind: 'role', text: 'gave Community the “Assign conversations” permission', at: '1d ago' },
-  { id: 'au6', whoId: 'm-omar', whoName: 'Omar Saleh', kind: 'post', text: 'scheduled 3 posts for Vantage Garage', at: '2d ago' },
-  { id: 'au7', whoId: 'm-ines', whoName: 'Ines Duarte', kind: 'inbox', text: 'closed 14 conversations across brands', at: '2d ago' },
-  { id: 'au8', whoId: 'm-camila', whoName: 'Camila Ortiz', kind: 'settings', text: 'turned on two-factor requirement review', at: '3d ago' },
-  { id: 'au9', whoId: 'm-lin', whoName: 'Lin Zhao', kind: 'post', text: 'exported the monthly agency performance report', at: '3d ago' },
-  { id: 'au10', whoId: 'm-malik', whoName: 'Malik Johnson', kind: 'auth', text: 'signed in from a recognized device in Lisbon', at: '4d ago' },
-];
+const INITIAL_AUDIT_LOGS: AuditItem[] = [];
 
 export function TeamView() {
   const queryClient = useQueryClient();

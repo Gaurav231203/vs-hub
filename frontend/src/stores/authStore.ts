@@ -29,13 +29,7 @@ export interface BrandInfo {
   logoUrl?: string;
 }
 
-export const DEFAULT_FALLBACK_BRANDS: BrandInfo[] = [
-  { id: 'b_hh', name: 'Hollow Home', color: '#f2b740', description: 'Nordic interior design & handcrafted furniture' },
-  { id: 'b_vg', name: 'Vantage Garage', color: '#4F46E5', description: 'High-performance automotive & motorsport' },
-  { id: 'b_eo', name: 'Ember & Oak', color: '#e06b53', description: 'Artisanal homeware & lifestyle' },
-  { id: 'b_wb', name: 'Wildroot Botanics', color: '#2d7a5b', description: 'Natural skincare and plant organics' },
-  { id: 'b_ns', name: 'Northlight Studio', color: '#3b82f6', description: 'Creative direction and architectural design' },
-];
+export const DEFAULT_FALLBACK_BRANDS: BrandInfo[] = [];
 
 interface AuthState {
   user: UserProfile | null;
@@ -64,8 +58,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   workspace: null,
   role: null,
   permissions: [],
-  brands: DEFAULT_FALLBACK_BRANDS,
-  brandIds: DEFAULT_FALLBACK_BRANDS.map(b => b.id),
+  brands: [],
+  brandIds: [],
   selectedBrandId: typeof window !== 'undefined' ? (localStorage.getItem('vsadda_selected_brand') || 'all') : 'all',
   accessToken: null,
   isInitialized: false,
@@ -116,16 +110,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       const me = await apiFetch('/me');
-      const loadedBrands = (me.brands && me.brands.length > 0) ? me.brands : DEFAULT_FALLBACK_BRANDS;
-      const hasHollowHome = loadedBrands.some((b: BrandInfo) => b.name.toLowerCase().includes('hollow'));
-      const finalBrands = hasHollowHome ? loadedBrands : [DEFAULT_FALLBACK_BRANDS[0], ...loadedBrands];
+      const loadedBrands: BrandInfo[] = me.brands || [];
       set({
         user: me.user,
         workspace: me.workspace,
         role: me.role,
         permissions: me.permissions,
-        brands: finalBrands,
-        brandIds: finalBrands.map((b: BrandInfo) => b.id),
+        brands: loadedBrands,
+        brandIds: loadedBrands.map((b: BrandInfo) => b.id),
         isLoading: false,
         isInitialized: true,
       });
@@ -136,8 +128,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         workspace: null,
         role: null,
         permissions: [],
-        brands: DEFAULT_FALLBACK_BRANDS,
-        brandIds: DEFAULT_FALLBACK_BRANDS.map((b) => b.id),
+        brands: [],
+        brandIds: [],
         accessToken: null,
         isLoading: false,
         isInitialized: true,
@@ -156,7 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       if (!res.ok) {
-        set({ isLoading: false, isInitialized: true, brands: DEFAULT_FALLBACK_BRANDS });
+        set({ isLoading: false, isInitialized: true, brands: [] });
         return false;
       }
 
@@ -165,16 +157,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ accessToken });
 
       const me = await apiFetch('/me');
-      const loadedBrands = (me.brands && me.brands.length > 0) ? me.brands : DEFAULT_FALLBACK_BRANDS;
-      const hasHollowHome = loadedBrands.some((b: BrandInfo) => b.name.toLowerCase().includes('hollow'));
-      const finalBrands = hasHollowHome ? loadedBrands : [DEFAULT_FALLBACK_BRANDS[0], ...loadedBrands];
+      const loadedBrands: BrandInfo[] = me.brands || [];
       set({
         user: me.user,
         workspace: me.workspace,
         role: me.role,
         permissions: me.permissions,
-        brands: finalBrands,
-        brandIds: finalBrands.map((b: BrandInfo) => b.id),
+        brands: loadedBrands,
+        brandIds: loadedBrands.map((b: BrandInfo) => b.id),
         isLoading: false,
         isInitialized: true,
       });
@@ -186,8 +176,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         workspace: null,
         role: null,
         permissions: [],
-        brands: DEFAULT_FALLBACK_BRANDS,
-        brandIds: DEFAULT_FALLBACK_BRANDS.map((b) => b.id),
+        brands: [],
+        brandIds: [],
         accessToken: null,
         isLoading: false,
         isInitialized: true,

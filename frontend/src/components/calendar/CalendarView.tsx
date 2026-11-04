@@ -151,193 +151,15 @@ function SvgIcon({ name, className = 'ico' }: { name: string; className?: string
   }
 }
 
-// Default Authentic Murmura Campaigns
-const MURMURA_CAMPAIGNS = [
-  { id: 'cp0', name: 'Autumn Pastry Fest', brand: 'SB', brandName: 'Starlight Bakery', tone: 'coral', startCol: 2, endCol: 9, row: 1, endLabel: 'until Nov 10' },
-  { id: 'cp1', name: 'Spring Ritual launch', brand: 'WB', brandName: 'Wildroot Botanics', tone: 'pine', startCol: 2, endCol: 9, row: 2, endLabel: 'until Nov 4' },
-  { id: 'cp2', name: 'Autumn harvest', brand: 'EO', brandName: 'Ember & Oak', tone: 'coral', startCol: 2, endCol: 9, row: 3, endLabel: 'until Nov 15' },
-  { id: 'cp3', name: 'November bookings', brand: 'VG', brandName: 'Vantage Garage', tone: 'ink', startCol: 2, endCol: 9, row: 4, endLabel: 'until Nov 9' },
-  { id: 'cp4', name: 'Autumn collection', brand: 'HH', brandName: 'Hollow Home', tone: 'butter', startCol: 2, endCol: 9, row: 5, endLabel: 'until Nov 19' },
-];
+// Campaigns
+const MURMURA_CAMPAIGNS: any[] = [];
+const NETWORK_METRICS: any[] = [];
 
 // Default Scheduled Posts for Oct 26 - Nov 1
-const DEFAULT_CALENDAR_POSTS = [
-  {
-    id: 'p-1',
-    dayIndex: 0, // Monday 26
-    timeStr: '8:30 AM',
-    topHour: 2.5,
-    lane: 0,
-    lanes: 1,
-    title: 'Booking for...',
-    brand: 'VG',
-    tone: 'coral',
-    status: 'failed',
-    net: 'facebook',
-    thumb: '/photos/vantage-lift-sm.jpg',
-    warn: true,
-  },
-  {
-    id: 'p-2',
-    dayIndex: 1, // Tuesday 27
-    timeStr: '9:00 AM',
-    topHour: 3.0,
-    lane: 0,
-    lanes: 2,
-    title: 'New origin release...',
-    brand: 'EO',
-    tone: 'butter',
-    status: 'pending',
-    net: 'instagram',
-  },
-  {
-    id: 'p-3',
-    dayIndex: 1,
-    timeStr: '9:30 AM',
-    topHour: 3.5,
-    lane: 1,
-    lanes: 2,
-    title: 'Slow morning pour...',
-    brand: 'EO',
-    tone: 'sea',
-    status: 'scheduled',
-    net: 'threads',
-  },
-  {
-    id: 'p-4',
-    dayIndex: 1,
-    timeStr: '10:00 AM',
-    topHour: 4.0,
-    lane: 0,
-    lanes: 1,
-    title: 'Oak blend returns...',
-    brand: 'EO',
-    tone: 'butter',
-    status: 'pending',
-    net: 'instagram',
-  },
-  {
-    id: 'p-5',
-    dayIndex: 5, // Saturday 31
-    timeStr: '9:00 AM',
-    topHour: 3.0,
-    lane: 0,
-    lanes: 1,
-    title: 'Meet calen...',
-    brand: 'WB',
-    tone: 'coral',
-    status: 'scheduled',
-    net: 'tiktok',
-    thumb: '/photos/wild-daisy-sm.jpg',
-  },
-  {
-    id: 'p-6',
-    dayIndex: 6, // Sunday 1
-    timeStr: '9:00 AM',
-    topHour: 3.0,
-    lane: 0,
-    lanes: 2,
-    title: 'Weekend ritual...',
-    brand: 'EO',
-    tone: 'sea',
-    status: 'scheduled',
-    net: 'instagram',
-  },
-  {
-    id: 'p-7',
-    dayIndex: 6,
-    timeStr: '9:30 AM',
-    topHour: 3.5,
-    lane: 1,
-    lanes: 2,
-    title: 'Autumn drop list...',
-    brand: 'HH',
-    tone: 'sea',
-    status: 'scheduled',
-    net: 'pinterest',
-  },
-];
-
-const HOLLOW_HOME_CALENDAR_POSTS = [
-  {
-    id: 'p-hh-1',
-    dayIndex: 0, // Monday 26
-    timeStr: '8:45 AM',
-    topHour: 2.75,
-    lane: 0,
-    lanes: 1,
-    title: 'The Låg so..',
-    brand: 'HH',
-    tone: 'sea',
-    status: 'scheduled',
-    net: 'instagram',
-    nets: ['instagram', 'pinterest', 'facebook', 'youtube'],
-    thumb: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=300&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'p-hh-2',
-    dayIndex: 4, // Friday 30
-    timeStr: '10:00 AM',
-    topHour: 4.0,
-    lane: 0,
-    lanes: 1,
-    title: 'New in: the..',
-    brand: 'HH',
-    tone: 'butter',
-    status: 'pending',
-    net: 'instagram',
-    nets: ['instagram', 'pinterest'],
-    thumb: 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=300&auto=format&fit=crop&q=80',
-  },
-];
-
-// Unscheduled Drafts Data
-const DEFAULT_DRAFTS = [
-  {
-    id: 'dr-1',
-    brand: 'EO',
-    tone: 'coral',
-    title: 'Draft: winter subscription tea...',
-    author: 'Nia',
-    scheduledText: 'pencilled Sun, Nov 1, 10:00 AM',
-  },
-  {
-    id: 'dr-2',
-    brand: 'HH',
-    tone: 'butter',
-    title: 'Pinterest board idea: “one roo...',
-    author: 'Haruto',
-    scheduledText: 'pencilled Tue, Nov 3, 10:00 AM',
-  },
-  {
-    id: 'dr-3',
-    brand: 'VG',
-    tone: 'ink',
-    title: 'Reel script: 60 seconds of foa...',
-    author: 'Omar',
-    scheduledText: 'pencilled Thu, Nov 5, 10:00 AM',
-  },
-  {
-    id: 'dr-4',
-    brand: 'WB',
-    tone: 'pine',
-    title: 'Ingredient spotlight series — ...',
-    author: 'Elise',
-    scheduledText: 'pencilled Sat, Nov 7, 10:00 AM',
-  },
-];
-
-// Network Breakdown Data
-const NETWORK_METRICS = [
-  { net: 'instagram', name: 'Instagram', count: 20, pct: 1.0 },
-  { net: 'tiktok', name: 'TikTok', count: 10, pct: 0.5 },
-  { net: 'facebook', name: 'Facebook', count: 8, pct: 0.4 },
-  { net: 'pinterest', name: 'Pinterest', count: 5, pct: 0.25 },
-  { net: 'youtube', name: 'YouTube', count: 5, pct: 0.25 },
-  { net: 'threads', name: 'Threads', count: 4, pct: 0.2 },
-  { net: 'x', name: 'X', count: 3, pct: 0.15 },
-  { net: 'linkedin', name: 'LinkedIn', count: 2, pct: 0.1 },
-];
+const DEFAULT_CALENDAR_POSTS: any[] = [];
+const DEFAULT_DRAFTS: any[] = [];
+const HOLLOW_HOME_CALENDAR_POSTS: any[] = [];
+const DEFAULT_CAMPAIGNS: any[] = [];
 
 export function CalendarView() {
   const navigate = useNavigate();
@@ -362,25 +184,15 @@ export function CalendarView() {
     initMagnetic(containerRef.current || document);
   }, []);
 
-  const daysOfWeek = isHollowHome
-    ? [
-        { name: 'MON', date: 26, posts: 1, label: '1 post', isToday: false },
-        { name: 'TUE', date: 27, posts: 0, label: 'Free', isToday: false },
-        { name: 'WED', date: 28, posts: 0, label: '• Gap', isToday: true },
-        { name: 'THU', date: 29, posts: 1, label: '1 post', isToday: false },
-        { name: 'FRI', date: 30, posts: 1, label: '1 post', isToday: false },
-        { name: 'SAT', date: 31, posts: 1, label: '1 post', isToday: false },
-        { name: 'SUN', date: 1, posts: 0, label: '• Gap', isToday: false },
-      ]
-    : [
-        { name: 'MON', date: 26, posts: 1, label: '1 post', isToday: true },
-        { name: 'TUE', date: 27, posts: 6, label: '6 posts', isToday: false },
-        { name: 'WED', date: 28, posts: 3, label: '3 posts', isToday: false },
-        { name: 'THU', date: 29, posts: 4, label: '4 posts', isToday: false },
-        { name: 'FRI', date: 30, posts: 2, label: '2 posts', isToday: false },
-        { name: 'SAT', date: 31, posts: 1, label: '1 post', isToday: false },
-        { name: 'SUN', date: 1, posts: 5, label: '5 posts', isToday: false },
-      ];
+  const daysOfWeek = [
+    { name: 'MON', date: 26, posts: 0, label: 'Free', isToday: true },
+    { name: 'TUE', date: 27, posts: 0, label: 'Free', isToday: false },
+    { name: 'WED', date: 28, posts: 0, label: 'Free', isToday: false },
+    { name: 'THU', date: 29, posts: 0, label: 'Free', isToday: false },
+    { name: 'FRI', date: 30, posts: 0, label: 'Free', isToday: false },
+    { name: 'SAT', date: 31, posts: 0, label: 'Free', isToday: false },
+    { name: 'SUN', date: 1, posts: 0, label: 'Free', isToday: false },
+  ];
 
   const visibleCampaigns = isBrandFiltered
     ? MURMURA_CAMPAIGNS.filter((c) => matchesBrand(c.brand, activeBrandId, brands))
@@ -398,9 +210,12 @@ export function CalendarView() {
     ? ['instagram', 'pinterest', 'facebook', 'youtube']
     : ['instagram', 'facebook', 'tiktok', 'linkedin', 'youtube', 'pinterest', 'threads', 'x'];
 
-  const statsData = isBrandFiltered
-    ? { scheduled: visiblePosts.filter((p) => p.status === 'scheduled').length || 2, awaiting: visiblePosts.filter((p) => p.status === 'pending').length || 1, published: 1, emptyDays: 3 }
-    : { scheduled: 13, awaiting: 5, published: 0, emptyDays: 2 };
+  const statsData = {
+    scheduled: visiblePosts.filter((p) => p.status === 'scheduled').length,
+    awaiting: visiblePosts.filter((p) => p.status === 'pending').length,
+    published: visiblePosts.filter((p) => p.status === 'published').length,
+    emptyDays: 0,
+  };
 
   const hours = [
     '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM',

@@ -4,6 +4,8 @@ import { tenantMiddleware } from '../../middleware/tenant.js';
 import { requirePerm } from '../../middleware/rbac.js';
 import { BrandsService } from './brands.service.js';
 import { getWebUrl } from '../../lib/urls.js';
+import { prisma } from '../../lib/prisma.js';
+import { logger } from '../../lib/logger.js';
 
 export const brandsRouter = Router();
 
@@ -108,6 +110,74 @@ brandsRouter.delete(
       const ctx = req.ctx!;
       const result = await BrandsService.deleteBrand(ctx.workspaceId, req.params.id);
       res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/brands/clean-dummy
+ * Remove all hardcoded seeded demo brands (Hollow Home, Vantage Garage, Acme, Starlight, etc.)
+ */
+brandsRouter.post(
+  '/brands/clean-dummy',
+  authenticate,
+  tenantMiddleware,
+  requirePerm('channels.manage'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const dummyNames = [
+        'Hollow Home',
+        'Vantage Garage',
+        'Starlight Bakery',
+        'Acme Corp',
+        'Zenith Fitness',
+        'Nexus Tech',
+        'Wildroot Botanics',
+        'Northlight Studio',
+      ];
+
+      const dummyBrands = await prisma.brand.findMany({
+        where: {
+          workspaceId: req.ctx!.workspaceId,
+          name: { in: dummyNames },
+        },
+        select: { id: true, name: true },
+      });
+
+      const deleted: string[] = [];
+      for (const b of dummyBrands) {
+        try {
+          await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0;`);
+          await prisma.$executeRawUnsafe(`DELETE FROM PostTarget WHERE channelId IN (SELECT id FROM Channel WHERE brandId = '${b.id}') OR postId IN (SELECT id FROM Post WHERE brandId = '${b.id}');`);
+          await prisma.$executeRawUnsafe(`DELETE FROM PublishJob WHERE postId IN (SELECT id FROM Post WHERE brandId = '${b.id}');`);
+          await prisma.$executeRawUnsafe(`DELETE FROM PostMedia WHERE postId IN (SELECT id FROM Post WHERE brandId = '${b.id}');`);
+          await prisma.$executeRawUnsafe(`DELETE FROM Review WHERE postId IN (SELECT id FROM Post WHERE brandId = '${b.id}');`);
+          await prisma.$executeRawUnsafe(`DELETE FROM ApprovalToken WHERE postId IN (SELECT id FROM Post WHERE brandId = '${b.id}');`);
+          await prisma.$executeRawUnsafe(`DELETE FROM Post WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM MetricDaily WHERE channelId IN (SELECT id FROM Channel WHERE brandId = '${b.id}');`);
+          await prisma.$executeRawUnsafe(`DELETE FROM Message WHERE conversationId IN (SELECT id FROM Conversation WHERE channelId IN (SELECT id FROM Channel WHERE brandId = '${b.id}'));`);
+          await prisma.$executeRawUnsafe(`DELETE FROM Conversation WHERE channelId IN (SELECT id FROM Channel WHERE brandId = '${b.id}');`);
+          await prisma.$executeRawUnsafe(`DELETE FROM Channel WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM ConnectInvite WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM BrandContact WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM MembershipBrand WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM MediaAsset WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM Campaign WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM Mention WHERE keywordId IN (SELECT id FROM Keyword WHERE brandId = '${b.id}');`);
+          await prisma.$executeRawUnsafe(`DELETE FROM Keyword WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM HashtagSet WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM OAuthSession WHERE brandId = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`DELETE FROM Brand WHERE id = '${b.id}';`);
+          await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 1;`);
+          deleted.push(b.name);
+        } catch (e: any) {
+          logger.error({ e: e.message }, `Failed to clean dummy brand ${b.name}`);
+        }
+      }
+
+      res.json({ success: true, deleted });
     } catch (err) {
       next(err);
     }

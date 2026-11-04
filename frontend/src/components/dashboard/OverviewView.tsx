@@ -168,202 +168,14 @@ function SvgIco({ name, className = 'ico' }: { name: string; className?: string 
 }
 
 // Upcoming Post Items
-const COMING_UP_POSTS = [
-  {
-    id: 'c1',
-    thumb: 'https://images.unsplash.com/photo-1534778101976-62847782c213?w=900&auto=format&fit=crop&q=80',
-    title: 'Latte art Friday. Tag us in your best tulip ...',
-    when: 'Tomorrow · 9:30 AM',
-    author: 'Malik Johnson',
-    brandCode: 'EO',
-    brandName: 'Ember & Oak',
-    brandTone: 'coral',
-    handle: '@emberandoak',
-    nets: ['instagram', 'tiktok'],
-    status: 'scheduled',
-    tone: 'sea',
-    label: 'Scheduled',
-    fullText: 'Latte art Friday. Tag us in your best tulip and we\'ll share our favourites on Monday.',
-  },
-  {
-    id: 'c2',
-    thumb: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=900&auto=format&fit=crop&q=80',
-    title: 'Rose petals, sun-dried on the roof of our st...',
-    when: 'Tomorrow · 12:00 PM',
-    author: 'Camila Ortiz',
-    brandCode: 'WB',
-    brandName: 'Wildroot Botanics',
-    brandTone: 'pine',
-    handle: '@wildroot',
-    nets: ['instagram', 'tiktok', 'pinterest'],
-    status: 'scheduled',
-    tone: 'sea',
-    label: 'Scheduled',
-    fullText: 'Rose petals, sun-dried on the roof of our studio. Three drops of Bloom before bed is all you need for glowing morning skin.',
-  },
-  {
-    id: 'c3',
-    thumb: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=900&auto=format&fit=crop&q=80',
-    title: 'Autumn collection drops Thursday at 10:00 CET...',
-    when: 'Tomorrow · 6:00 PM',
-    author: 'Freya Lind',
-    brandCode: 'HH',
-    brandName: 'Hollow Home',
-    brandTone: 'butter',
-    handle: '@hollowhome',
-    nets: ['instagram', 'facebook', 'pinterest'],
-    status: 'scheduled',
-    tone: 'sea',
-    label: 'Scheduled',
-    fullText: 'Autumn collection drops Thursday at 10:00 CET. Hand-turned oak, linen cushions, and brass accents made to last decades.',
-  },
-  {
-    id: 'c4',
-    thumb: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=900&auto=format&fit=crop&q=80',
-    title: 'Engine bay detail: steam, soft brushes, and 26 hours...',
-    when: 'Tomorrow · 7:00 PM',
-    author: 'Devon Vance',
-    brandCode: 'VG',
-    brandName: 'Vantage Garage',
-    brandTone: 'ink',
-    handle: '@vantagegarage',
-    nets: ['threads', 'x'],
-    status: 'scheduled',
-    tone: 'sea',
-    label: 'Scheduled',
-    fullText: 'Engine bay detail: steam, soft brushes, and 26 hours on a midnight-blue M4. Full multi-stage paint correction complete.',
-  },
-  {
-    id: 'c5',
-    thumb: 'https://images.unsplash.com/photo-1608248597359-5776d6c66c72?w=900&auto=format&fit=crop&q=80',
-    title: 'A three-step night routine for tired skin...',
-    when: 'Tomorrow · 8:00 PM',
-    author: 'Nia Patel',
-    brandCode: 'WB',
-    brandName: 'Wildroot Botanics',
-    brandTone: 'pine',
-    handle: '@wildroot',
-    nets: ['instagram', 'tiktok'],
-    status: 'pending',
-    tone: 'butter',
-    label: 'Awaiting approval',
-    fullText: 'A three-step night routine for tired skin: cleanse, three drops of Bloom, and phone in another room.',
-  },
-  {
-    id: 'c6',
-    thumb: 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=900&auto=format&fit=crop&q=80',
-    title: 'New in: the Ro side table in smoked oak...',
-    when: 'Sun, Nov 1 · 10:00 AM',
-    author: 'Freya Lind',
-    brandCode: 'HH',
-    brandName: 'Hollow Home',
-    brandTone: 'butter',
-    handle: '@hollowhome',
-    nets: ['threads', 'pinterest'],
-    status: 'pending',
-    tone: 'butter',
-    label: 'Awaiting approval',
-    fullText: 'New in: the Ro side table in smoked oak. Same traditional joinery, smaller footprint for tight corners.',
-  },
-];
+const COMING_UP_POSTS: any[] = [];
 
 // Needs You Tasks
-const EMBER_OAK_TODOS = [
-  {
-    id: 'todo-1',
-    brandId: 'ember',
-    brandName: 'Ember & Oak',
-    thumb: '/murmura/photos/murmura/posts/ember-shot-sm.jpg',
-    fallbackThumb: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200&auto=format&fit=crop&q=80',
-    title: 'Pumpkin spice? Never heard of her. Our autumn menu ...',
-    sub: 'Nia wants approval · Ember & Oak · Tomorrow 9:00 AM',
-    hasApprovalButtons: true,
-  },
-  {
-    id: 'todo-2',
-    brandId: 'ember',
-    brandName: 'Ember & Oak',
-    thumb: '/murmura/photos/murmura/posts/ember-pour-sm.jpg',
-    fallbackThumb: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=200&auto=format&fit=crop&q=80',
-    title: 'Home brewing 101, part three: why your pour-over ta...',
-    sub: 'Freya wants approval · Ember & Oak · Sat, Oct 31 6:00 PM',
-    hasApprovalButtons: true,
-  },
-];
-
-const HOLLOW_HOME_TODOS = [
-  {
-    id: 'todo-3',
-    brandId: 'hollow',
-    brandName: 'Hollow Home',
-    thumb: '/murmura/photos/murmura/posts/hollow-detail-sm.jpg',
-    fallbackThumb: 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=200&auto=format&fit=crop&q=80',
-    title: 'New in: the Ro side table in smoked oak. Same joine...',
-    sub: 'Freya wants approval · Hollow Home · Fri, Oct 30 10:00 AM',
-    hasApprovalButtons: true,
-  },
-  {
-    id: 'todo-5',
-    brandId: 'hollow',
-    brandName: 'Hollow Home',
-    title: 'Hollow Home · YouTube expires in 3 d',
-    sub: 'Reconnect now so nothing stops going out.',
-    actionLabel: 'Reconnect',
-    isYouTubeReconnect: true,
-  },
-];
-
-const VANTAGE_GARAGE_TODOS = [
-  {
-    id: 'todo-vg-1',
-    brandId: 'vantage',
-    brandName: 'Vantage Garage',
-    thumb: '/murmura/photos/murmura/posts/vantage-night-sm.jpg',
-    fallbackThumb: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=200&auto=format&fit=crop&q=80',
-    title: 'Before → after. Full correction on a midnight-blue M4...',
-    sub: 'Omar wants approval · Vantage Garage · Tomorrow 7:00 PM',
-    hasApprovalButtons: true,
-  },
-  {
-    id: 'todo-vg-2',
-    brandId: 'vantage',
-    brandName: 'Vantage Garage',
-    isAlert: true,
-    title: 'A Vantage Garage post failed',
-    sub: 'Facebook disconnected the page — reconnect Vantage Garage to retry.',
-    actionLabel: 'Retry',
-  },
-];
-
-const WILDROOT_TODOS = [
-  {
-    id: 'todo-wb-1',
-    brandId: 'wild',
-    brandName: 'Wildroot Botanics',
-    thumb: '/murmura/photos/murmura/posts/wild-dropper-sm.jpg',
-    fallbackThumb: 'https://images.unsplash.com/photo-1608248597359-5776d6c66c72?w=200&auto=format&fit=crop&q=80',
-    title: 'A three-step night routine for tired skin: cleanse...',
-    sub: 'Nia wants approval · Wildroot Botanics · Tomorrow 8:00 PM',
-    hasApprovalButtons: true,
-  },
-  {
-    id: 'todo-wb-2',
-    brandId: 'wild',
-    brandName: 'Wildroot Botanics',
-    thumb: '/murmura/photos/murmura/posts/wild-daisy-sm.jpg',
-    fallbackThumb: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=200&auto=format&fit=crop&q=80',
-    title: 'Meet calendula: the quiet flower doing the heavy lif...',
-    sub: 'Freya asked for changes · “Swap photo for dropper close-up...”',
-    hasApprovalButtons: true,
-  },
-];
-
-const NEEDS_YOU_TODOS = [
-  ...EMBER_OAK_TODOS,
-  ...HOLLOW_HOME_TODOS,
-  ...VANTAGE_GARAGE_TODOS,
-  ...WILDROOT_TODOS,
-];
+const EMBER_OAK_TODOS: any[] = [];
+const HOLLOW_HOME_TODOS: any[] = [];
+const VANTAGE_GARAGE_TODOS: any[] = [];
+const WILDROOT_TODOS: any[] = [];
+const NEEDS_YOU_TODOS: any[] = [];
 
 // Network Pulse Rows
 const NETWORK_PULSE = [
@@ -378,57 +190,7 @@ const NETWORK_PULSE = [
 ];
 
 // Audit Activity Feed
-const AUDIT_FEED = [
-  {
-    id: 'a1',
-    initial: 'C',
-    name: 'Camila',
-    text: 'moved “The Oak blend is back for autumn — chocolate...” to Fri, Oct 30 · 6:15 PM',
-    time: '2 h ago',
-  },
-  {
-    id: 'a2',
-    initial: 'C',
-    name: 'Camila',
-    text: 'resent Sara Whitfield’s invite',
-    time: '6 h ago',
-  },
-  {
-    id: 'a3',
-    initial: 'C',
-    name: 'Camila',
-    text: 'changed the approval rule to “by role”',
-    time: '6 h ago',
-  },
-  {
-    id: 'a4',
-    initial: 'C',
-    name: 'Camila',
-    text: 'changed the approval rule to “every post”',
-    time: '6 h ago',
-  },
-  {
-    id: 'a5',
-    initial: 'C',
-    name: 'Camila',
-    text: 'changed the approval rule to “no approvals”',
-    time: '6 h ago',
-  },
-  {
-    id: 'a6',
-    initial: 'C',
-    name: 'Camila',
-    text: 'changed the approval rule to “every post”',
-    time: '6 h ago',
-  },
-  {
-    id: 'a7',
-    initial: 'E',
-    name: 'Elise',
-    text: 'approved “New harvest from Huila...” for Ember & Oak',
-    time: '8 h ago',
-  },
-];
+const AUDIT_FEED: any[] = [];
 
 const GROWTH_30D_DATA = [
   { date: 'Sep 30', val: 1.8 },
@@ -622,191 +384,16 @@ export function OverviewView() {
   }, []);
 
   const brandOverviewData = useMemo(() => {
-    if (isHollowHome) {
-      return {
-        audience: '248.4K',
-        audienceGrowth: '+11.6% in 30 days',
-        engRate: '8.9%',
-        postsThisWeek: 4,
-        hero: {
-          brandCode: 'HH',
-          brandName: 'Hollow Home',
-          tone: 'butter',
-          status: 'Scheduled',
-          badgeClass: 'badge--pine',
-          inTime: '1 day 6 h',
-          when: 'Tomorrow · 6:00 PM',
-          text: 'Autumn collection drops Thursday at 10:00 CET. Join the list for first pick.',
-          media: '/murmura/photos/murmura/posts/hollow-living.jpg',
-          nets: ['instagram', 'pinterest', 'youtube'],
-        },
-        todos: HOLLOW_HOME_TODOS,
-        comingUp: [
-          {
-            id: 'c1_hh',
-            thumb: '/murmura/photos/murmura/posts/hollow-detail-sm.jpg',
-            fallbackThumb: 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=200&auto=format&fit=crop&q=80',
-            title: 'New in: the Ro side tabl...',
-            when: 'Fri, Oct 30 · 10:00 AM',
-            nets: ['instagram', 'pinterest'],
-            status: 'pending',
-            tone: 'butter',
-            label: 'Awaiting approval',
-          },
-          {
-            id: 'c2_hh',
-            thumb: '/murmura/photos/murmura/posts/hollow-chair-sm.jpg',
-            fallbackThumb: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=200&auto=format&fit=crop&q=80',
-            title: 'Solid oak, oiled by hand, built ...',
-            when: 'Sat, Oct 31 · 7:00 PM',
-            nets: ['instagram', 'pinterest'],
-            status: 'scheduled',
-            tone: 'sea',
-            label: 'Scheduled',
-          },
-          {
-            id: 'c3_hh',
-            thumb: '/murmura/photos/murmura/posts/hollow-room-sm.jpg',
-            fallbackThumb: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=200&auto=format&fit=crop&q=80',
-            title: 'A home tour from @signe.lives...',
-            when: 'Sun, Nov 1 · 8:00 PM',
-            nets: ['instagram'],
-            status: 'scheduled',
-            tone: 'sea',
-            label: 'Scheduled',
-          },
-          {
-            id: 'c4_hh',
-            thumb: '/murmura/photos/murmura/posts/hollow-sofa-sm.jpg',
-            fallbackThumb: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=200&auto=format&fit=crop&q=80',
-            title: 'The Låg sofa, now in oat bouc...',
-            when: 'Mon, Nov 2 · 6:00 PM',
-            nets: ['instagram', 'facebook', 'youtube'],
-            status: 'scheduled',
-            tone: 'sea',
-            label: 'Scheduled',
-          },
-        ],
-      };
-    } else if (isVantageGarage) {
-      return {
-        audience: '422.0K',
-        audienceGrowth: '+8.2% in 30 days',
-        engRate: '9.1%',
-        postsThisWeek: 6,
-        hero: {
-          brandCode: 'VG',
-          brandName: 'Vantage Garage',
-          tone: 'ink',
-          status: 'Scheduled',
-          badgeClass: 'badge--pine',
-          inTime: '1 day 3 h',
-          when: 'Tomorrow · 7:00 PM',
-          text: 'Before → after. Full correction on a midnight-blue M4, 26 hours in the bay.',
-          media: '/murmura/photos/murmura/posts/vantage-night.jpg',
-          nets: ['instagram', 'tiktok', 'youtube'],
-        },
-        todos: VANTAGE_GARAGE_TODOS,
-        comingUp: COMING_UP_POSTS.slice(0, 3),
-      };
-    } else if (isWildroot) {
-      return {
-        audience: '129.3K',
-        audienceGrowth: '+14.2% in 30 days',
-        engRate: '9.4%',
-        postsThisWeek: 4,
-        hero: {
-          brandCode: 'WB',
-          brandName: 'Wildroot Botanics',
-          tone: 'pine',
-          status: 'Awaiting approval',
-          badgeClass: 'badge--butter',
-          inTime: '1 day 8 h',
-          when: 'Tomorrow · 8:00 PM',
-          text: 'A three-step night routine for tired skin: cleanse, three drops of Bloom, and phone in another room.',
-          media: '/murmura/photos/murmura/posts/wild-dropper.jpg',
-          nets: ['instagram', 'tiktok', 'pinterest'],
-        },
-        todos: WILDROOT_TODOS,
-        comingUp: COMING_UP_POSTS.slice(0, 3),
-      };
-    } else if (isStarlightBakery) {
-      return {
-        audience: '203.9K',
-        audienceGrowth: '+12.4% in 30 days',
-        engRate: '8.8%',
-        postsThisWeek: 4,
-        hero: {
-          brandCode: 'SB',
-          brandName: 'Starlight Bakery',
-          tone: 'coral',
-          status: 'Scheduled',
-          badgeClass: 'badge--pine',
-          inTime: '18 h 30 min',
-          when: 'Tomorrow · 7:00 AM',
-          text: 'Weekend sourdough and pastry pre-orders open tomorrow. Reserve your brioche loaf.',
-          media: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=900&auto=format&fit=crop&q=80',
-          nets: ['instagram', 'tiktok', 'facebook'],
-        },
-        todos: [
-          {
-            id: 'todo-sb-1',
-            thumb: 'https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?w=200&auto=format&fit=crop&q=80',
-            title: 'Country sourdough scoring video for TikTok...',
-            sub: 'Sophia wants approval · Starlight Bakery · Tomorrow 8:00 AM',
-            hasApprovalButtons: true,
-            statusLabel: 'Needs approval',
-            brandCode: 'SB',
-            nets: ['tiktok', 'instagram'],
-          },
-        ],
-        comingUp: [
-          {
-            id: 'c-sb-1',
-            thumb: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&auto=format&fit=crop&q=80',
-            title: 'Warm baguettes out of the oven...',
-            when: 'Fri · 7:30 AM',
-            nets: ['instagram', 'facebook'],
-            status: 'scheduled',
-            tone: 'coral',
-            label: 'Scheduled',
-          },
-          {
-            id: 'c-sb-2',
-            thumb: 'https://images.unsplash.com/photo-1509365465985-25d11c17e812?w=200&auto=format&fit=crop&q=80',
-            title: 'Cardamom morning buns recipe tips...',
-            when: 'Sat · 9:00 AM',
-            nets: ['tiktok', 'pinterest'],
-            status: 'scheduled',
-            tone: 'coral',
-            label: 'Scheduled',
-          },
-        ],
-      };
-    } else {
-      // Ember & Oak (or All Brands default view, where Ember & Oak is the primary active brand)
-      return {
-        audience: '976.3K',
-        audienceGrowth: '+10.1% in 30 days',
-        engRate: '10.3%',
-        postsThisWeek: 19,
-        hero: {
-          brandCode: 'EO',
-          brandName: 'Ember & Oak',
-          tone: 'coral',
-          status: 'Awaiting approval',
-          badgeClass: 'badge--butter',
-          inTime: '16 h 27 min',
-          when: 'Tomorrow · 9:00 AM',
-          text: 'Pumpkin spice? Never heard of her. Our autumn menu is maple, cardamom and a very good cortado. Starts Monday.',
-          media: '/murmura/photos/murmura/posts/ember-shot.jpg',
-          nets: ['instagram', 'facebook'],
-        },
-        todos: EMBER_OAK_TODOS,
-        comingUp: COMING_UP_POSTS,
-      };
-    }
-  }, [isHollowHome, isStarlightBakery, isVantageGarage, isWildroot, activeBrand]);
+    return {
+      audience: '0',
+      audienceGrowth: '+0% in 30 days',
+      engRate: '0%',
+      postsThisWeek: 0,
+      hero: null as any,
+      todos: [] as any[],
+      comingUp: [] as any[],
+    };
+  }, []);
 
   const currentTodos = useMemo(() => {
     return brandOverviewData.todos.filter((t: any) => !dismissedTodoIds.includes(t.id));
@@ -900,114 +487,124 @@ export function OverviewView() {
 
           <div data-k="next">
             {/* Hero Card */}
-            <article className="ov-hero">
-              <div
-                className="ov-hero__media"
-                onClick={() => {
-                  setSelectedPost(brandOverviewData.hero);
-                  setPreviewNet(brandOverviewData.hero.nets?.[0] || 'instagram');
-                }}
-                style={{ cursor: 'pointer' }}
-                title="View post details"
-              >
-                <img
-                  src={brandOverviewData.hero.media}
-                  alt={brandOverviewData.hero.text}
-                  loading="lazy"
-                />
-              </div>
-
-              <div className="ov-hero__body">
-                <p className="ov-hero__meta">
-                  <span
-                    className={`bmark bmark--sm tone--${brandOverviewData.hero.tone}`}
-                    style={isHollowHome ? { background: '#f2b740', color: '#1c1b18', fontWeight: 700 } : undefined}
-                  >
-                    {brandOverviewData.hero.brandCode}
-                  </span>
-                  <span className="ov-hero__brand">{brandOverviewData.hero.brandName}</span>
-                  <span className={`badge ${brandOverviewData.hero.badgeClass}`}>
-                    {brandOverviewData.hero.status}
-                  </span>
-                </p>
-
-                <div className="ov-hero__count">
-                  <span className="ov-hero__in">goes out in</span>
-                  <b>{brandOverviewData.hero.inTime}</b>
+            {brandOverviewData.hero ? (
+              <article className="ov-hero">
+                <div
+                  className="ov-hero__media"
+                  onClick={() => {
+                    setSelectedPost(brandOverviewData.hero);
+                    setPreviewNet(brandOverviewData.hero.nets?.[0] || 'instagram');
+                  }}
+                  style={{ cursor: 'pointer' }}
+                  title="View post details"
+                >
+                  <img
+                    src={brandOverviewData.hero.media}
+                    alt={brandOverviewData.hero.text}
+                    loading="lazy"
+                  />
                 </div>
 
-                <p className="ov-hero__when">
-                  <SvgIco name="clock" />
-                  {brandOverviewData.hero.when}
-                </p>
+                <div className="ov-hero__body">
+                  <p className="ov-hero__meta">
+                    <span
+                      className={`bmark bmark--sm tone--${brandOverviewData.hero.tone}`}
+                    >
+                      {brandOverviewData.hero.brandCode}
+                    </span>
+                    <span className="ov-hero__brand">{brandOverviewData.hero.brandName}</span>
+                    <span className={`badge ${brandOverviewData.hero.badgeClass}`}>
+                      {brandOverviewData.hero.status}
+                    </span>
+                  </p>
 
-                <p className="ov-hero__text">
-                  {brandOverviewData.hero.text}
-                </p>
+                  <div className="ov-hero__count">
+                    <span className="ov-hero__in">goes out in</span>
+                    <b>{brandOverviewData.hero.inTime}</b>
+                  </div>
 
-                <div className="ov-hero__foot">
-                  <span className="net-stack">
-                    {brandOverviewData.hero.nets.map((n: string) => (
-                      <span key={n} className={`net net--${n} net--sm`}>
-                        <SvgIco name={n} />
-                      </span>
-                    ))}
-                  </span>
-                  <span className="toolbar__spacer"></span>
-                  <button
-                    type="button"
-                    className="ibtn ov-hero__open"
-                    onClick={() => {
-                      setSelectedPost(brandOverviewData.hero);
-                      setPreviewNet(brandOverviewData.hero.nets?.[0] || 'instagram');
-                    }}
-                    aria-label="View post details"
-                    title="View post details"
-                  >
-                    <SvgIco name="arrow" />
-                  </button>
+                  <p className="ov-hero__when">
+                    <SvgIco name="clock" />
+                    {brandOverviewData.hero.when}
+                  </p>
+
+                  <p className="ov-hero__text">
+                    {brandOverviewData.hero.text}
+                  </p>
+
+                  <div className="ov-hero__foot">
+                    <span className="net-stack">
+                      {brandOverviewData.hero.nets?.map((n: string) => (
+                        <span key={n} className={`net net--${n} net--sm`}>
+                          <SvgIco name={n} />
+                        </span>
+                      ))}
+                    </span>
+                    <span className="toolbar__spacer"></span>
+                    <button
+                      type="button"
+                      className="ibtn ov-hero__open"
+                      onClick={() => {
+                        setSelectedPost(brandOverviewData.hero);
+                        setPreviewNet(brandOverviewData.hero.nets?.[0] || 'instagram');
+                      }}
+                      aria-label="View post details"
+                      title="View post details"
+                    >
+                      <SvgIco name="arrow" />
+                    </button>
+                  </div>
                 </div>
+              </article>
+            ) : (
+              <div style={{ padding: '2.5rem 1rem', textAlign: 'center', opacity: 0.7 }}>
+                <p style={{ margin: '0 0 0.5rem', fontWeight: 500 }}>No upcoming posts scheduled yet.</p>
+                <small style={{ opacity: 0.7 }}>Use the Compose tab to schedule posts across your connected channels.</small>
               </div>
-            </article>
+            )}
 
             {/* Coming Up Section */}
-            <p className="ov-after__label">Coming up</p>
-            <ol className="ov-after">
-              {brandOverviewData.comingUp.map((item: any) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className="ov-after__item"
-                    onClick={() => {
-                      setSelectedPost(item);
-                      setPreviewNet(item.nets?.[0] || 'instagram');
-                    }}
-                    title={`View ${item.title}`}
-                  >
-                    <span className="ov-after__thumb">
-                      <img src={item.thumb} alt={item.title} loading="lazy" />
-                    </span>
-                    <span className="ov-after__txt">
-                      <b>{item.title}</b>
-                      <small>{item.when}</small>
-                    </span>
-                    <span className="ov-after__tail">
-                      <span className="net-stack">
-                        {item.nets.map((n: string) => (
-                          <span key={n} className={`net net--${n} net--xs`}>
-                            <SvgIco name={n} />
+            {brandOverviewData.comingUp && brandOverviewData.comingUp.length > 0 && (
+              <>
+                <p className="ov-after__label">Coming up</p>
+                <ol className="ov-after">
+                  {brandOverviewData.comingUp.map((item: any) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className="ov-after__item"
+                        onClick={() => {
+                          setSelectedPost(item);
+                          setPreviewNet(item.nets?.[0] || 'instagram');
+                        }}
+                        title={`View ${item.title}`}
+                      >
+                        <span className="ov-after__thumb">
+                          <img src={item.thumb} alt={item.title} loading="lazy" />
+                        </span>
+                        <span className="ov-after__txt">
+                          <b>{item.title}</b>
+                          <small>{item.when}</small>
+                        </span>
+                        <span className="ov-after__tail">
+                          <span className="net-stack">
+                            {item.nets.map((n: string) => (
+                              <span key={n} className={`net net--${n} net--xs`}>
+                                <SvgIco name={n} />
+                              </span>
+                            ))}
                           </span>
-                        ))}
-                      </span>
-                      <span className={`spill spill--${item.tone}`}>
-                        <i></i>
-                        {item.label}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ol>
+                          <span className={`spill spill--${item.tone}`}>
+                            <i></i>
+                            {item.label}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
           </div>
         </section>
 
