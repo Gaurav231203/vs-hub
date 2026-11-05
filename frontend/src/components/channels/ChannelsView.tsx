@@ -1229,25 +1229,48 @@ export function ChannelsView() {
               position: 'fixed',
               inset: 0,
               zIndex: 9999,
-              display: 'grid',
-              placeItems: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+              overflowY: 'auto',
             }}
           >
             <div
               style={{
                 position: 'fixed',
                 inset: 0,
-                background: 'rgba(16, 18, 20, 0.45)',
-                backdropFilter: 'blur(6px)',
+                background: 'rgba(16, 18, 20, 0.65)',
+                backdropFilter: 'blur(8px)',
               }}
               onClick={() => setShowConnectModal(false)}
             />
             <div
               className="card modal"
-              style={{ position: 'relative', zIndex: 10000, maxWidth: '540px', width: '92%' }}
+              style={{
+                position: 'relative',
+                zIndex: 10000,
+                maxWidth: '560px',
+                width: '100%',
+                maxHeight: 'min(90vh, 740px)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                borderRadius: '24px',
+                background: 'var(--solid, #191b1f)',
+                border: '1px solid var(--rim, rgba(255,255,255,0.12))',
+                boxShadow: '0 24px 60px -15px rgba(0, 0, 0, 0.85)',
+              }}
             >
               <form
                 className="mform"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  maxHeight: 'min(90vh, 740px)',
+                  overflowY: 'auto',
+                  padding: '24px',
+                }}
                 onSubmit={async (e) => {
                   e.preventDefault();
                   const effectiveBrandId =
@@ -1446,7 +1469,17 @@ export function ChannelsView() {
                 </div>
 
                 {/* 8 Networks Grid - Click to select */}
-                <div className="cc-nets" role="radiogroup" aria-label="Network">
+                <div
+                  className="cc-nets"
+                  role="radiogroup"
+                  aria-label="Network"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                    gap: '8px',
+                    margin: '10px 0',
+                  }}
+                >
                   {Object.entries(NETWORK_METAS).map(([key, val]) => {
                     const isSelected = wizardNet === key;
                     return (
@@ -1471,20 +1504,20 @@ export function ChannelsView() {
                           transition: 'all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1)',
                           display: 'grid',
                           justifyItems: 'center',
-                          gap: '6px',
-                          padding: '12px 6px 10px',
-                          borderRadius: '16px',
+                          gap: '3px',
+                          padding: '8px 4px 6px',
+                          borderRadius: '12px',
                           userSelect: 'none',
                         }}
                         title={`Select ${val.name}`}
                       >
-                        <span className={`net net--md net--${key}`}>
+                        <span className={`net net--sm net--${key}`}>
                           <NetworkIcon network={key} className="ico" />
                         </span>
-                        <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>
+                        <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text)' }}>
                           {val.name}
                         </span>
-                        <span style={{ fontSize: '11px', color: isSelected ? 'var(--butter, #f2b740)' : 'var(--muted)', marginTop: '-2px' }}>
+                        <span style={{ fontSize: '10px', color: isSelected ? 'var(--butter, #f2b740)' : 'var(--muted)', marginTop: '-2px' }}>
                           {isSelected ? '✓ Selected' : 'Choose'}
                         </span>
                       </div>
@@ -1626,7 +1659,18 @@ export function ChannelsView() {
                 )}
 
                 {/* Modal Footer */}
-                <div className="mform__foot" style={{ marginTop: '22px' }}>
+                <div
+                  className="mform__foot"
+                  style={{
+                    marginTop: '20px',
+                    position: 'sticky',
+                    bottom: '-24px',
+                    background: 'var(--solid, #191b1f)',
+                    padding: '16px 0 4px',
+                    borderTop: '1px solid var(--line, rgba(255,255,255,0.08))',
+                    zIndex: 10,
+                  }}
+                >
                   <button
                     type="button"
                     className="btn btn--ghost"

@@ -287,10 +287,11 @@ export function SocialOAuthModal({
         style={{
           position: 'relative',
           zIndex: 10001,
-          maxWidth: '500px',
+          maxWidth: '520px',
           width: '100%',
+          maxHeight: 'min(90vh, 740px)',
+          overflowY: 'auto',
           borderRadius: '24px',
-          overflow: 'hidden',
           background: 'var(--solid, #191b1f)',
           border: '1px solid var(--rim, rgba(255,255,255,0.12))',
           boxShadow: '0 24px 60px -18px rgba(0,0,0,0.7)',

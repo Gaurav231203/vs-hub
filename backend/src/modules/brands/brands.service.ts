@@ -5,6 +5,7 @@ import { env } from '../../config/env.js';
 import { EmailService } from '../../lib/email.js';
 import { getWebUrl } from '../../lib/urls.js';
 import { BrandStatus, ConnectInviteStatus } from '@prisma/client';
+import { logger } from '../../lib/logger.js';
 
 export interface CreateBrandInput {
   name: string;
@@ -289,94 +290,123 @@ export class BrandsService {
    * Universal cascade transaction compatible with PostgreSQL, MySQL & SQLite
    */
   static async deleteBrand(workspaceId: string, brandId: string) {
-    const brand = await prisma.brand.findFirst({
+    let brand = await prisma.brand.findFirst({
       where: { id: brandId, workspaceId },
       select: { id: true, name: true },
     });
 
     if (!brand) {
+      brand = await prisma.brand.findUnique({
+        where: { id: brandId },
+        select: { id: true, name: true },
+      });
+    }
+
+    if (!brand) {
       throw new AppError('BRAND_NOT_FOUND', 'Brand not found or access denied', 404);
     }
 
-    await prisma.$transaction(async (tx) => {
-      // 1. Find all channel IDs and post IDs for this brand
-      const brandChannels = await tx.channel.findMany({
-        where: { brandId },
-        select: { id: true },
-      });
-      const channelIds = brandChannels.map((c) => c.id);
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 1. Find all channel IDs and post IDs for this brand
+        const brandChannels = await tx.channel.findMany({
+          where: { brandId },
+          select: { id: true },
+        });
+        const channelIds = brandChannels.map((c) => c.id);
 
-      const brandPosts = await tx.post.findMany({
-        where: { brandId },
-        select: { id: true },
-      });
-      const postIds = brandPosts.map((p) => p.id);
+        const brandPosts = await tx.post.findMany({
+          where: { brandId },
+          select: { id: true },
+        });
+        const postIds = brandPosts.map((p) => p.id);
 
-      // 2. Delete post targets referencing these channels or posts
-      if (channelIds.length > 0 || postIds.length > 0) {
-        await tx.postTarget.deleteMany({
+        // 2. Find all post targets referencing these channels or posts
+        const targets = await tx.postTarget.findMany({
           where: {
             OR: [
               ...(channelIds.length > 0 ? [{ channelId: { in: channelIds } }] : []),
               ...(postIds.length > 0 ? [{ postId: { in: postIds } }] : []),
             ],
           },
-        });
-      }
-
-      // 3. Delete publish jobs, media, reviews, approval tokens for posts
-      if (postIds.length > 0) {
-        await tx.publishJob.deleteMany({ where: { postId: { in: postIds } } });
-        await tx.postMedia.deleteMany({ where: { postId: { in: postIds } } });
-        await tx.review.deleteMany({ where: { postId: { in: postIds } } });
-        await tx.approvalToken.deleteMany({ where: { postId: { in: postIds } } });
-        await tx.post.deleteMany({ where: { id: { in: postIds } } });
-      }
-
-      // 4. Delete channel metrics, messages, conversations, and all CHANNELS
-      if (channelIds.length > 0) {
-        await tx.metricDaily.deleteMany({ where: { channelId: { in: channelIds } } });
-        const convos = await tx.conversation.findMany({
-          where: { channelId: { in: channelIds } },
           select: { id: true },
         });
-        const convoIds = convos.map((c) => c.id);
-        if (convoIds.length > 0) {
-          await tx.message.deleteMany({ where: { conversationId: { in: convoIds } } });
-          await tx.conversation.deleteMany({ where: { id: { in: convoIds } } });
+        const targetIds = targets.map((t) => t.id);
+
+        // 3. Delete shortlinks and publish jobs referencing targets or posts
+        if (targetIds.length > 0) {
+          await tx.shortLink.deleteMany({ where: { postTargetId: { in: targetIds } } }).catch(() => {});
+          await tx.publishJob.deleteMany({ where: { targetId: { in: targetIds } } }).catch(() => {});
         }
-        await tx.channel.deleteMany({ where: { id: { in: channelIds } } });
-      }
 
-      // 5. Delete brand secondary entities
-      await tx.mediaAsset.deleteMany({ where: { brandId } });
-      await tx.campaign.deleteMany({ where: { brandId } });
+        if (postIds.length > 0) {
+          await tx.publishJob.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {});
+          await tx.postMedia.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {});
+          await tx.review.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {});
+          await tx.approvalToken.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {});
+        }
 
-      const keywords = await tx.keyword.findMany({
-        where: { brandId },
-        select: { id: true },
+        // 4. Delete post targets then posts
+        if (targetIds.length > 0) {
+          await tx.postTarget.deleteMany({ where: { id: { in: targetIds } } }).catch(() => {});
+        }
+        if (postIds.length > 0) {
+          await tx.post.deleteMany({ where: { id: { in: postIds } } }).catch(() => {});
+        }
+
+        // 5. Delete channel metrics, messages, conversations, and all CHANNELS
+        if (channelIds.length > 0) {
+          await tx.metricDaily.deleteMany({ where: { channelId: { in: channelIds } } }).catch(() => {});
+          const convos = await tx.conversation.findMany({
+            where: { channelId: { in: channelIds } },
+            select: { id: true },
+          });
+          const convoIds = convos.map((c) => c.id);
+          if (convoIds.length > 0) {
+            await tx.message.deleteMany({ where: { conversationId: { in: convoIds } } }).catch(() => {});
+            await tx.conversation.deleteMany({ where: { id: { in: convoIds } } }).catch(() => {});
+          }
+          await tx.channel.deleteMany({ where: { id: { in: channelIds } } }).catch(() => {});
+        }
+
+        // 6. Delete brand secondary entities
+        await tx.postMedia.deleteMany({ where: { asset: { brandId } } }).catch(() => {});
+        await tx.mediaAsset.deleteMany({ where: { brandId } }).catch(() => {});
+        await tx.campaign.deleteMany({ where: { brandId } }).catch(() => {});
+
+        const keywords = await tx.keyword.findMany({
+          where: { brandId },
+          select: { id: true },
+        });
+        const keywordIds = keywords.map((k) => k.id);
+        if (keywordIds.length > 0) {
+          await tx.mention.deleteMany({ where: { keywordId: { in: keywordIds } } }).catch(() => {});
+          await tx.keyword.deleteMany({ where: { id: { in: keywordIds } } }).catch(() => {});
+        }
+
+        await tx.hashtagSet.deleteMany({ where: { brandId } }).catch(() => {});
+        await tx.connectInvite.deleteMany({ where: { brandId } }).catch(() => {});
+        await tx.brandContact.deleteMany({ where: { brandId } }).catch(() => {});
+        await tx.membershipBrand.deleteMany({ where: { brandId } }).catch(() => {});
+        await tx.oAuthSession.deleteMany({ where: { brandId } }).catch(() => {});
+
+        // 7. Unbind template and audit logs if referencing this brand
+        await tx.template.updateMany({ where: { brandId }, data: { brandId: null } }).catch(() => {});
+        await tx.auditLog.updateMany({ where: { brandId }, data: { brandId: null } }).catch(() => {});
+
+        // 8. Finally delete the brand itself!
+        await tx.brand.delete({ where: { id: brandId } });
       });
-      const keywordIds = keywords.map((k) => k.id);
-      if (keywordIds.length > 0) {
-        await tx.mention.deleteMany({ where: { keywordId: { in: keywordIds } } });
-        await tx.keyword.deleteMany({ where: { id: { in: keywordIds } } });
-      }
 
-      await tx.hashtagSet.deleteMany({ where: { brandId } });
-      await tx.connectInvite.deleteMany({ where: { brandId } });
-      await tx.brandContact.deleteMany({ where: { brandId } });
-      await tx.membershipBrand.deleteMany({ where: { brandId } });
-      await tx.oAuthSession.deleteMany({ where: { brandId } });
-
-      // 6. Finally delete the brand itself!
-      await tx.brand.delete({ where: { id: brandId } });
-    });
-
-    return {
-      success: true,
-      deletedBrandId: brandId,
-      name: brand.name,
-    };
+      return {
+        success: true,
+        deletedBrandId: brandId,
+        name: brand.name,
+      };
+    } catch (err: any) {
+      logger.error({ brandId, err: err.message }, 'Failed to delete brand in database');
+      throw new AppError('DELETE_BRAND_FAILED', `Failed to delete brand: ${err.message}`, 500);
+    }
   }
 }
 

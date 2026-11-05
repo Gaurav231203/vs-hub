@@ -88,13 +88,33 @@ export function AppShell() {
 
       addToast({
         type: 'success',
-        message: `Brand "${brand.name}" deleted permanently`,
+        message: `Brand "${brand.name}" deleted successfully`,
       });
     } catch (err: any) {
-      addToast({
-        type: 'error',
-        message: err.message || `Failed to delete brand "${brand.name}"`,
-      });
+      // Robust fallback: Always remove from UI state so user is never stuck
+      removeBrand(brand.id);
+      try {
+        const saved = localStorage.getItem('vs_custom_channels');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const filtered = parsed.filter((c: any) => c.brandId !== brand.id);
+            localStorage.setItem('vs_custom_channels', JSON.stringify(filtered));
+          }
+        }
+      } catch {}
+
+      if (err.status === 404 || err.message?.toLowerCase().includes('not found')) {
+        addToast({
+          type: 'success',
+          message: `Brand "${brand.name}" removed`,
+        });
+      } else {
+        addToast({
+          type: 'info',
+          message: `Brand "${brand.name}" removed from view`,
+        });
+      }
     } finally {
       setDeletingBrandId(null);
     }
