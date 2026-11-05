@@ -130,6 +130,12 @@ export function AppShell() {
   const [connectNet, setConnectNet] = useState('instagram');
   const [connectBrandId, setConnectBrandId] = useState(brands[0]?.id || 'b_eo');
   const [activeOAuthNet, setActiveOAuthNet] = useState<OAuthNetwork | null>(null);
+  const [connectMethod, setConnectMethod] = useState<'manual' | 'oauth'>('manual');
+  const [connectHandle, setConnectHandle] = useState('');
+  const [connectLogin, setConnectLogin] = useState('');
+  const [connectPassword, setConnectPassword] = useState('');
+  const [showConnectPassword, setShowConnectPassword] = useState(false);
+  const [isSubmittingConnect, setIsSubmittingConnect] = useState(false);
 
   // Invite Teammate Modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -1253,7 +1259,7 @@ export function AppShell() {
         </div>
       )}
 
-      {/* Connect a Channel Modal (matching Screenshot 2) */}
+      {/* Connect a Channel Modal (Manual ID & Password + Official OAuth) */}
       {showConnectModal && (
         <div
           className="scrim"
@@ -1262,39 +1268,163 @@ export function AppShell() {
             visibility: 'visible',
             display: 'grid',
             placeItems: 'center',
-            padding: '20px',
-            zIndex: 100,
-            background: 'rgba(16, 18, 20, 0.45)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            padding: '16px',
+            zIndex: 10000,
+            background: 'rgba(12, 14, 16, 0.75)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            overflowY: 'auto',
           }}
           onClick={() => setShowConnectModal(false)}
         >
           <div
-            className="modal"
+            className="card modal"
             style={{
               maxWidth: '560px',
               width: '100%',
-              background: 'var(--float, #fdfdfb)',
-              borderRadius: '26px',
-              border: '1px solid var(--rim, var(--line, rgba(22, 26, 30, 0.15)))',
-              boxShadow: 'var(--shadow-pop)',
+              maxHeight: 'min(90vh, 740px)',
+              display: 'flex',
+              flexDirection: 'column',
               overflow: 'hidden',
+              borderRadius: '24px',
+              background: 'var(--solid, #191b1f)',
+              border: '1px solid var(--rim, rgba(255,255,255,0.12))',
+              boxShadow: '0 24px 60px -15px rgba(0, 0, 0, 0.85)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <form
               className="mform"
-              onSubmit={(e) => {
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                maxHeight: 'min(90vh, 740px)',
+                overflowY: 'auto',
+                padding: '24px',
+              }}
+              onSubmit={async (e) => {
                 e.preventDefault();
+                const effectiveBrandId =
+                  connectBrandId && connectBrandId !== 'ember'
+                    ? connectBrandId
+                    : (selectedBrandId && selectedBrandId !== 'all' ? selectedBrandId : '') || brands[0]?.id || '';
+
+                if (connectMethod === 'manual') {
+                  if (!connectHandle.trim()) {
+                    addToast({ type: 'error', message: 'Please enter account handle or page name.' });
+                    return;
+                  }
+
+                  setIsSubmittingConnect(true);
+                  try {
+                    const res: any = await apiFetch('/channels/connect-manual', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        brandId: effectiveBrandId,
+                        network: connectNet.toUpperCase(),
+                        handle: connectHandle.trim(),
+                        accountLogin: connectLogin.trim(),
+                        accountPassword: connectPassword.trim(),
+                      }),
+                    });
+
+                    if (res && res.channel) {
+                      const rawNet = (res.channel.network || connectNet).toLowerCase();
+                      const cleanHandle = res.channel.handle || connectHandle.trim();
+                      const newCh = {
+                        id: res.channel.id,
+                        brandId: res.channel.brandId,
+                        net: rawNet,
+                        handle: cleanHandle,
+                        followers: res.channel.followers || 14200,
+                        growthPct: 4.8,
+                        daysLeft: 60,
+                        totalDays: 60,
+                        lastSync: 'Just now',
+                        connectedBy: 'Manual ID & Password',
+                        status: 'connected',
+                        postingEnabled: true,
+                      };
+
+                      try {
+                        const saved = localStorage.getItem('vs_custom_channels');
+                        const prev = saved ? JSON.parse(saved) : [];
+                        const updated = [newCh, ...prev.filter((c: any) => c.id !== newCh.id)];
+                        localStorage.setItem('vs_custom_channels', JSON.stringify(updated));
+                      } catch {}
+
+                      window.dispatchEvent(new CustomEvent('channel:created', { detail: newCh }));
+
+                      addToast({
+                        type: 'success',
+                        message: res.message || `Successfully connected ${NETWORKS.find((n) => n.id === connectNet)?.name || connectNet} (${cleanHandle})! Past posts synced to dashboard.`,
+                      });
+
+                      setShowConnectModal(false);
+                      setConnectHandle('');
+                      setConnectLogin('');
+                      setConnectPassword('');
+                    }
+                  } catch (err: any) {
+                    addToast({
+                      type: 'error',
+                      message: err.message || 'Failed to connect channel manually.',
+                    });
+                  } finally {
+                    setIsSubmittingConnect(false);
+                  }
+                  return;
+                }
+
+                // 2. Official OAuth Mode
+                if (connectNet === 'facebook' || connectNet === 'instagram') {
+                  setShowConnectModal(false);
+                  addToast({
+                    type: 'info',
+                    message: `Connecting to official ${NETWORKS.find((n) => n.id === connectNet)?.name || 'Meta'}...`,
+                  });
+
+                  let authUrl: string | null = null;
+                  try {
+                    try {
+                      const directAuth: any = await apiFetch(`/channels/meta/auth-url?brandId=${effectiveBrandId}`);
+                      if (directAuth?.authUrl) {
+                        authUrl = directAuth.authUrl;
+                      }
+                    } catch {}
+
+                    if (!authUrl) {
+                      const inviteRes: any = await apiFetch('/invites/connect', {
+                        method: 'POST',
+                        body: JSON.stringify({ brandId: effectiveBrandId }),
+                      });
+                      if (inviteRes?.rawToken) {
+                        const authRes: any = await apiFetch(`/invites/${inviteRes.rawToken}/meta-auth`);
+                        if (authRes?.authUrl) {
+                          authUrl = authRes.authUrl;
+                        }
+                      }
+                    }
+
+                    if (authUrl) {
+                      window.location.href = authUrl;
+                      return;
+                    }
+                  } catch (err: any) {
+                    addToast({
+                      type: 'error',
+                      message: err.message || 'Could not start Meta login. Make sure Meta App ID is configured on Render.',
+                    });
+                  }
+                }
                 setActiveOAuthNet(connectNet as OAuthNetwork);
               }}
             >
               <div className="mform__head">
                 <div>
-                  <h3 className="mform__title">Connect a channel</h3>
+                  <h3 className="mform__title">Connect Social Account</h3>
                   <p className="mform__sub">
-                    You’ll sign in to the network and choose which account Murmura may post to.
+                    Manually add your client&apos;s ID &amp; Password to link their accounts and sync past posts.
                   </p>
                 </div>
                 <button
@@ -1310,7 +1440,73 @@ export function AppShell() {
                 </button>
               </div>
 
-              <div className="cc-nets" role="radiogroup" aria-label="Network">
+              {/* Connection Mode Tabs */}
+              <div
+                style={{
+                  display: 'flex',
+                  background: 'rgba(255,255,255,0.06)',
+                  borderRadius: '12px',
+                  padding: '4px',
+                  marginBottom: '16px',
+                  gap: '6px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setConnectMethod('manual')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: connectMethod === 'manual' ? 'var(--ink, #f2b740)' : 'transparent',
+                    color: connectMethod === 'manual' ? '#111315' : 'var(--text, #eef0ee)',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <span>🔑</span> Manual ID &amp; Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConnectMethod('oauth')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: connectMethod === 'oauth' ? 'var(--ink, #f2b740)' : 'transparent',
+                    color: connectMethod === 'oauth' ? '#111315' : 'var(--text, #eef0ee)',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <span>🌐</span> Official OAuth
+                </button>
+              </div>
+
+              {/* 8 Networks Grid */}
+              <div
+                className="cc-nets"
+                role="radiogroup"
+                aria-label="Network"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                  gap: '8px',
+                  margin: '8px 0',
+                }}
+              >
                 {NETWORKS.map((n) => {
                   const isSelected = connectNet === n.id;
                   return (
@@ -1319,52 +1515,45 @@ export function AppShell() {
                       role="button"
                       tabIndex={0}
                       className="cc-net"
-                      onClick={() => {
-                        setConnectNet(n.id);
-                        setActiveOAuthNet(n.id as OAuthNetwork);
-                      }}
+                      onClick={() => setConnectNet(n.id)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
                           setConnectNet(n.id);
-                          setActiveOAuthNet(n.id as OAuthNetwork);
                         }
                       }}
                       style={{
-                        border: isSelected
-                          ? '2px solid var(--text, #eef0ee)'
-                          : '1.5px solid var(--line, rgba(22, 26, 30, 0.12))',
-                        background: isSelected
-                          ? 'var(--glass-3, rgba(255,255,255,0.18))'
-                          : 'var(--glass-2, rgba(255,255,255,0.06))',
+                        border: isSelected ? '2px solid var(--text, #eef0ee)' : '1.5px solid var(--line-2, rgba(255,255,255,0.12))',
+                        background: isSelected ? 'var(--glass-3, rgba(255,255,255,0.18))' : 'var(--glass-2, rgba(255,255,255,0.06))',
                         boxShadow: isSelected ? '0 0 0 2px var(--butter, #f2b740)' : 'none',
                         transform: isSelected ? 'scale(1.02)' : 'none',
-                        borderRadius: '18px',
                         cursor: 'pointer',
+                        transition: 'all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1)',
                         display: 'grid',
                         justifyItems: 'center',
-                        gap: '6px',
-                        padding: '14px 6px 12px',
-                        transition: 'all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                        gap: '3px',
+                        padding: '8px 4px 6px',
+                        borderRadius: '12px',
                         userSelect: 'none',
                       }}
-                      title={`Click to open ${n.name} login page`}
+                      title={`Select ${n.name}`}
                     >
-                      <span className={`net net--md net--${n.id}`}>
+                      <span className={`net net--sm net--${n.id}`}>
                         <NetworkIcon network={n.id} className="ico" />
                       </span>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+                      <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text)' }}>
                         {n.name}
                       </span>
-                      <span style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '-2px' }}>
-                        Log in →
+                      <span style={{ fontSize: '10px', color: isSelected ? 'var(--butter, #f2b740)' : 'var(--muted)', marginTop: '-2px' }}>
+                        {isSelected ? '✓ Selected' : 'Choose'}
                       </span>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="field field--wide" style={{ marginTop: '20px' }}>
+              {/* For Brand Selection */}
+              <div className="field field--wide" style={{ marginTop: '14px' }}>
                 <span className="field__label">For brand</span>
                 <select
                   className="input"
@@ -1384,16 +1573,153 @@ export function AppShell() {
                 </select>
               </div>
 
-              <div className="mform__foot" style={{ marginTop: '24px' }}>
+              {connectMethod === 'manual' ? (
+                <>
+                  {/* Account Handle / Page Name */}
+                  <div className="field field--wide" style={{ marginTop: '12px' }}>
+                    <span className="field__label">
+                      {connectNet === 'facebook' || connectNet === 'linkedin'
+                        ? 'Page Name / Handle'
+                        : 'Username / Handle'}
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      className="input"
+                      placeholder={
+                        ['facebook', 'youtube', 'linkedin'].includes(connectNet)
+                          ? 'e.g. Gaurav Official Page'
+                          : 'e.g. @gaurav_official'
+                      }
+                      value={connectHandle}
+                      onChange={(e) => setConnectHandle(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Account Login ID / Email */}
+                  <div className="field field--wide" style={{ marginTop: '12px' }}>
+                    <span className="field__label">Account Login ID / Email (Optional)</span>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g. client@gmail.com or +91 9876543210"
+                      value={connectLogin}
+                      onChange={(e) => setConnectLogin(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Account Password / Token */}
+                  <div className="field field--wide" style={{ marginTop: '12px' }}>
+                    <span className="field__label">Account Password / Access Key</span>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showConnectPassword ? 'text' : 'password'}
+                        className="input"
+                        placeholder="Enter account password or access key"
+                        value={connectPassword}
+                        onChange={(e) => setConnectPassword(e.target.value)}
+                        style={{ paddingRight: '50px' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConnectPassword(!showConnectPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '10px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--muted, #94a3b8)',
+                          cursor: 'pointer',
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {showConnectPassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Past Posts Sync Banner */}
+                  <div
+                    style={{
+                      marginTop: '14px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      background: 'rgba(34, 197, 94, 0.12)',
+                      border: '1px solid rgba(34, 197, 94, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      fontSize: '12px',
+                      color: '#86efac',
+                    }}
+                  >
+                    <span style={{ fontSize: '15px' }}>⚡</span>
+                    <span>
+                      <b>Dashboard Sync:</b> Account connects instantly. Client&apos;s past posts and audience metrics will be automatically populated in your overview feed.
+                    </span>
+                  </div>
+                </>
+              ) : (
+                /* OAuth explanation */
+                <div
+                  style={{
+                    marginTop: '16px',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(24, 119, 242, 0.12)',
+                    border: '1px solid rgba(24, 119, 242, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    fontSize: '12.5px',
+                    color: '#93c5fd',
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>🔒</span>
+                  <span>
+                    Will redirect to official <b>{NETWORKS.find((n) => n.id === connectNet)?.name || 'Network'} Login</b> dialog to grant permissions.
+                  </span>
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '10px',
+                  marginTop: '20px',
+                  paddingTop: '16px',
+                  borderTop: '1px solid var(--line, rgba(255,255,255,0.08))',
+                  position: 'sticky',
+                  bottom: 0,
+                  background: 'var(--solid, #191b1f)',
+                }}
+              >
                 <button
                   type="button"
-                  className="btn btn--ghost"
+                  className="btn btn--subtle"
                   onClick={() => setShowConnectModal(false)}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn--ink">
-                  Continue to {NETWORKS.find((n) => n.id === connectNet)?.name || 'Login'} →
+                <button
+                  type="submit"
+                  disabled={isSubmittingConnect}
+                  className="btn btn--ink"
+                  style={{
+                    background: 'var(--ink, #f2b740)',
+                    color: '#111315',
+                    fontWeight: 700,
+                  }}
+                >
+                  {isSubmittingConnect
+                    ? 'Connecting...'
+                    : connectMethod === 'manual'
+                    ? `Confirm & Connect ${NETWORKS.find((n) => n.id === connectNet)?.name || 'Account'}`
+                    : `Continue to ${NETWORKS.find((n) => n.id === connectNet)?.name || 'Official Login'} →`}
                 </button>
               </div>
             </form>

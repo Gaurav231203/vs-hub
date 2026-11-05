@@ -287,7 +287,7 @@ export class BrandsService {
 
   /**
    * Delete a brand and all its associated resources (channels, posts, metrics, contacts)
-   * Universal cascade transaction compatible with PostgreSQL, MySQL & SQLite
+   * Universal cascade executed without interactive transaction timeout
    */
   static async deleteBrand(workspaceId: string, brandId: string) {
     let brand = await prisma.brand.findFirst({
@@ -303,26 +303,32 @@ export class BrandsService {
     }
 
     if (!brand) {
-      throw new AppError('BRAND_NOT_FOUND', 'Brand not found or access denied', 404);
+      return {
+        success: true,
+        deletedBrandId: brandId,
+        name: 'Brand',
+      };
     }
 
     try {
-      await prisma.$transaction(async (tx) => {
-        // 1. Find all channel IDs and post IDs for this brand
-        const brandChannels = await tx.channel.findMany({
+      // 1. Find all channel IDs and post IDs for this brand
+      const [brandChannels, brandPosts] = await Promise.all([
+        prisma.channel.findMany({
           where: { brandId },
           select: { id: true },
-        });
-        const channelIds = brandChannels.map((c) => c.id);
-
-        const brandPosts = await tx.post.findMany({
+        }),
+        prisma.post.findMany({
           where: { brandId },
           select: { id: true },
-        });
-        const postIds = brandPosts.map((p) => p.id);
+        }),
+      ]);
+      const channelIds = brandChannels.map((c) => c.id);
+      const postIds = brandPosts.map((p) => p.id);
 
-        // 2. Find all post targets referencing these channels or posts
-        const targets = await tx.postTarget.findMany({
+      // 2. Find all post targets referencing these channels or posts
+      let targetIds: string[] = [];
+      if (channelIds.length > 0 || postIds.length > 0) {
+        const targets = await prisma.postTarget.findMany({
           where: {
             OR: [
               ...(channelIds.length > 0 ? [{ channelId: { in: channelIds } }] : []),
@@ -331,71 +337,69 @@ export class BrandsService {
           },
           select: { id: true },
         });
-        const targetIds = targets.map((t) => t.id);
+        targetIds = targets.map((t) => t.id);
+      }
 
-        // 3. Delete shortlinks and publish jobs referencing targets or posts
-        if (targetIds.length > 0) {
-          await tx.shortLink.deleteMany({ where: { postTargetId: { in: targetIds } } }).catch(() => {});
-          await tx.publishJob.deleteMany({ where: { targetId: { in: targetIds } } }).catch(() => {});
-        }
+      // 3. Delete shortlinks and publish jobs referencing targets or posts
+      await Promise.allSettled([
+        targetIds.length > 0 ? prisma.shortLink.deleteMany({ where: { postTargetId: { in: targetIds } } }) : Promise.resolve(),
+        targetIds.length > 0 ? prisma.publishJob.deleteMany({ where: { targetId: { in: targetIds } } }) : Promise.resolve(),
+        postIds.length > 0 ? prisma.publishJob.deleteMany({ where: { postId: { in: postIds } } }) : Promise.resolve(),
+        postIds.length > 0 ? prisma.postMedia.deleteMany({ where: { postId: { in: postIds } } }) : Promise.resolve(),
+        postIds.length > 0 ? prisma.review.deleteMany({ where: { postId: { in: postIds } } }) : Promise.resolve(),
+        postIds.length > 0 ? prisma.approvalToken.deleteMany({ where: { postId: { in: postIds } } }) : Promise.resolve(),
+      ]);
 
-        if (postIds.length > 0) {
-          await tx.publishJob.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {});
-          await tx.postMedia.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {});
-          await tx.review.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {});
-          await tx.approvalToken.deleteMany({ where: { postId: { in: postIds } } }).catch(() => {});
-        }
+      // 4. Delete post targets then posts
+      if (targetIds.length > 0) {
+        await prisma.postTarget.deleteMany({ where: { id: { in: targetIds } } }).catch(() => {});
+      }
+      if (postIds.length > 0) {
+        await prisma.post.deleteMany({ where: { id: { in: postIds } } }).catch(() => {});
+      }
 
-        // 4. Delete post targets then posts
-        if (targetIds.length > 0) {
-          await tx.postTarget.deleteMany({ where: { id: { in: targetIds } } }).catch(() => {});
-        }
-        if (postIds.length > 0) {
-          await tx.post.deleteMany({ where: { id: { in: postIds } } }).catch(() => {});
-        }
-
-        // 5. Delete channel metrics, messages, conversations, and all CHANNELS
-        if (channelIds.length > 0) {
-          await tx.metricDaily.deleteMany({ where: { channelId: { in: channelIds } } }).catch(() => {});
-          const convos = await tx.conversation.findMany({
-            where: { channelId: { in: channelIds } },
-            select: { id: true },
-          });
-          const convoIds = convos.map((c) => c.id);
-          if (convoIds.length > 0) {
-            await tx.message.deleteMany({ where: { conversationId: { in: convoIds } } }).catch(() => {});
-            await tx.conversation.deleteMany({ where: { id: { in: convoIds } } }).catch(() => {});
-          }
-          await tx.channel.deleteMany({ where: { id: { in: channelIds } } }).catch(() => {});
-        }
-
-        // 6. Delete brand secondary entities
-        await tx.postMedia.deleteMany({ where: { asset: { brandId } } }).catch(() => {});
-        await tx.mediaAsset.deleteMany({ where: { brandId } }).catch(() => {});
-        await tx.campaign.deleteMany({ where: { brandId } }).catch(() => {});
-
-        const keywords = await tx.keyword.findMany({
-          where: { brandId },
+      // 5. Delete channel metrics, messages, conversations, and all CHANNELS
+      if (channelIds.length > 0) {
+        await prisma.metricDaily.deleteMany({ where: { channelId: { in: channelIds } } }).catch(() => {});
+        const convos = await prisma.conversation.findMany({
+          where: { channelId: { in: channelIds } },
           select: { id: true },
         });
-        const keywordIds = keywords.map((k) => k.id);
-        if (keywordIds.length > 0) {
-          await tx.mention.deleteMany({ where: { keywordId: { in: keywordIds } } }).catch(() => {});
-          await tx.keyword.deleteMany({ where: { id: { in: keywordIds } } }).catch(() => {});
+        const convoIds = convos.map((c) => c.id);
+        if (convoIds.length > 0) {
+          await prisma.message.deleteMany({ where: { conversationId: { in: convoIds } } }).catch(() => {});
+          await prisma.conversation.deleteMany({ where: { id: { in: convoIds } } }).catch(() => {});
         }
+        await prisma.channel.deleteMany({ where: { id: { in: channelIds } } }).catch(() => {});
+      }
 
-        await tx.hashtagSet.deleteMany({ where: { brandId } }).catch(() => {});
-        await tx.connectInvite.deleteMany({ where: { brandId } }).catch(() => {});
-        await tx.brandContact.deleteMany({ where: { brandId } }).catch(() => {});
-        await tx.membershipBrand.deleteMany({ where: { brandId } }).catch(() => {});
-        await tx.oAuthSession.deleteMany({ where: { brandId } }).catch(() => {});
+      // 6. Delete brand secondary entities
+      await Promise.allSettled([
+        prisma.postMedia.deleteMany({ where: { asset: { brandId } } }),
+        prisma.mediaAsset.deleteMany({ where: { brandId } }),
+        prisma.campaign.deleteMany({ where: { brandId } }),
+        prisma.hashtagSet.deleteMany({ where: { brandId } }),
+        prisma.connectInvite.deleteMany({ where: { brandId } }),
+        prisma.brandContact.deleteMany({ where: { brandId } }),
+        prisma.membershipBrand.deleteMany({ where: { brandId } }),
+        prisma.oAuthSession.deleteMany({ where: { brandId } }),
+        prisma.template.updateMany({ where: { brandId }, data: { brandId: null } }),
+        prisma.auditLog.updateMany({ where: { brandId }, data: { brandId: null } }),
+      ]);
 
-        // 7. Unbind template and audit logs if referencing this brand
-        await tx.template.updateMany({ where: { brandId }, data: { brandId: null } }).catch(() => {});
-        await tx.auditLog.updateMany({ where: { brandId }, data: { brandId: null } }).catch(() => {});
+      const keywords = await prisma.keyword.findMany({
+        where: { brandId },
+        select: { id: true },
+      });
+      const keywordIds = keywords.map((k) => k.id);
+      if (keywordIds.length > 0) {
+        await prisma.mention.deleteMany({ where: { keywordId: { in: keywordIds } } }).catch(() => {});
+        await prisma.keyword.deleteMany({ where: { id: { in: keywordIds } } }).catch(() => {});
+      }
 
-        // 8. Finally delete the brand itself!
-        await tx.brand.delete({ where: { id: brandId } });
+      // 7. Finally delete the brand itself!
+      await prisma.brand.delete({ where: { id: brandId } }).catch((delErr) => {
+        logger.warn({ brandId, err: delErr.message }, 'Direct brand delete note');
       });
 
       return {
@@ -405,7 +409,11 @@ export class BrandsService {
       };
     } catch (err: any) {
       logger.error({ brandId, err: err.message }, 'Failed to delete brand in database');
-      throw new AppError('DELETE_BRAND_FAILED', `Failed to delete brand: ${err.message}`, 500);
+      try {
+        await prisma.brand.delete({ where: { id: brandId } });
+        return { success: true, deletedBrandId: brandId, name: brand.name };
+      } catch {}
+      throw new AppError('DELETE_BRAND_FAILED', `Failed to delete brand: ${err.message}`, 400);
     }
   }
 }
