@@ -26,6 +26,8 @@ interface ExistingChannel {
 interface PageCandidate {
   pageId: string;
   pageName: string;
+  isProfile?: boolean;
+  avatarUrl?: string;
   instagram?: {
     id: string;
     username: string;
@@ -717,6 +719,9 @@ export function PublicConnectView() {
                       <strong style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>
                         {cand.pageName}
                       </strong>
+                      <span style={{ fontSize: '11.5px', color: '#64748b', display: 'block', marginTop: '2px' }}>
+                        {cand.isProfile ? '👤 Facebook Personal Account' : '📄 Facebook Business Page'}
+                      </span>
                       {cand.instagram && (
                         <span style={{ fontSize: '12px', color: '#e1306c', display: 'block', marginTop: '2px' }}>
                           Linked Instagram: @{cand.instagram.username.replace(/^@+/, '')}

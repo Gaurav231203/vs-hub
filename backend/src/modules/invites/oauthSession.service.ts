@@ -47,6 +47,8 @@ export class OAuthSessionService {
     Array<{
       pageId: string;
       pageName: string;
+      isProfile?: boolean;
+      avatarUrl?: string;
       instagram?: { id: string; username: string };
     }>
   > {
@@ -67,6 +69,8 @@ export class OAuthSessionService {
     return candidates.map((c) => ({
       pageId: c.pageId,
       pageName: c.pageName,
+      isProfile: c.isProfile,
+      avatarUrl: c.avatarUrl,
       instagram: c.instagram,
     }));
   }

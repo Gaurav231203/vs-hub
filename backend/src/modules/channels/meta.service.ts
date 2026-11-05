@@ -9,6 +9,8 @@ export interface MetaPageCandidate {
   pageId: string;
   pageName: string;
   pageToken: string;
+  isProfile?: boolean;
+  avatarUrl?: string;
   instagram?: {
     id: string;
     username: string;
@@ -82,6 +84,7 @@ export function getMetaAuthorizeUrl(state: string, req?: Request): string {
   const appId = (env.META_APP_ID || process.env.META_APP_ID || '1700460381501081').trim();
   const redirectUri = encodeURIComponent(getMetaRedirectUri(req));
   const scopes = [
+    'public_profile',
     'pages_show_list',
     'pages_read_engagement',
     'pages_manage_posts',
@@ -108,18 +111,12 @@ export async function exchangeMetaCodeForAccounts(
   // If explicitly mock test in non-production and secret is missing
   if ((!code || code === 'mock_code' || isMock) && env.NODE_ENV !== 'production' && !appSecret) {
     logger.info('Using simulated Meta accounts (Local dev mock only)');
-    const name = (brandName || 'Brand').trim();
-    const cleanSlug = name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'brand';
     return [
       {
-        pageId: `fb_page_${Date.now()}`,
-        pageName: `${name} (Official Page)`,
+        pageId: `fb_acc_${Date.now()}`,
+        pageName: 'Facebook Account (Personal Profile)',
         pageToken: `mock_long_lived_token_fb_${Date.now()}`,
-        instagram: {
-          id: `ig_account_${Date.now()}`,
-          username: cleanSlug,
-          profilePictureUrl: '/murmura/photos/murmura/posts/ember-shot.jpg',
-        },
+        isProfile: true,
       },
     ];
   }
@@ -160,23 +157,54 @@ export async function exchangeMetaCodeForAccounts(
 
     const longLivedToken = longLivedData.access_token || shortLivedToken;
 
-    // 3. Fetch User's Real Facebook Pages and linked Instagram Business/Creator Accounts
+    // 3. Fetch User's Real Facebook Profile Information (/me)
+    let userProfile: { id: string; name: string; avatarUrl?: string } | null = null;
+    try {
+      const meUrl = `https://graph.facebook.com/v20.0/me?fields=id,name,picture.type(large){url}&access_token=${encodeURIComponent(longLivedToken)}`;
+      const meRes = await fetch(meUrl);
+      const meData = (await meRes.json()) as any;
+      if (meData && meData.id && meData.name) {
+        userProfile = {
+          id: meData.id,
+          name: meData.name,
+          avatarUrl: meData.picture?.data?.url,
+        };
+        logger.info({ userProfileName: userProfile.name, userProfileId: userProfile.id }, 'Fetched user real Facebook profile');
+      }
+    } catch (e: any) {
+      logger.warn({ err: e.message }, 'Could not fetch /me user profile');
+    }
+
+    // 4. Fetch User's Real Facebook Pages and linked Instagram Business/Creator Accounts
     const accountsUrl = `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,profile_picture_url}&access_token=${encodeURIComponent(longLivedToken)}`;
     const accountsRes = await fetch(accountsUrl);
     const accountsData = (await accountsRes.json()) as any;
 
     if (accountsData.error) {
       logger.error({ error: accountsData.error }, 'Meta me/accounts API error');
+      // If permissions or pages fetch had error but we have userProfile, link real user Facebook profile!
+      if (userProfile) {
+        return [
+          {
+            pageId: userProfile.id,
+            pageName: userProfile.name,
+            pageToken: longLivedToken,
+            isProfile: true,
+            avatarUrl: userProfile.avatarUrl,
+          },
+        ];
+      }
       throw new Error(accountsData.error.message || 'Failed to fetch user Facebook pages from Meta');
     }
 
-    const rawPages = accountsData.data || [];
+    const rawPages = (accountsData && Array.isArray(accountsData.data)) ? accountsData.data : [];
     logger.info({ rawPagesCount: rawPages.length }, 'Fetched Meta pages for user');
 
     const pages: MetaPageCandidate[] = rawPages.map((page: any) => ({
       pageId: page.id,
       pageName: page.name,
       pageToken: page.access_token,
+      isProfile: false,
       instagram: page.instagram_business_account
         ? {
             id: page.instagram_business_account.id,
@@ -186,7 +214,26 @@ export async function exchangeMetaCodeForAccounts(
         : undefined,
     }));
 
-    return pages;
+    // If user has actual Facebook Pages, return their actual Facebook Pages!
+    if (pages.length > 0) {
+      return pages;
+    }
+
+    // If user does NOT have any Facebook Pages, link their actual Facebook Account / Profile directly!
+    if (userProfile) {
+      logger.info({ userProfile }, 'No Facebook Pages found. Linking user real Facebook Account/Profile directly');
+      return [
+        {
+          pageId: userProfile.id,
+          pageName: userProfile.name,
+          pageToken: longLivedToken,
+          isProfile: true,
+          avatarUrl: userProfile.avatarUrl,
+        },
+      ];
+    }
+
+    return [];
   } catch (err: any) {
     logger.error({ err: err.message }, 'Meta OAuth token exchange failed');
     throw new AppError('OAUTH_EXCHANGE_FAILED', `Meta authentication failed: ${err.message}`, 502);

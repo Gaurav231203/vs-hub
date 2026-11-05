@@ -712,6 +712,7 @@ async function bindMetaAccountsToBrand({
       network: Network.FACEBOOK,
       externalId: page.pageId,
       handle: page.pageName,
+      avatarUrl: page.avatarUrl,
       status: ChannelStatus.CONNECTED,
       postingEnabled: true,
       accessTokenEnc: encryptedPageToken,
@@ -720,6 +721,7 @@ async function bindMetaAccountsToBrand({
     },
     update: {
       handle: page.pageName,
+      avatarUrl: page.avatarUrl,
       status: ChannelStatus.CONNECTED,
       accessTokenEnc: encryptedPageToken,
       tokenExpiresAt: expiresAt,
