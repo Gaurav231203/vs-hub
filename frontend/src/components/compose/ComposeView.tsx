@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { apiFetch } from '../../lib/api.js';
+import { apiFetch, getApiAccessToken } from '../../lib/api.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useToastStore } from '../../stores/toastStore.js';
 import { NetworkIcon } from '../common/NetworkIcon.js';
@@ -188,6 +188,7 @@ export function ComposeView() {
   const [simLiked, setSimLiked] = useState(false);
   const [simLikes, setSimLikes] = useState(0);
   const [simSaved, setSimSaved] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
   // Can this user publish directly without approval?
   const canPublish = hasPermission('post.publish') && workspace?.approvalMode !== 'EVERY_POST';
@@ -410,14 +411,71 @@ export function ComposeView() {
     addToast({ type: 'info', message: 'Started fresh composer session' });
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const urls: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      urls.push(URL.createObjectURL(files[i]));
+    const file = files[0];
+    const previewUrl = URL.createObjectURL(file);
+    setMediaUrls((prev) => [...prev, previewUrl]);
+    setIsUploadingMedia(true);
+    addToast({ type: 'info', message: 'Uploading image to server CDN...' });
+
+    try {
+      const targetBrandId = selectedBrandId || brands[0]?.id;
+      const uploadMeta: any = await apiFetch('/library/upload-url', {
+        method: 'POST',
+        body: JSON.stringify({
+          brandId: targetBrandId,
+          filename: file.name,
+          contentType: file.type || 'image/jpeg',
+          byteSize: file.size,
+        }),
+      });
+
+      const token = getApiAccessToken();
+      const uploadHeaders: Record<string, string> = {
+        'Content-Type': file.type || 'image/jpeg',
+      };
+      if (token) {
+        uploadHeaders['Authorization'] = `Bearer ${token}`;
+      }
+
+      const uploadRes = await fetch(uploadMeta.uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: uploadHeaders,
+        credentials: 'include',
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`Storage upload failed with status ${uploadRes.status}`);
+      }
+
+      await apiFetch('/library/confirm-upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          brandId: targetBrandId,
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          kind: 'IMAGE',
+          publicUrl: uploadMeta.publicUrl,
+          key: uploadMeta.key,
+          contentType: file.type || 'image/jpeg',
+          byteSize: file.size,
+        }),
+      });
+
+      // Replace preview blob with real public CDN URL
+      setMediaUrls((prev) => prev.map((u) => (u === previewUrl ? uploadMeta.publicUrl : u)));
+      addToast({ type: 'success', message: 'Image uploaded successfully to server!' });
+    } catch (err: any) {
+      console.warn('Real upload failed, keeping local preview', err);
+      addToast({
+        type: 'error',
+        message: 'Could not upload to server storage: ' + (err.message || 'Check storage config'),
+      });
+    } finally {
+      setIsUploadingMedia(false);
     }
-    setMediaUrls((prev) => [...prev, ...urls]);
   };
 
   const removeMedia = (idx: number) => {
@@ -1893,10 +1951,10 @@ export function ComposeView() {
                 <button
                   type="button"
                   onClick={() => publishNowMutation.mutate()}
-                  disabled={publishNowMutation.isPending || blockingErrors.length > 0 || (!caption && mediaUrls.length === 0)}
+                  disabled={publishNowMutation.isPending || isUploadingMedia || blockingErrors.length > 0 || (!caption && mediaUrls.length === 0)}
                   className="btn cm-sec magnetic"
                 >
-                  {publishNowMutation.isPending ? 'Publishing live...' : 'Publish now'}
+                  {isUploadingMedia ? 'Uploading image...' : publishNowMutation.isPending ? 'Publishing live...' : 'Publish now'}
                 </button>
                 <button
                   type="button"

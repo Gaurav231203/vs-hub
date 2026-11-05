@@ -185,6 +185,17 @@ export function SocialOAuthModal({
     if (cfg.hasDirectMetaOAuth) {
       try {
         addToast({ type: 'info', message: 'Generating official Meta OAuth session...' });
+
+        // 1. Try direct authenticated Meta auth-url endpoint first
+        try {
+          const directAuth: any = await apiFetch(`/channels/meta/auth-url?brandId=${brandId}`);
+          if (directAuth?.authUrl) {
+            window.location.href = directAuth.authUrl;
+            return;
+          }
+        } catch {}
+
+        // 2. Fallback to invite token flow
         const inviteRes: any = await apiFetch('/invites/connect', {
           method: 'POST',
           body: JSON.stringify({ brandId }),

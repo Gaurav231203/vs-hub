@@ -1237,6 +1237,17 @@ export function ChannelsView() {
                         type: 'info',
                         message: `Connecting to official ${NETWORK_METAS[wizardNet]?.name} (Meta)...`,
                       });
+
+                      // 1. Try direct authenticated Meta auth-url endpoint first
+                      try {
+                        const directAuth: any = await apiFetch(`/channels/meta/auth-url?brandId=${wizardBrand}`);
+                        if (directAuth?.authUrl) {
+                          window.location.href = directAuth.authUrl;
+                          return;
+                        }
+                      } catch {}
+
+                      // 2. Fallback to invite flow
                       const inviteRes: any = await apiFetch('/invites/connect', {
                         method: 'POST',
                         body: JSON.stringify({ brandId: wizardBrand }),
@@ -1252,7 +1263,7 @@ export function ChannelsView() {
                       console.warn('Real Meta OAuth redirect error:', err);
                       addToast({
                         type: 'error',
-                        message: err.message || 'Could not start Meta login. Make sure Meta App ID is configured.',
+                        message: err.message || 'Could not start Meta login. Make sure Meta App ID is configured on Render.',
                       });
                     }
                   }

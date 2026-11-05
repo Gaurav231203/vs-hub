@@ -4,7 +4,9 @@ import { authenticate } from '../../middleware/auth.js';
 import { tenantMiddleware } from '../../middleware/tenant.js';
 import { requirePerm } from '../../middleware/rbac.js';
 import { AppError } from '../../middleware/error.js';
-import { Network, ChannelStatus } from '@prisma/client';
+import { Network, ChannelStatus, ConnectInviteStatus } from '@prisma/client';
+import { generateSecureToken } from '../../lib/crypto.js';
+import { generateMetaOAuthState, getMetaAuthorizeUrl } from './meta.service.js';
 
 export const channelsRouter = Router();
 
@@ -49,6 +51,50 @@ channelsRouter.get('/channels/stats', async (req: Request, res: Response, next: 
     next(err);
   }
 });
+
+/**
+ * GET /api/v1/channels/meta/auth-url
+ * Direct Meta OAuth authorization URL for logged-in agency/brand users
+ */
+channelsRouter.get(
+  '/channels/meta/auth-url',
+  requirePerm('channels.manage'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ctx = req.ctx!;
+      const brandId = (req.query.brandId as string) || (ctx.brandIds && ctx.brandIds[0]);
+
+      if (!brandId) {
+        throw new AppError('VALIDATION_ERROR', 'brandId is required', 400);
+      }
+
+      if (!ctx.allBrands && !ctx.brandIds.includes(brandId)) {
+        throw new AppError('BRAND_NOT_FOUND', 'Brand not found or access denied', 404);
+      }
+
+      const { raw, hash } = generateSecureToken(32);
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await prisma.connectInvite.create({
+        data: {
+          workspaceId: ctx.workspaceId,
+          brandId,
+          tokenHash: hash,
+          expiresAt,
+          status: ConnectInviteStatus.ACTIVE,
+          createdBy: ctx.userId,
+        },
+      });
+
+      const state = generateMetaOAuthState(raw, brandId);
+      const authUrl = getMetaAuthorizeUrl(state, req);
+
+      res.json({ authUrl });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 /**
  * GET /api/v1/channels

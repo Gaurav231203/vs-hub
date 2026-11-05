@@ -289,6 +289,42 @@ invitesRouter.post(
 );
 
 /**
+ * GET /api/v1/invites/:token/meta-auth
+ * Direct alias for initiating Meta OAuth from dashboard or invite
+ */
+invitesRouter.get(
+  '/invites/:token/meta-auth',
+  oauthRateLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const rawToken = req.params.token;
+      const hash = hashToken(rawToken);
+
+      const invite = await prisma.connectInvite.findUnique({
+        where: { tokenHash: hash },
+      });
+
+      if (
+        !invite ||
+        !compareSecureToken(rawToken, invite.tokenHash) ||
+        invite.status === ConnectInviteStatus.REVOKED ||
+        invite.revokedAt ||
+        new Date() > invite.expiresAt
+      ) {
+        throw new AppError('INVITE_INVALID', 'Invite link is expired or invalid', 400);
+      }
+
+      const state = generateMetaOAuthState(rawToken, invite.brandId);
+      const authUrl = getMetaAuthorizeUrl(state, req);
+
+      res.json({ authUrl });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
  * GET /api/v1/public/connect/:token/oauth/meta
  * Client initiates Meta OAuth connection with CSRF state
  */
@@ -416,7 +452,7 @@ invitesRouter.get(
         data: { status: BrandStatus.CONNECTED },
       });
 
-      return res.redirect(`${webBase}/connect/${inviteToken}?status=success`);
+      return res.redirect(`${webBase}/channels?connected=true&network=facebook`);
     } catch (err: any) {
       next(err);
     }

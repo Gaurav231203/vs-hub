@@ -20,9 +20,14 @@ export class FacebookPublisher implements Publisher {
     }
 
     // Check for simulated/test tokens
-    const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_');
+    const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || channel.externalId.startsWith('mock_');
 
     if (isMock) {
+      if (process.env.NODE_ENV === 'production' || process.env.META_APP_ID) {
+        throw new Error(
+          'This Facebook channel is currently using demo/unverified credentials. Please connect your real Facebook Page via official Meta OAuth from the Channels page to publish live posts.'
+        );
+      }
       logger.info({ channelId: channel.id, externalId: channel.externalId }, '[FacebookPublisher] Mock publish executed');
       return {
         externalPostId: `fb_${channel.externalId}_${Date.now()}`,
@@ -37,13 +42,22 @@ export class FacebookPublisher implements Publisher {
     // Real Meta Graph API Call
     try {
       if (mediaUrls && mediaUrls.length > 0) {
+        let publicPhotoUrl = mediaUrls[0];
+        if (publicPhotoUrl.startsWith('/')) {
+          const apiBase = process.env.API_URL || 'https://vs-hub-1.onrender.com';
+          publicPhotoUrl = `${apiBase.replace(/\/$/, '')}${publicPhotoUrl}`;
+        }
+        if (publicPhotoUrl.startsWith('blob:')) {
+          throw new Error('Image is a local browser blob and was not uploaded to server. Please select a valid uploaded image.');
+        }
+
         // Photo post: POST /{page-id}/photos
         const photoUrl = `${GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${channel.externalId}/photos`;
         const res = await fetch(photoUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            url: mediaUrls[0],
+            url: publicPhotoUrl,
             caption: caption,
             access_token: accessToken,
           }),
