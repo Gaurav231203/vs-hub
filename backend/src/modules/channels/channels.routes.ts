@@ -69,15 +69,34 @@ channelsRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const ctx = req.ctx!;
-      const brandId = (req.query.brandId as string) || (ctx.brandIds && ctx.brandIds[0]);
+      let requestedBrandId = (req.query.brandId as string) || (ctx.brandIds && ctx.brandIds[0]);
 
-      if (!brandId) {
-        throw new AppError('VALIDATION_ERROR', 'brandId is required', 400);
+      // 1. Check if the requested brandId exists in this workspace and user has access
+      let brand = requestedBrandId
+        ? await prisma.brand.findFirst({
+            where: {
+              id: requestedBrandId,
+              workspaceId: ctx.workspaceId,
+              ...(!ctx.allBrands ? { id: { in: ctx.brandIds } } : {}),
+            },
+          })
+        : null;
+
+      // 2. Fallback to the first active brand in the workspace if requested brand was invalid/dummy (e.g. 'ember')
+      if (!brand) {
+        brand = await prisma.brand.findFirst({
+          where: {
+            workspaceId: ctx.workspaceId,
+            ...(!ctx.allBrands ? { id: { in: ctx.brandIds } } : {}),
+          },
+        });
       }
 
-      if (!ctx.allBrands && !ctx.brandIds.includes(brandId)) {
-        throw new AppError('BRAND_NOT_FOUND', 'Brand not found or access denied', 404);
+      if (!brand) {
+        throw new AppError('BRAND_NOT_FOUND', 'No active brand found in workspace to connect', 404);
       }
+
+      const brandId = brand.id;
 
       const { raw, hash } = generateSecureToken(32);
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -96,7 +115,7 @@ channelsRouter.get(
       const state = generateMetaOAuthState(raw, brandId);
       const authUrl = getMetaAuthorizeUrl(state, req);
 
-      res.json({ authUrl });
+      res.json({ authUrl, brandId, brandName: brand.name });
     } catch (err) {
       next(err);
     }

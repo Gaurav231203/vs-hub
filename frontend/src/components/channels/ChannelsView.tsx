@@ -167,17 +167,30 @@ export function ChannelsView() {
 
     fetchDbChannels();
   }, [brands]);
+  const activeBrandId = outletCtx.selectedBrandId || authBrandId || 'all';
+
   const [filter, setFilter] = useState<'all' | 'attention' | 'paused'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showConnectModal, setShowConnectModal] = useState(false);
-  const [targetBrandForConnect, setTargetBrandForConnect] = useState<string>('ember');
+  const [targetBrandForConnect, setTargetBrandForConnect] = useState<string>('');
   const [menuOpenForChannel, setMenuOpenForChannel] = useState<string | null>(null);
 
   // Connect wizard state
-  const [wizardBrand, setWizardBrand] = useState<string>('ember');
-  const [wizardNet, setWizardNet] = useState<string>('instagram');
+  const [wizardBrand, setWizardBrand] = useState<string>('');
+  const [wizardNet, setWizardNet] = useState<string>('facebook');
   const [wizardHandle, setWizardHandle] = useState<string>('');
   const [activeOAuthNet, setActiveOAuthNet] = useState<OAuthNetwork | null>(null);
+
+  // Keep wizardBrand dynamically in sync with user's real brands
+  useEffect(() => {
+    if (brands && brands.length > 0) {
+      if (!wizardBrand || wizardBrand === 'ember' || !brands.some((b) => b.id === wizardBrand)) {
+        const preferredId = (activeBrandId && activeBrandId !== 'all') ? activeBrandId : brands[0].id;
+        setWizardBrand(preferredId);
+        setTargetBrandForConnect(preferredId);
+      }
+    }
+  }, [brands, activeBrandId, wizardBrand]);
 
   // Handle reconnect with full database persistence
   const handleReconnect = async (channelId: string) => {
@@ -322,8 +335,6 @@ export function ChannelsView() {
       addToast({ type: 'error', message: err.message || 'Failed to remove demo channels' });
     }
   };
-
-  const activeBrandId = outletCtx.selectedBrandId || authBrandId || 'all';
 
   // Scoped channels based on active brand selection
   const scopedChannels = useMemo(() => {
@@ -523,7 +534,9 @@ export function ChannelsView() {
             type="button"
             className="btn btn--ink magnetic"
             onClick={() => {
-              setWizardBrand(activeBrandId !== 'all' ? activeBrandId : (allKnownBrands[0]?.id || 'ember'));
+              const preferredId = (activeBrandId && activeBrandId !== 'all') ? activeBrandId : (allKnownBrands[0]?.id || brands[0]?.id || '');
+              setWizardBrand(preferredId);
+              setTargetBrandForConnect(preferredId);
               setShowConnectModal(true);
             }}
           >
@@ -1056,6 +1069,7 @@ export function ChannelsView() {
                       className="ch-add"
                       onClick={() => {
                         setWizardBrand(brand.id);
+                        setTargetBrandForConnect(brand.id);
                         setShowConnectModal(true);
                       }}
                     >
@@ -1157,6 +1171,9 @@ export function ChannelsView() {
                           className="ibtn ibtn--sm ch-net__add"
                           title={`Connect ${meta.name}`}
                           onClick={() => {
+                            const preferredId = (activeBrandId && activeBrandId !== 'all') ? activeBrandId : (allKnownBrands[0]?.id || brands[0]?.id || '');
+                            setWizardBrand(preferredId);
+                            setTargetBrandForConnect(preferredId);
                             setWizardNet(netKey);
                             setShowConnectModal(true);
                           }}
@@ -1228,34 +1245,47 @@ export function ChannelsView() {
                 className="mform"
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  if (wizardNet === 'facebook' || wizardNet === 'instagram') {
-                    try {
-                      setShowConnectModal(false);
-                      addToast({
-                        type: 'info',
-                        message: `Connecting to official ${NETWORK_METAS[wizardNet]?.name} (Meta)...`,
-                      });
+                  const effectiveBrandId =
+                    wizardBrand && wizardBrand !== 'ember'
+                      ? wizardBrand
+                      : (activeBrandId !== 'all' ? activeBrandId : '') || brands[0]?.id || '';
 
+                  if (wizardNet === 'facebook' || wizardNet === 'instagram') {
+                    setShowConnectModal(false);
+                    addToast({
+                      type: 'info',
+                      message: `Connecting to official ${NETWORK_METAS[wizardNet]?.name} (Meta)...`,
+                    });
+
+                    let authUrl: string | null = null;
+                    try {
                       // 1. Try direct authenticated Meta auth-url endpoint first
                       try {
-                        const directAuth: any = await apiFetch(`/channels/meta/auth-url?brandId=${wizardBrand}`);
+                        const directAuth: any = await apiFetch(`/channels/meta/auth-url?brandId=${effectiveBrandId}`);
                         if (directAuth?.authUrl) {
-                          window.location.href = directAuth.authUrl;
-                          return;
+                          authUrl = directAuth.authUrl;
                         }
-                      } catch {}
+                      } catch (e1) {
+                        console.warn('Direct auth-url failed, trying fallback:', e1);
+                      }
 
                       // 2. Fallback to invite flow
-                      const inviteRes: any = await apiFetch('/invites/connect', {
-                        method: 'POST',
-                        body: JSON.stringify({ brandId: wizardBrand }),
-                      });
-                      if (inviteRes?.rawToken) {
-                        const authRes: any = await apiFetch(`/invites/${inviteRes.rawToken}/meta-auth`);
-                        if (authRes?.authUrl) {
-                          window.location.href = authRes.authUrl;
-                          return;
+                      if (!authUrl) {
+                        const inviteRes: any = await apiFetch('/invites/connect', {
+                          method: 'POST',
+                          body: JSON.stringify({ brandId: effectiveBrandId }),
+                        });
+                        if (inviteRes?.rawToken) {
+                          const authRes: any = await apiFetch(`/invites/${inviteRes.rawToken}/meta-auth`);
+                          if (authRes?.authUrl) {
+                            authUrl = authRes.authUrl;
+                          }
                         }
+                      }
+
+                      if (authUrl) {
+                        window.location.href = authUrl;
+                        return;
                       }
                     } catch (err: any) {
                       console.warn('Real Meta OAuth redirect error:', err);
@@ -1401,71 +1431,81 @@ export function ChannelsView() {
         )}
 
       {/* 5. Authentic Social Media OAuth Login Dialog */}
-      <SocialOAuthModal
-        isOpen={!!activeOAuthNet}
-        network={activeOAuthNet || 'instagram'}
-        brandName={allKnownBrands.find((b) => b.id === wizardBrand)?.name || 'Brand'}
-        brandId={wizardBrand}
-        onClose={() => {
-          setActiveOAuthNet(null);
-        }}
-        onBack={() => {
-          setActiveOAuthNet(null);
-          setShowConnectModal(true);
-        }}
-        onSuccess={async ({ handle: newHandle, network: newNet, brandId: bId, followers }) => {
-          const bName = allKnownBrands.find((b) => b.id === bId)?.name || 'Brand';
-          const netMeta = NETWORK_METAS[newNet];
+      {(() => {
+        const effectiveBrand =
+          allKnownBrands.find((b) => b.id === wizardBrand) ||
+          allKnownBrands[0] ||
+          (brands[0] ? { id: brands[0].id, name: brands[0].name } : null);
+        const resolvedBrandId = effectiveBrand?.id || brands[0]?.id || '';
+        const resolvedBrandName = effectiveBrand?.name || brands[0]?.name || 'Brand';
+        return (
+          <SocialOAuthModal
+            isOpen={!!activeOAuthNet}
+            network={activeOAuthNet || 'facebook'}
+            brandName={resolvedBrandName}
+            brandId={resolvedBrandId}
+            onClose={() => {
+              setActiveOAuthNet(null);
+            }}
+            onBack={() => {
+              setActiveOAuthNet(null);
+              setShowConnectModal(true);
+            }}
+            onSuccess={async ({ handle: newHandle, network: newNet, brandId: bId, followers }) => {
+              const bName = allKnownBrands.find((b) => b.id === bId)?.name || resolvedBrandName;
+              const netMeta = NETWORK_METAS[newNet];
 
-          const newChannel: ChannelItem = {
-            id: `ch-${bId}-${newNet}-${Date.now()}`,
-            brandId: bId,
-            net: newNet as any,
-            handle: newHandle,
-            followers: followers || 15400,
-            growthPct: Number((Math.random() * 8 + 2).toFixed(1)),
-            daysLeft: 60,
-            totalDays: 60,
-            lastSync: 'Just now',
-            connectedBy: 'Devon',
-            status: 'connected',
-            postingEnabled: true,
-          };
-
-          setChannels((prev) => {
-            const filtered = prev.filter((c) => !(c.brandId === bId && c.net === newNet));
-            const updated = [newChannel, ...filtered];
-            try {
-              const customOnly = updated.filter((c) => !INITIAL_CHANNELS.some((ic) => ic.id === c.id));
-              localStorage.setItem('vs_custom_channels', JSON.stringify(customOnly));
-            } catch (e) {
-              console.error(e);
-            }
-            return updated;
-          });
-
-          setActiveOAuthNet(null);
-          setShowConnectModal(false);
-          addToast({
-            type: 'success',
-            message: `Successfully connected ${netMeta?.name || newNet} account (${newHandle}) to ${bName}!`,
-          });
-
-          // Persist to backend database so it stays across all devices and refreshes
-          try {
-            await apiFetch('/channels/connect-mock', {
-              method: 'POST',
-              body: JSON.stringify({
+              const newChannel: ChannelItem = {
+                id: `ch-${bId}-${newNet}-${Date.now()}`,
                 brandId: bId,
-                network: newNet.toUpperCase(),
+                net: newNet as any,
                 handle: newHandle,
-              }),
-            });
-          } catch (err) {
-            console.warn('Backend channel persist warning:', err);
-          }
-        }}
-      />
+                followers: followers || 15400,
+                growthPct: Number((Math.random() * 8 + 2).toFixed(1)),
+                daysLeft: 60,
+                totalDays: 60,
+                lastSync: 'Just now',
+                connectedBy: 'Official OAuth',
+                status: 'connected',
+                postingEnabled: true,
+              };
+
+              setChannels((prev) => {
+                const filtered = prev.filter((c) => !(c.brandId === bId && c.net === newNet));
+                const updated = [newChannel, ...filtered];
+                try {
+                  const customOnly = updated.filter((c) => !INITIAL_CHANNELS.some((ic) => ic.id === c.id));
+                  localStorage.setItem('vs_custom_channels', JSON.stringify(customOnly));
+                } catch (e) {
+                  console.error(e);
+                }
+                return updated;
+              });
+
+              setActiveOAuthNet(null);
+              setShowConnectModal(false);
+              addToast({
+                type: 'success',
+                message: `Successfully connected ${netMeta?.name || newNet} account (${newHandle}) to ${bName}!`,
+              });
+
+              // Persist to backend database so it stays across all devices and refreshes
+              try {
+                await apiFetch('/channels/connect-mock', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    brandId: bId,
+                    network: newNet.toUpperCase(),
+                    handle: newHandle,
+                  }),
+                });
+              } catch (err) {
+                console.warn('Backend channel persist warning:', err);
+              }
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

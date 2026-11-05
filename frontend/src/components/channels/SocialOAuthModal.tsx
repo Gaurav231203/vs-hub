@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { NetworkIcon } from '../common/NetworkIcon.js';
 import { apiFetch } from '../../lib/api.js';
 import { useToastStore } from '../../stores/toastStore.js';
+import { useAuthStore } from '../../stores/authStore.js';
 
 export type OAuthNetwork =
   | 'instagram'
@@ -175,6 +176,16 @@ export function SocialOAuthModal({
   if (!isOpen) return null;
 
   const addToast = useToastStore((state) => state.addToast);
+  const userBrands = useAuthStore((s) => s.brands);
+  const effectiveBrandId =
+    brandId && brandId !== 'ember'
+      ? brandId
+      : (userBrands && userBrands[0]?.id) || '';
+  const effectiveBrandName =
+    brandName && brandName !== 'Brand'
+      ? brandName
+      : (userBrands?.find((b) => b.id === effectiveBrandId)?.name || userBrands?.[0]?.name || 'Brand');
+
   const cfg = NETWORK_CONFIGS[network] || NETWORK_CONFIGS.instagram;
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
@@ -184,31 +195,42 @@ export function SocialOAuthModal({
 
     if (cfg.hasDirectMetaOAuth) {
       try {
-        addToast({ type: 'info', message: 'Generating official Meta OAuth session...' });
+        addToast({ type: 'info', message: 'Redirecting to official Meta OAuth login...' });
+
+        let authUrl: string | null = null;
 
         // 1. Try direct authenticated Meta auth-url endpoint first
         try {
-          const directAuth: any = await apiFetch(`/channels/meta/auth-url?brandId=${brandId}`);
+          const directAuth: any = await apiFetch(`/channels/meta/auth-url?brandId=${effectiveBrandId}`);
           if (directAuth?.authUrl) {
-            window.location.href = directAuth.authUrl;
-            return;
+            authUrl = directAuth.authUrl;
           }
-        } catch {}
+        } catch (e1) {
+          console.warn('Direct auth-url endpoint failed, trying invite token fallback:', e1);
+        }
 
         // 2. Fallback to invite token flow
-        const inviteRes: any = await apiFetch('/invites/connect', {
-          method: 'POST',
-          body: JSON.stringify({ brandId }),
-        });
+        if (!authUrl) {
+          const inviteRes: any = await apiFetch('/invites/connect', {
+            method: 'POST',
+            body: JSON.stringify({ brandId: effectiveBrandId }),
+          });
 
-        if (inviteRes?.rawToken) {
-          const authRes: any = await apiFetch(`/invites/${inviteRes.rawToken}/meta-auth`);
-          if (authRes?.authUrl) {
-            window.location.href = authRes.authUrl;
-            return;
+          if (inviteRes?.rawToken) {
+            const authRes: any = await apiFetch(`/invites/${inviteRes.rawToken}/meta-auth`);
+            if (authRes?.authUrl) {
+              authUrl = authRes.authUrl;
+            }
           }
         }
-        throw new Error('No authorization URL returned from server.');
+
+        if (!authUrl) {
+          throw new Error('No authorization URL returned from server.');
+        }
+
+        // Immediate browser redirect to official provider OAuth
+        window.location.href = authUrl;
+        return;
       } catch (err: any) {
         setIsRedirecting(false);
         addToast({
@@ -221,7 +243,7 @@ export function SocialOAuthModal({
       try {
         const inviteRes: any = await apiFetch('/invites/connect', {
           method: 'POST',
-          body: JSON.stringify({ brandId }),
+          body: JSON.stringify({ brandId: effectiveBrandId }),
         });
         if (inviteRes?.inviteUrl) {
           setGeneratedInviteLink(inviteRes.inviteUrl);
@@ -366,7 +388,7 @@ export function SocialOAuthModal({
               {cfg.loginTitle}
             </h3>
             <p style={{ fontSize: '13.5px', color: 'var(--muted, #94a3b8)', lineHeight: 1.5 }}>
-              Connecting to <strong style={{ color: 'var(--text, #eef0ee)' }}>{brandName}</strong>. {cfg.loginSubtitle}
+              Connecting to <strong style={{ color: 'var(--text, #eef0ee)' }}>{effectiveBrandName}</strong>. {cfg.loginSubtitle}
             </p>
           </div>
 

@@ -40,25 +40,39 @@ invitesRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const ctx = req.ctx!;
-      const { brandId, expiresInDays = 7 } = req.body;
+      let { brandId: requestedBrandId, expiresInDays = 7 } = req.body;
 
-      if (!brandId) {
-        throw new AppError('VALIDATION_ERROR', 'brandId is required', 400);
+      // Check brand access in workspace with fallback for dummy/stale IDs
+      let brand = requestedBrandId
+        ? await prisma.brand.findFirst({
+            where: {
+              id: requestedBrandId,
+              workspaceId: ctx.workspaceId,
+              ...(!ctx.allBrands ? { id: { in: ctx.brandIds } } : {}),
+            },
+            include: {
+              workspace: { select: { id: true, name: true } },
+              contacts: { where: { isPrimary: true }, take: 1 },
+            },
+          })
+        : null;
+
+      if (!brand) {
+        brand = await prisma.brand.findFirst({
+          where: {
+            workspaceId: ctx.workspaceId,
+            ...(!ctx.allBrands ? { id: { in: ctx.brandIds } } : {}),
+          },
+          include: {
+            workspace: { select: { id: true, name: true } },
+            contacts: { where: { isPrimary: true }, take: 1 },
+          },
+        });
       }
 
-      // Check brand access in workspace (Strict tenant isolation)
-      if (!ctx.allBrands && !ctx.brandIds.includes(brandId)) {
-        throw new AppError('BRAND_NOT_FOUND', 'Brand not found or access denied', 404);
-      }
+      if (!brand) throw new AppError('BRAND_NOT_FOUND', 'No valid brand found in workspace', 404);
 
-      const brand = await prisma.brand.findFirst({
-        where: { id: brandId, workspaceId: ctx.workspaceId },
-        include: {
-          workspace: { select: { id: true, name: true } },
-          contacts: { where: { isPrimary: true }, take: 1 },
-        },
-      });
-      if (!brand) throw new AppError('BRAND_NOT_FOUND', 'Brand not found', 404);
+      const brandId = brand.id;
 
       // Auto-revoke previous active invites for this brand
       await prisma.connectInvite.updateMany({
