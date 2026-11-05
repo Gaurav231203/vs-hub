@@ -4,9 +4,10 @@ import { authenticate } from '../../middleware/auth.js';
 import { tenantMiddleware } from '../../middleware/tenant.js';
 import { requirePerm } from '../../middleware/rbac.js';
 import { AppError } from '../../middleware/error.js';
-import { Network, ChannelStatus, ConnectInviteStatus, PostStatus, TargetStatus } from '@prisma/client';
+import { Network, ChannelStatus, ConnectInviteStatus, PostStatus, TargetStatus, BrandStatus } from '@prisma/client';
 import { generateSecureToken, encrypt } from '../../lib/crypto.js';
 import { generateMetaOAuthState, getMetaAuthorizeUrl } from './meta.service.js';
+import { logger } from '../../lib/logger.js';
 
 export const channelsRouter = Router();
 
@@ -334,8 +335,26 @@ channelsRouter.post(
         });
       }
 
+      // If workspace has no active brands, auto-create a brand so the user is never blocked!
       if (!brand) {
-        throw new AppError('BRAND_NOT_FOUND', 'No active brand found in workspace to connect', 404);
+        const candidateBrandName =
+          (req.body.brandName as string)?.trim() ||
+          handle.trim().replace(/^@/, '') ||
+          'Main Brand';
+
+        brand = await prisma.brand.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            name: candidateBrandName,
+            status: BrandStatus.CREATED,
+            timezone: 'Asia/Kolkata',
+            color: '#4F46E5',
+          },
+        });
+        logger.info(
+          { workspaceId: ctx.workspaceId, brandId: brand.id, brandName: brand.name },
+          'Auto-created brand during manual channel connection'
+        );
       }
 
       const brandId = brand.id;
@@ -438,6 +457,13 @@ channelsRouter.post(
       res.status(201).json({
         success: true,
         channel,
+        brand: {
+          id: brand.id,
+          name: brand.name,
+          color: brand.color,
+          logoUrl: brand.logoUrl,
+          description: brand.description,
+        },
         seededPostsCount: seededPosts.length,
         message: `Successfully connected ${normalizedNet} (${cleanHandle}) for ${brand.name}! Past posts synced to dashboard.`,
       });

@@ -182,6 +182,7 @@ export function ChannelsView() {
   const [wizardLogin, setWizardLogin] = useState<string>('');
   const [wizardPassword, setWizardPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [wizardCustomBrandName, setWizardCustomBrandName] = useState<string>('');
   const [connectMethod, setConnectMethod] = useState<'manual' | 'oauth'>('manual');
   const [isSubmittingConnect, setIsSubmittingConnect] = useState<boolean>(false);
   const [activeOAuthNet, setActiveOAuthNet] = useState<OAuthNetwork | null>(null);
@@ -343,12 +344,9 @@ export function ChannelsView() {
 
   // Scoped channels based on active brand selection
   const scopedChannels = useMemo(() => {
-    // Only keep channels that belong to active, non-deleted brands
-    const validBrandIds = new Set((brands || []).map((b) => b.id));
-    const liveChannels = channels.filter((c) => validBrandIds.has(c.brandId));
-
-    if (!activeBrandId || activeBrandId === 'all') return liveChannels;
-    return liveChannels.filter((c) => matchesBrand(c.brandId, activeBrandId, brands));
+    if (channels.length === 0) return [];
+    if (!activeBrandId || activeBrandId === 'all') return channels;
+    return channels.filter((c) => matchesBrand(c.brandId, activeBrandId, brands));
   }, [channels, activeBrandId, brands]);
 
   // Filter channels with secondary tab and search query
@@ -407,18 +405,39 @@ export function ChannelsView() {
     return map;
   }, [scopedChannels]);
 
-  // Dynamically resolve all brands from user's authStore
+  // Dynamically resolve all brands from user's authStore AND existing channels
   const allKnownBrands = useMemo(() => {
-    return (brands || []).map((b) => ({
-      id: b.id,
-      name: b.name,
-      short: b.name.split(' ')[0] || b.name,
-      industry: b.description || 'Client brand',
-      tone: 'pine' as const,
-      monogram: (b.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2) || 'BR').toUpperCase(),
-      cover: b.logoUrl || '/images/bakery.jpg',
-    }));
-  }, [brands]);
+    const brandMap = new Map<string, { id: string; name: string; short: string; industry: string; tone: 'pine'; monogram: string; cover: string }>();
+
+    (brands || []).forEach((b) => {
+      brandMap.set(b.id, {
+        id: b.id,
+        name: b.name,
+        short: b.name.split(' ')[0] || b.name,
+        industry: b.description || 'Client brand',
+        tone: 'pine' as const,
+        monogram: (b.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2) || 'BR').toUpperCase(),
+        cover: b.logoUrl || '/images/bakery.jpg',
+      });
+    });
+
+    channels.forEach((c) => {
+      if (c.brandId && !brandMap.has(c.brandId)) {
+        const fallbackName = c.handle ? c.handle.replace(/^@/, '') : 'Brand';
+        brandMap.set(c.brandId, {
+          id: c.brandId,
+          name: fallbackName,
+          short: fallbackName,
+          industry: 'Connected Brand',
+          tone: 'pine' as const,
+          monogram: fallbackName.slice(0, 2).toUpperCase(),
+          cover: '/images/bakery.jpg',
+        });
+      }
+    });
+
+    return Array.from(brandMap.values());
+  }, [brands, channels]);
 
   // Group by brand
   const brandList = useMemo(() => {
@@ -719,6 +738,38 @@ export function ChannelsView() {
 
           {/* Brand Sections */}
           <div className="ch-groups" data-groups>
+            {brandList.length === 0 && (
+              <div
+                className="card"
+                style={{
+                  padding: '48px 24px',
+                  textAlign: 'center',
+                  background: 'var(--well, rgba(255,255,255,0.03))',
+                  borderRadius: '24px',
+                  border: '1px dashed var(--line-2, rgba(255,255,255,0.12))',
+                  margin: '16px 0',
+                }}
+              >
+                <div style={{ fontSize: '36px', marginBottom: '12px' }}>📱</div>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '6px', color: 'var(--text, #eef0ee)' }}>
+                  No Brands or Channels Yet
+                </h3>
+                <p style={{ color: 'var(--muted, #94a3b8)', fontSize: '13.5px', maxWidth: '420px', margin: '0 auto 20px' }}>
+                  Connect your first social media account using ID &amp; Password. A brand will be automatically set up for you.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn--ink"
+                  onClick={() => {
+                    setWizardBrand('');
+                    setShowConnectModal(true);
+                  }}
+                  style={{ background: 'var(--ink, #f2b740)', color: '#111315', fontWeight: 700 }}
+                >
+                  + Connect Social Account
+                </button>
+              </div>
+            )}
             {brandList.map((brand) => {
               const brandChannels = filteredChannels.filter((c) => matchesBrand(c.brandId, brand.id, brands));
               const brandTotalAudience = brandChannels.reduce((sum, c) => sum + c.followers, 0);
@@ -1276,7 +1327,12 @@ export function ChannelsView() {
                   const effectiveBrandId =
                     wizardBrand && wizardBrand !== 'ember'
                       ? wizardBrand
-                      : (activeBrandId !== 'all' ? activeBrandId : '') || brands[0]?.id || '';
+                      : (activeBrandId !== 'all' ? activeBrandId : '') || allKnownBrands[0]?.id || brands[0]?.id || '';
+                  const effectiveBrandName =
+                    wizardCustomBrandName.trim() ||
+                    allKnownBrands.find((b) => b.id === effectiveBrandId)?.name ||
+                    wizardHandle.trim().replace(/^@/, '') ||
+                    'Main Brand';
 
                   if (!wizardHandle.trim()) {
                     addToast({ type: 'error', message: 'Please enter account handle or page name.' });
@@ -1290,6 +1346,7 @@ export function ChannelsView() {
                         method: 'POST',
                         body: JSON.stringify({
                           brandId: effectiveBrandId,
+                          brandName: effectiveBrandName,
                           network: wizardNet.toUpperCase(),
                           handle: wizardHandle.trim(),
                           accountLogin: wizardLogin.trim(),
@@ -1315,6 +1372,18 @@ export function ChannelsView() {
                           postingEnabled: true,
                         };
 
+                        // 1. If brand was created/returned, register in authStore!
+                        if (res.brand) {
+                          const currentBrands = useAuthStore.getState().brands || [];
+                          if (!currentBrands.some((b) => b.id === res.brand.id)) {
+                            useAuthStore.setState({
+                              brands: [res.brand, ...currentBrands],
+                              selectedBrandId: res.brand.id,
+                            });
+                          }
+                        }
+
+                        // 2. Add channel to channels state
                         setChannels((prev) => {
                           const updated = [newCh, ...prev.filter((c) => c.id !== newCh.id)];
                           try {
@@ -1322,6 +1391,9 @@ export function ChannelsView() {
                           } catch {}
                           return updated;
                         });
+
+                        // 3. Dispatch global sync event
+                        window.dispatchEvent(new CustomEvent('channel:created', { detail: newCh }));
 
                         addToast({
                           type: 'success',
@@ -1332,6 +1404,7 @@ export function ChannelsView() {
                         setWizardHandle('');
                         setWizardLogin('');
                         setWizardPassword('');
+                        setWizardCustomBrandName('');
                       }
                     } catch (err: any) {
                       addToast({
@@ -1528,22 +1601,44 @@ export function ChannelsView() {
                 {/* For Brand Selection */}
                 <div className="field field--wide" style={{ marginTop: '16px' }}>
                   <span className="field__label">For brand</span>
-                  <select
-                    className="input"
-                    value={wizardBrand}
-                    onChange={(e) => setWizardBrand(e.target.value)}
-                    style={{ color: 'var(--text)' }}
-                  >
-                    {allKnownBrands.map((b) => (
-                      <option
-                        key={b.id}
-                        value={b.id}
-                        style={{ background: '#1f2226', color: '#eef0ee' }}
+                  {allKnownBrands.length > 0 ? (
+                    <select
+                      className="input"
+                      value={wizardBrand}
+                      onChange={(e) => setWizardBrand(e.target.value)}
+                      style={{ color: 'var(--text)' }}
+                    >
+                      {allKnownBrands.map((b) => (
+                        <option
+                          key={b.id}
+                          value={b.id}
+                          style={{ background: '#1f2226', color: '#eef0ee' }}
+                        >
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div>
+                      <input
+                        className="input"
+                        placeholder="Brand name (e.g. Gaurav or My Brand)"
+                        value={wizardCustomBrandName}
+                        onChange={(e) => setWizardCustomBrandName(e.target.value)}
+                        style={{ color: 'var(--text)' }}
+                      />
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--butter, #f2b740)',
+                          marginTop: '4px',
+                          display: 'block',
+                        }}
                       >
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                        ⚡ No existing brands found — a new brand will be created automatically.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {connectMethod === 'manual' ? (
@@ -1565,7 +1660,13 @@ export function ChannelsView() {
                             : 'e.g. @gaurav_official'
                         }
                         value={wizardHandle}
-                        onChange={(e) => setWizardHandle(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWizardHandle(val);
+                          if (!wizardCustomBrandName && allKnownBrands.length === 0) {
+                            setWizardCustomBrandName(val.replace(/^@/, ''));
+                          }
+                        }}
                       />
                     </div>
 

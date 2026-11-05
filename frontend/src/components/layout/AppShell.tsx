@@ -1321,6 +1321,7 @@ export function AppShell() {
                       method: 'POST',
                       body: JSON.stringify({
                         brandId: effectiveBrandId,
+                        brandName: connectHandle.trim().replace(/^@/, '') || 'Main Brand',
                         network: connectNet.toUpperCase(),
                         handle: connectHandle.trim(),
                         accountLogin: connectLogin.trim(),
@@ -1345,6 +1346,17 @@ export function AppShell() {
                         status: 'connected',
                         postingEnabled: true,
                       };
+
+                      // 1. If brand was created/returned, register in authStore!
+                      if (res.brand) {
+                        const currentBrands = useAuthStore.getState().brands || [];
+                        if (!currentBrands.some((b) => b.id === res.brand.id)) {
+                          useAuthStore.setState({
+                            brands: [res.brand, ...currentBrands],
+                            selectedBrandId: res.brand.id,
+                          });
+                        }
+                      }
 
                       try {
                         const saved = localStorage.getItem('vs_custom_channels');
@@ -1555,22 +1567,44 @@ export function AppShell() {
               {/* For Brand Selection */}
               <div className="field field--wide" style={{ marginTop: '14px' }}>
                 <span className="field__label">For brand</span>
-                <select
-                  className="input"
-                  value={connectBrandId}
-                  onChange={(e) => setConnectBrandId(e.target.value)}
-                  style={{ color: 'var(--text)' }}
-                >
-                  {brands.map((b) => (
-                    <option
-                      key={b.id}
-                      value={b.id}
-                      style={{ background: '#1f2226', color: '#eef0ee' }}
+                {brands.length > 0 ? (
+                  <select
+                    className="input"
+                    value={connectBrandId}
+                    onChange={(e) => setConnectBrandId(e.target.value)}
+                    style={{ color: 'var(--text)' }}
+                  >
+                    {brands.map((b) => (
+                      <option
+                        key={b.id}
+                        value={b.id}
+                        style={{ background: '#1f2226', color: '#eef0ee' }}
+                      >
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div>
+                    <input
+                      className="input"
+                      placeholder="Brand name (e.g. Main Brand)"
+                      value={connectHandle ? connectHandle.replace(/^@/, '') : 'Main Brand'}
+                      readOnly
+                      style={{ color: 'var(--text)' }}
+                    />
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        color: 'var(--butter, #f2b740)',
+                        marginTop: '4px',
+                        display: 'block',
+                      }}
                     >
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
+                      ⚡ No existing brands found — a brand will be created automatically.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {connectMethod === 'manual' ? (
