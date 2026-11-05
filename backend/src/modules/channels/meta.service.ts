@@ -79,12 +79,8 @@ export function getMetaRedirectUri(req?: Request): string {
  * Build Meta OAuth authorization dialog URL
  */
 export function getMetaAuthorizeUrl(state: string, req?: Request): string {
-  if (!env.META_APP_ID) {
-    // Mock simulation URL if no Meta App ID is configured
-    const apiBase = getApiUrl(req);
-    return `${apiBase}/api/v1/oauth/meta/callback?mock=true&state=${state}`;
-  }
-
+  const appId = (env.META_APP_ID || process.env.META_APP_ID || '1700460381501081').trim();
+  const redirectUri = encodeURIComponent(getMetaRedirectUri(req));
   const scopes = [
     'pages_show_list',
     'pages_read_engagement',
@@ -93,8 +89,8 @@ export function getMetaAuthorizeUrl(state: string, req?: Request): string {
     'instagram_content_publish',
   ].join(',');
 
-  const redirectUri = encodeURIComponent(getMetaRedirectUri(req));
-  return `https://www.facebook.com/v20.0/dialog/oauth?client_id=${env.META_APP_ID}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}&response_type=code`;
+  logger.info({ appId, redirectUri: decodeURIComponent(redirectUri) }, 'Generating official Meta OAuth URL');
+  return `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}&response_type=code`;
 }
 
 /**
@@ -106,9 +102,12 @@ export async function exchangeMetaCodeForAccounts(
   brandName?: string,
   req?: Request
 ): Promise<MetaPageCandidate[]> {
-  // If mock mode or no credentials, return realistic candidate accounts
-  if (isMock || !env.META_APP_ID || !env.META_APP_SECRET) {
-    logger.info('Using simulated Meta accounts (Mock mode / No Meta App Credentials in .env)');
+  const appId = (env.META_APP_ID || process.env.META_APP_ID || '1700460381501081').trim();
+  const appSecret = (env.META_APP_SECRET || process.env.META_APP_SECRET || '').trim();
+
+  // If explicitly mock test in non-production and secret is missing
+  if ((!code || code === 'mock_code' || isMock) && env.NODE_ENV !== 'production' && !appSecret) {
+    logger.info('Using simulated Meta accounts (Local dev mock only)');
     const name = (brandName || 'Brand').trim();
     const cleanSlug = name.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'brand';
     return [
@@ -118,55 +117,70 @@ export async function exchangeMetaCodeForAccounts(
         pageToken: `mock_long_lived_token_fb_${Date.now()}`,
         instagram: {
           id: `ig_account_${Date.now()}`,
-          username: `@${cleanSlug}`,
+          username: cleanSlug,
           profilePictureUrl: '/murmura/photos/murmura/posts/ember-shot.jpg',
         },
-      },
-      {
-        pageId: `fb_page_alt_${Date.now()}`,
-        pageName: `${name} (Store & Community)`,
-        pageToken: `mock_long_lived_token_fb_alt_${Date.now()}`,
       },
     ];
   }
 
+  if (!code || code === 'mock_code') {
+    throw new AppError('INVALID_OAUTH_CODE', 'Official authorization code from Facebook is required.', 400);
+  }
+
+  if (!appSecret) {
+    logger.error('Meta App Secret (META_APP_SECRET) is missing in server environment variables');
+    throw new AppError(
+      'META_CONFIG_ERROR',
+      'META_APP_SECRET is not configured on the backend server. Please verify Render Environment Variables.',
+      500
+    );
+  }
+
   try {
+    const redirectUri = getMetaRedirectUri(req);
+    logger.info({ appId, redirectUri }, 'Exchanging authorization code for Meta User Access Token');
+
     // 1. Exchange code for Short-Lived User Access Token
-    const redirectUri = encodeURIComponent(getMetaRedirectUri(req));
-    const tokenUrl = `https://graph.facebook.com/v20.0/oauth/access_token?client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&redirect_uri=${redirectUri}&code=${code}`;
+    const tokenUrl = `https://graph.facebook.com/v20.0/oauth/access_token?client_id=${appId}&client_secret=${encodeURIComponent(appSecret)}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${encodeURIComponent(code)}`;
     const tokenRes = await fetch(tokenUrl);
     const tokenData = (await tokenRes.json()) as any;
 
     if (tokenData.error) {
-      throw new Error(tokenData.error.message || 'Failed to exchange authorization code');
+      logger.error({ error: tokenData.error }, 'Meta token exchange API error');
+      throw new Error(tokenData.error.message || 'Failed to exchange authorization code with Meta');
     }
 
     const shortLivedToken = tokenData.access_token;
 
     // 2. Exchange Short-Lived User Access Token for Long-Lived User Access Token (60 days)
-    const longLivedUrl = `https://graph.facebook.com/v20.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&fb_exchange_token=${shortLivedToken}`;
+    const longLivedUrl = `https://graph.facebook.com/v20.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${encodeURIComponent(appSecret)}&fb_exchange_token=${encodeURIComponent(shortLivedToken)}`;
     const longLivedRes = await fetch(longLivedUrl);
     const longLivedData = (await longLivedRes.json()) as any;
 
     const longLivedToken = longLivedData.access_token || shortLivedToken;
 
-    // 3. Fetch User's Facebook Pages and linked Instagram Business/Creator Accounts
-    const accountsUrl = `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,profile_picture_url}&access_token=${longLivedToken}`;
+    // 3. Fetch User's Real Facebook Pages and linked Instagram Business/Creator Accounts
+    const accountsUrl = `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,profile_picture_url}&access_token=${encodeURIComponent(longLivedToken)}`;
     const accountsRes = await fetch(accountsUrl);
     const accountsData = (await accountsRes.json()) as any;
 
     if (accountsData.error) {
-      throw new Error(accountsData.error.message || 'Failed to fetch user Facebook pages');
+      logger.error({ error: accountsData.error }, 'Meta me/accounts API error');
+      throw new Error(accountsData.error.message || 'Failed to fetch user Facebook pages from Meta');
     }
 
-    const pages: MetaPageCandidate[] = (accountsData.data || []).map((page: any) => ({
+    const rawPages = accountsData.data || [];
+    logger.info({ rawPagesCount: rawPages.length }, 'Fetched Meta pages for user');
+
+    const pages: MetaPageCandidate[] = rawPages.map((page: any) => ({
       pageId: page.id,
       pageName: page.name,
       pageToken: page.access_token,
       instagram: page.instagram_business_account
         ? {
             id: page.instagram_business_account.id,
-            username: page.instagram_business_account.username,
+            username: (page.instagram_business_account.username || '').replace(/^@+/, ''),
             profilePictureUrl: page.instagram_business_account.profile_picture_url,
           }
         : undefined,

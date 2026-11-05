@@ -50,7 +50,7 @@ const envSchema = z.object({
   LATE_PUBLISH_GRACE_MIN: z.coerce.number().default(30),
   SHORT_LINK_BASE_URL: z.string().default('http://localhost:4000/s'),
 
-  META_APP_ID: z.string().default(''),
+  META_APP_ID: z.string().default('1700460381501081'),
   META_APP_SECRET: z.string().default(''),
   META_REDIRECT_URI: z.string().default('https://vs-hub-1.onrender.com/api/v1/oauth/meta/callback'),
 });

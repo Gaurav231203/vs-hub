@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore.js';
@@ -129,44 +129,44 @@ export function ChannelsView() {
   const [channels, setChannels] = useState<ChannelItem[]>(getInitialChannels);
 
   // Sync real channels from backend database on load
-  useEffect(() => {
-    const fetchDbChannels = async () => {
-      try {
-        const res: any = await apiFetch('/channels');
-        if (res && res.channels && Array.isArray(res.channels)) {
-          const dbChannels: ChannelItem[] = res.channels.map((ch: any) => {
-            const rawNet = (ch.network || 'instagram').toLowerCase();
-            const prefix = ['instagram', 'x', 'tiktok', 'threads'].includes(rawNet) ? '@' : '';
-            const cleanHandle = ch.handle?.startsWith('@') ? ch.handle : `${prefix}${ch.handle || 'account'}`;
-            return {
-              id: ch.id,
-              brandId: ch.brandId,
-              net: rawNet as any,
-              handle: cleanHandle,
-              followers: ch.followers || 14200,
-              growthPct: 4.8,
-              daysLeft: 60,
-              totalDays: 60,
-              lastSync: 'Synced with database',
-              connectedBy: 'Zero-Login Portal',
-              status: (ch.status === 'CONNECTED' || ch.status === 'PAUSED') ? 'connected' : ch.status === 'EXPIRING' ? 'expiring' : 'disconnected',
-              postingEnabled: ch.postingEnabled ?? (ch.status !== 'PAUSED'),
-            };
-          });
+  const fetchDbChannels = useCallback(async () => {
+    try {
+      const res: any = await apiFetch('/channels');
+      if (res && res.channels && Array.isArray(res.channels)) {
+        const dbChannels: ChannelItem[] = res.channels.map((ch: any) => {
+          const rawNet = (ch.network || 'instagram').toLowerCase();
+          const prefix = ['instagram', 'x', 'tiktok', 'threads'].includes(rawNet) ? '@' : '';
+          const cleanHandle = ch.handle?.startsWith('@') ? ch.handle : `${prefix}${ch.handle || 'account'}`;
+          return {
+            id: ch.id,
+            brandId: ch.brandId,
+            net: rawNet as any,
+            handle: cleanHandle,
+            followers: ch.followers || 14200,
+            growthPct: 4.8,
+            daysLeft: 60,
+            totalDays: 60,
+            lastSync: 'Synced with database',
+            connectedBy: 'Zero-Login Portal',
+            status: (ch.status === 'CONNECTED' || ch.status === 'PAUSED') ? 'connected' : ch.status === 'EXPIRING' ? 'expiring' : 'disconnected',
+            postingEnabled: ch.postingEnabled ?? (ch.status !== 'PAUSED'),
+          };
+        });
 
-          // Set state to authoritative database channels — never resurrect deleted channels!
-          setChannels(dbChannels);
-          try {
-            localStorage.setItem('vs_custom_channels', JSON.stringify(dbChannels));
-          } catch {}
-        }
-      } catch {
-        // Fallback to localStorage / initial channels if offline
+        // Set state to authoritative database channels — never resurrect deleted channels!
+        setChannels(dbChannels);
+        try {
+          localStorage.setItem('vs_custom_channels', JSON.stringify(dbChannels));
+        } catch {}
       }
-    };
+    } catch {
+      // Fallback to localStorage / initial channels if offline
+    }
+  }, []);
 
+  useEffect(() => {
     fetchDbChannels();
-  }, [brands]);
+  }, [brands, fetchDbChannels]);
   const activeBrandId = outletCtx.selectedBrandId || authBrandId || 'all';
 
   const [filter, setFilter] = useState<'all' | 'attention' | 'paused'>('all');
@@ -1383,6 +1383,12 @@ export function ChannelsView() {
                           }
                         }
 
+                        // Ensure active brand scope matches newly connected channel
+                        if (res.channel?.brandId) {
+                          outletCtx.setSelectedBrandId?.(res.channel.brandId);
+                          useAuthStore.setState({ selectedBrandId: res.channel.brandId });
+                        }
+
                         // 2. Add channel to channels state
                         setChannels((prev) => {
                           const updated = [newCh, ...prev.filter((c) => c.id !== newCh.id)];
@@ -1394,6 +1400,9 @@ export function ChannelsView() {
 
                         // 3. Dispatch global sync event
                         window.dispatchEvent(new CustomEvent('channel:created', { detail: newCh }));
+
+                        // 4. Reload from authoritative database
+                        await fetchDbChannels();
 
                         addToast({
                           type: 'success',
@@ -1604,8 +1613,14 @@ export function ChannelsView() {
                   {allKnownBrands.length > 0 ? (
                     <select
                       className="input"
-                      value={wizardBrand}
-                      onChange={(e) => setWizardBrand(e.target.value)}
+                      value={wizardBrand || allKnownBrands[0]?.id || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setWizardBrand(val);
+                        if (val === '__new__') {
+                          setWizardCustomBrandName('');
+                        }
+                      }}
                       style={{ color: 'var(--text)' }}
                     >
                       {allKnownBrands.map((b) => (
@@ -1617,6 +1632,9 @@ export function ChannelsView() {
                           {b.name}
                         </option>
                       ))}
+                      <option value="__new__" style={{ background: '#1f2226', color: '#f2b740' }}>
+                        + Create New Brand...
+                      </option>
                     </select>
                   ) : (
                     <div>
@@ -1637,6 +1655,18 @@ export function ChannelsView() {
                       >
                         ⚡ No existing brands found — a new brand will be created automatically.
                       </span>
+                    </div>
+                  )}
+                  {wizardBrand === '__new__' && (
+                    <div style={{ marginTop: '8px' }}>
+                      <input
+                        className="input"
+                        placeholder="Enter new brand name (e.g. VS Adda Studio)"
+                        value={wizardCustomBrandName}
+                        onChange={(e) => setWizardCustomBrandName(e.target.value)}
+                        style={{ color: 'var(--text)' }}
+                        autoFocus
+                      />
                     </div>
                   )}
                 </div>

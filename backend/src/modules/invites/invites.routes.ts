@@ -418,7 +418,7 @@ invitesRouter.get(
 
       // 2. Exchange code for candidate pages & accounts
       const candidatePages = await exchangeMetaCodeForAccounts(
-        String(code || 'mock_code'),
+        String(code || ''),
         mock === 'true',
         invite.brand?.name,
         req
@@ -426,7 +426,9 @@ invitesRouter.get(
 
       if (candidatePages.length === 0) {
         return res.redirect(
-          `${webBase}/connect/${inviteToken}?error=NO_PAGES_FOUND&message=No%20Facebook%20Pages%20found%20under%20your%20Meta%20account.`
+          `${webBase}/connect/${inviteToken}?error=NO_PAGES_FOUND&message=${encodeURIComponent(
+            'No Facebook Pages found under your Facebook account. Please ensure your Facebook account is an Admin of at least one Facebook Page (create one at facebook.com/pages/create), then try again.'
+          )}`
         );
       }
 
@@ -466,7 +468,9 @@ invitesRouter.get(
         data: { status: BrandStatus.CONNECTED },
       });
 
-      return res.redirect(`${webBase}/channels?connected=true&network=facebook`);
+      return res.redirect(
+        `${webBase}/connect/${inviteToken}?status=success&network=facebook&pageName=${encodeURIComponent(page.pageName)}`
+      );
     } catch (err: any) {
       next(err);
     }

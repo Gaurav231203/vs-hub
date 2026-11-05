@@ -129,7 +129,7 @@ const SUPPORTED_NETWORKS: SupportedNetwork[] = [
 
 export function PublicConnectView() {
   const { token } = useParams<{ token: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const step = searchParams.get('step');
   const sessionId = searchParams.get('sessionId');
@@ -156,6 +156,8 @@ export function PublicConnectView() {
   const [selectedPageId, setSelectedPageId] = useState<string>('');
   const [isSubmittingPage, setIsSubmittingPage] = useState(false);
   const [isSuccess, setIsSuccess] = useState(urlStatus === 'success');
+  const [confirmedPageName, setConfirmedPageName] = useState<string>(searchParams.get('pageName') || '');
+  const [confirmedInstagramHandle, setConfirmedInstagramHandle] = useState<string>('');
 
   // Channel Connection Modal state
   const [activeModalNet, setActiveModalNet] = useState<SupportedNetwork | null>(null);
@@ -354,6 +356,7 @@ export function PublicConnectView() {
 
     setIsSubmittingPage(true);
     try {
+      const chosenCandidate = candidates.find((c) => c.pageId === selectedPageId);
       const res = await fetch(getPublicApiUrl(`/${token}/select-page`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -361,7 +364,13 @@ export function PublicConnectView() {
       });
 
       if (res.ok) {
+        setConfirmedPageName(chosenCandidate?.pageName || 'Facebook Page');
+        if (chosenCandidate?.instagram?.username) {
+          setConfirmedInstagramHandle(chosenCandidate.instagram.username.replace(/^@+/, ''));
+        }
         setIsSuccess(true);
+        // Clear select-page step from URL so the full success celebration is shown
+        setSearchParams({ status: 'success', network: 'facebook' });
       } else {
         const data = await res.json();
         alert(data?.error?.message || 'Failed to bind selected page.');
@@ -551,6 +560,126 @@ export function PublicConnectView() {
                 </div>
               )}
             </div>
+          ) : isSuccess ? (
+            /* Dedicated, unmistakable, celebration SUCCESS state */
+            <div style={{ textAlign: 'center', padding: '28px 12px' }}>
+              <div
+                style={{
+                  width: '68px',
+                  height: '68px',
+                  borderRadius: '50%',
+                  background: '#ecfdf5',
+                  border: '2px solid #a7f3d0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 18px',
+                  fontSize: '32px',
+                  color: '#059669',
+                  boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.25)',
+                }}
+              >
+                ✓
+              </div>
+
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
+                Accounts Successfully Connected!
+              </h2>
+              <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.5, margin: '0 auto 24px', maxWidth: '440px' }}>
+                Your social account has been securely authorized and linked to <strong>{brand?.name}</strong>.
+              </p>
+
+              {/* Connected details card */}
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '16px',
+                  padding: '16px 20px',
+                  textAlign: 'left',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <NetworkIcon network="FACEBOOK" className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', display: 'block' }}>
+                        {confirmedPageName || 'Official Facebook Page'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>Facebook Business Page</span>
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      background: '#dcfce7',
+                      color: '#15803d',
+                    }}
+                  >
+                    ● Active &amp; Synced
+                  </span>
+                </div>
+
+                {confirmedInstagramHandle && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <NetworkIcon network="INSTAGRAM" className="w-5 h-5 text-pink-600" />
+                      <div>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', display: 'block' }}>
+                          @{confirmedInstagramHandle}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>Connected Instagram Professional</span>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        padding: '4px 10px',
+                        borderRadius: '999px',
+                        background: '#dcfce7',
+                        color: '#15803d',
+                      }}
+                    >
+                      ● Active &amp; Synced
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <a
+                  href="/channels?connected=true"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '14px',
+                    background: '#0f172a',
+                    color: '#ffffff',
+                    borderRadius: '12px',
+                    fontWeight: 700,
+                    fontSize: '14.5px',
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 14px rgba(15, 23, 42, 0.18)',
+                  }}
+                >
+                  Return to VS Adda Channels Dashboard →
+                </a>
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  Client changes are saved in real-time. You can safely close this browser window.
+                </span>
+              </div>
+            </div>
           ) : step === 'select-page' && candidates.length > 0 ? (
             /* Multi-Page Selection Screen (From Meta OAuth) */
             <form onSubmit={handleConfirmSelectPage}>
@@ -590,7 +719,7 @@ export function PublicConnectView() {
                       </strong>
                       {cand.instagram && (
                         <span style={{ fontSize: '12px', color: '#e1306c', display: 'block', marginTop: '2px' }}>
-                          Linked Instagram: @{cand.instagram.username}
+                          Linked Instagram: @{cand.instagram.username.replace(/^@+/, '')}
                         </span>
                       )}
                     </div>
@@ -635,44 +764,7 @@ export function PublicConnectView() {
                 </div>
               )}
 
-              {isSuccess && (
-                <div
-                  style={{
-                    background: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    borderRadius: '12px',
-                    padding: '14px 18px',
-                    color: '#166534',
-                    fontSize: '13.5px',
-                    fontWeight: 600,
-                    marginBottom: '20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🎉</span> Accounts linked successfully to your brand!
-                  </div>
-                  <a
-                    href="/channels"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      padding: '8px 16px',
-                      background: '#16a34a',
-                      color: '#ffffff',
-                      borderRadius: '8px',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      textDecoration: 'none',
-                      width: 'fit-content',
-                    }}
-                  >
-                    Return to VS Adda Channels →
-                  </a>
-                </div>
-              )}
+
 
               <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
                 Connect Social Media Channels
