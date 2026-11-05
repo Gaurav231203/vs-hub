@@ -576,6 +576,14 @@ invitesRouter.post(
         throw new AppError('VALIDATION_ERROR', `Unsupported social network: ${network}`, 400);
       }
 
+      if (normalizedNet === Network.FACEBOOK || normalizedNet === Network.INSTAGRAM) {
+        throw new AppError(
+          'OAUTH_REQUIRED',
+          'Facebook and Instagram require official Meta OAuth authentication. Please click the official Meta Login button to authorize your Page.',
+          400
+        );
+      }
+
       const cleanHandle = String(handle).trim();
       const chExternalId =
         externalId || `${normalizedNet.toLowerCase()}_${cleanHandle.replace(/[^a-zA-Z0-9_]/g, '')}_${Date.now()}`;

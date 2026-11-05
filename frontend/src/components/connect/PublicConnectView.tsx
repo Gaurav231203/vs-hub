@@ -927,9 +927,41 @@ export function PublicConnectView() {
                 </div>
               ) : (
                 <>
-                  {/* Meta 1-Click Option (If Facebook or Instagram) */}
-                  {(activeModalNet.id === 'facebook' || activeModalNet.id === 'instagram') && (
-                    <div style={{ marginBottom: '18px' }}>
+                  {/* For Facebook & Instagram: ONLY Official Meta OAuth is allowed */}
+                  {activeModalNet.id === 'facebook' || activeModalNet.id === 'instagram' ? (
+                    <div>
+                      <div
+                        style={{
+                          background: '#f8fafc',
+                          border: '1.5px solid #e2e8f0',
+                          borderRadius: '14px',
+                          padding: '16px',
+                          marginBottom: '20px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '18px' }}>🔒</span>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                            Official Meta Graph API Authorization
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b', lineHeight: 1.5 }}>
+                          Meta requires logging in with your Facebook account to grant publishing and insight permissions for your <b>Facebook Page</b>. No password is ever seen or stored by our servers.
+                        </p>
+                      </div>
+
+                      {/* Scopes description */}
+                      <div style={{ marginBottom: '20px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>
+                          Permissions Granted to App:
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12.5px', color: '#64748b', lineHeight: 1.6 }}>
+                          {activeModalNet.scopes.map((s, idx) => (
+                            <li key={idx}>{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+
                       <button
                         type="button"
                         onClick={handleConnectMeta}
@@ -939,99 +971,84 @@ export function PublicConnectView() {
                           color: '#ffffff',
                           border: 'none',
                           borderRadius: '12px',
-                          padding: '12px',
-                          fontSize: '14px',
+                          padding: '14px',
+                          fontSize: '15px',
                           fontWeight: 700,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: '8px',
-                          boxShadow: '0 4px 12px rgba(24, 119, 242, 0.25)',
+                          gap: '10px',
+                          boxShadow: '0 4px 14px rgba(24, 119, 242, 0.35)',
                         }}
                       >
-                        <NetworkIcon network="FACEBOOK" className="w-4 h-4 text-white" />
-                        1-Click Meta (Facebook &amp; Instagram) OAuth
+                        <NetworkIcon network="FACEBOOK" className="w-5 h-5 text-white" />
+                        Log in with Facebook (Official Meta OAuth) →
                       </button>
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          margin: '16px 0 12px 0',
-                          color: '#94a3b8',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        <span style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
-                        <span>OR CONNECT MANUALLY BELOW</span>
-                        <span style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+                    </div>
+                  ) : (
+                    /* Other Social Networks (Manual Handle / Zero-Login) */
+                    <>
+                      {/* Scopes description */}
+                      <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                          Permissions Granted:
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12.5px', color: '#64748b', lineHeight: 1.5 }}>
+                          {activeModalNet.scopes.map((s, idx) => (
+                            <li key={idx}>{s}</li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
+
+                      <form onSubmit={handleConfirmChannelConnect}>
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                            {activeModalNet.name} Handle:
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={customHandle}
+                            onChange={(e) => setCustomHandle(e.target.value)}
+                            placeholder={`e.g. ${activeModalNet.defaultPrefix}mybrand`}
+                            style={{
+                              width: '100%',
+                              padding: '10px 14px',
+                              borderRadius: '10px',
+                              border: '1.5px solid #cbd5e1',
+                              fontSize: '14px',
+                              color: '#0f172a',
+                              outline: 'none',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                          <span style={{ display: 'block', fontSize: '11.5px', color: '#94a3b8', marginTop: '4px' }}>
+                            🔒 Password is never requested or shared.
+                          </span>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={isConnectingChannel || !customHandle.trim()}
+                          style={{
+                            width: '100%',
+                            background: '#0f172a',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '12px',
+                            padding: '13px',
+                            fontSize: '14px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            opacity: isConnectingChannel || !customHandle.trim() ? 0.7 : 1,
+                          }}
+                        >
+                          {isConnectingChannel ? 'Connecting Account...' : `Confirm & Connect ${activeModalNet.name}`}
+                        </button>
+                      </form>
+                    </>
                   )}
-
-                  {/* Scopes description */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
-                      Permissions Granted:
-                    </div>
-                    <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12.5px', color: '#64748b', lineHeight: 1.5 }}>
-                      {activeModalNet.scopes.map((s, idx) => (
-                        <li key={idx}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Manual / Direct Handle Form */}
-                  <form onSubmit={handleConfirmChannelConnect}>
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                        {activeModalNet.name} Handle / Page Name:
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={customHandle}
-                        onChange={(e) => setCustomHandle(e.target.value)}
-                        placeholder={`e.g. ${activeModalNet.defaultPrefix}mybrand`}
-                        style={{
-                          width: '100%',
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          border: '1.5px solid #cbd5e1',
-                          fontSize: '14px',
-                          color: '#0f172a',
-                          outline: 'none',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                      <span style={{ display: 'block', fontSize: '11.5px', color: '#94a3b8', marginTop: '4px' }}>
-                        🔒 Password is never requested or shared.
-                      </span>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isConnectingChannel || !customHandle.trim()}
-                      style={{
-                        width: '100%',
-                        background: '#0f172a',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '12px',
-                        padding: '13px',
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        opacity: isConnectingChannel || !customHandle.trim() ? 0.7 : 1,
-                      }}
-                    >
-                      {isConnectingChannel ? 'Connecting Account...' : `Confirm & Connect ${activeModalNet.name}`}
-                    </button>
-                  </form>
                 </>
               )}
             </div>
