@@ -6,6 +6,9 @@ import { LoginView } from './components/auth/LoginView.js';
 import { ForgotPasswordView } from './components/auth/ForgotPasswordView.js';
 import { AcceptInviteView } from './components/auth/AcceptInviteView.js';
 import { PublicConnectView } from './components/connect/PublicConnectView.js';
+import { PrivacyPolicyView } from './components/legal/PrivacyPolicyView.js';
+import { TermsView } from './components/legal/TermsView.js';
+import { DataDeletionView } from './components/legal/DataDeletionView.js';
 import { AppShell } from './components/layout/AppShell.js';
 import { OverviewView } from './components/dashboard/OverviewView.js';
 import { ApprovalsView } from './components/approvals/ApprovalsView.js';
@@ -69,6 +72,9 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordView />} />
       <Route path="/accept-invite/:token" element={<AcceptInviteView />} />
       <Route path="/connect/:token" element={<PublicConnectView />} />
+      <Route path="/privacy" element={<PrivacyPolicyView />} />
+      <Route path="/terms" element={<TermsView />} />
+      <Route path="/data-deletion" element={<DataDeletionView />} />
 
       {/* Protected Routes */}
       <Route

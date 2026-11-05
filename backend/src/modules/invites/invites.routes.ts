@@ -474,6 +474,31 @@ invitesRouter.get(
 );
 
 /**
+ * POST /api/v1/oauth/meta/deauthorize
+ * Meta Deauthorization Callback
+ */
+invitesRouter.post('/oauth/meta/deauthorize', async (req: Request, res: Response) => {
+  logger.info({ body: req.body }, 'Meta app deauthorized callback received');
+  res.json({ success: true, message: 'Deauthorized' });
+});
+
+/**
+ * POST /api/v1/oauth/meta/data-deletion
+ * Meta Data Deletion Request Callback (complies with Meta Platform Terms)
+ */
+invitesRouter.post('/oauth/meta/data-deletion', async (req: Request, res: Response) => {
+  const confirmationCode = `del_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const webBase = getWebUrl(req);
+  const statusUrl = `${webBase}/data-deletion?code=${confirmationCode}`;
+
+  logger.info({ confirmationCode }, 'Meta data deletion request callback processed');
+  res.json({
+    url: statusUrl,
+    confirmation_code: confirmationCode,
+  });
+});
+
+/**
  * GET /api/v1/public/connect/:token/pages/:sessionId
  * Fetch candidate pages for client selection step
  */
