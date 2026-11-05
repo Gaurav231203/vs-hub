@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import gsap from 'gsap';
@@ -178,42 +178,99 @@ export function CalendarView() {
   const [drawerPost, setDrawerPost] = useState<any | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const [dbPosts, setDbPosts] = useState<any[]>([]);
 
   // Initialize magnetic buttons
   useEffect(() => {
     initMagnetic(containerRef.current || document);
   }, []);
 
-  const daysOfWeek = [
-    { name: 'MON', date: 26, posts: 0, label: 'Free', isToday: true },
-    { name: 'TUE', date: 27, posts: 0, label: 'Free', isToday: false },
-    { name: 'WED', date: 28, posts: 0, label: 'Free', isToday: false },
-    { name: 'THU', date: 29, posts: 0, label: 'Free', isToday: false },
-    { name: 'FRI', date: 30, posts: 0, label: 'Free', isToday: false },
-    { name: 'SAT', date: 31, posts: 0, label: 'Free', isToday: false },
-    { name: 'SUN', date: 1, posts: 0, label: 'Free', isToday: false },
-  ];
+  // Fetch real posts from backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCalendarPosts = async () => {
+      try {
+        const query = activeBrandId && activeBrandId !== 'all' ? `?brandId=${activeBrandId}` : '';
+        const res: any = await apiFetch(`/posts${query}`);
+        if (isMounted && res?.posts && Array.isArray(res.posts)) {
+          setDbPosts(res.posts);
+        }
+      } catch (e) {
+        console.warn('Failed to load calendar posts', e);
+      }
+    };
+    fetchCalendarPosts();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeBrandId]);
+
+  const formattedDbPosts = useMemo(() => {
+    return dbPosts.map((p: any) => {
+      const pubDate = p.publishedAt ? new Date(p.publishedAt) : p.scheduledAt ? new Date(p.scheduledAt) : new Date(p.createdAt);
+      const dayNum = pubDate.getDate();
+      const hour = pubDate.getHours();
+      const hourStr = `${hour % 12 || 12} ${hour >= 12 ? 'PM' : 'AM'}`;
+      const targetNets = p.targets?.map((t: any) => t.channel?.network?.toLowerCase()).filter(Boolean) || ['facebook'];
+      const dayIndex = (pubDate.getDay() + 6) % 7; // 0 for Mon, 6 for Sun
+      const topHour = Math.max(0, Math.min(17, hour - 6));
+
+      return {
+        id: p.id,
+        brand: p.brand?.name || 'Brand',
+        brandName: p.brand?.name || 'Brand',
+        day: dayNum,
+        dayIndex,
+        topHour,
+        lane: 0,
+        lanes: 1,
+        tone: 'aurora',
+        time: hourStr,
+        status: p.status === 'PUBLISHED' ? 'published' : p.status === 'SCHEDULED' ? 'scheduled' : 'pending',
+        type: p.media && p.media.length > 0 ? 'image' : 'text',
+        title: p.caption ? p.caption.substring(0, 36) : 'Post',
+        text: p.caption,
+        fullText: p.caption,
+        author: p.author?.name || 'Team',
+        nets: targetNets,
+        mediaUrl: p.media?.[0]?.asset?.publicUrl,
+        handle: p.targets?.[0]?.channel?.handle,
+      };
+    });
+  }, [dbPosts]);
 
   const visibleCampaigns = isBrandFiltered
-    ? MURMURA_CAMPAIGNS.filter((c) => matchesBrand(c.brand, activeBrandId, brands))
+    ? MURMURA_CAMPAIGNS.filter((c: any) => matchesBrand(c.brand, activeBrandId, brands))
     : MURMURA_CAMPAIGNS;
 
-  const visiblePosts = isBrandFiltered
-    ? (isHollowHome ? HOLLOW_HOME_CALENDAR_POSTS : DEFAULT_CALENDAR_POSTS.filter((p) => matchesBrand(p.brand, activeBrandId, brands)))
-    : DEFAULT_CALENDAR_POSTS;
+  const visiblePosts = useMemo(() => {
+    return [...formattedDbPosts, ...DEFAULT_CALENDAR_POSTS];
+  }, [formattedDbPosts]);
 
   const visibleDrafts = isBrandFiltered
-    ? DEFAULT_DRAFTS.filter((d) => matchesBrand(d.brand, activeBrandId, brands))
+    ? DEFAULT_DRAFTS.filter((d: any) => matchesBrand(d.brand, activeBrandId, brands))
     : DEFAULT_DRAFTS;
+
+  const daysOfWeek = useMemo(() => {
+    return [
+      { name: 'MON', date: 26, posts: visiblePosts.filter((p: any) => p.day === 26).length, label: 'Free', isToday: true },
+      { name: 'TUE', date: 27, posts: visiblePosts.filter((p: any) => p.day === 27).length, label: 'Free', isToday: false },
+      { name: 'WED', date: 28, posts: visiblePosts.filter((p: any) => p.day === 28).length, label: 'Free', isToday: false },
+      { name: 'THU', date: 29, posts: visiblePosts.filter((p: any) => p.day === 29).length, label: 'Free', isToday: false },
+      { name: 'FRI', date: 30, posts: visiblePosts.filter((p: any) => p.day === 30).length, label: 'Free', isToday: false },
+      { name: 'SAT', date: 31, posts: visiblePosts.filter((p: any) => p.day === 31).length, label: 'Free', isToday: false },
+      { name: 'SUN', date: 1, posts: visiblePosts.filter((p: any) => p.day === 1).length, label: 'Free', isToday: false },
+    ];
+  }, [visiblePosts]);
 
   const availableNetworks = isHollowHome
     ? ['instagram', 'pinterest', 'facebook', 'youtube']
     : ['instagram', 'facebook', 'tiktok', 'linkedin', 'youtube', 'pinterest', 'threads', 'x'];
 
   const statsData = {
-    scheduled: visiblePosts.filter((p) => p.status === 'scheduled').length,
-    awaiting: visiblePosts.filter((p) => p.status === 'pending').length,
-    published: visiblePosts.filter((p) => p.status === 'published').length,
+    scheduled: visiblePosts.filter((p: any) => p.status === 'scheduled').length,
+    awaiting: visiblePosts.filter((p: any) => p.status === 'pending').length,
+    published: visiblePosts.filter((p: any) => p.status === 'published').length,
     emptyDays: 0,
   };
 
@@ -447,7 +504,7 @@ export function CalendarView() {
               {/* Sticky Column Headers & Multi-day Ribbons */}
               <div className="cl-wk__head">
                 <span className="cl-wk__corner" aria-hidden="true"></span>
-                {daysOfWeek.map((day) => (
+                {daysOfWeek.map((day: any) => (
                   <div
                     key={day.name}
                     className={`cl-wd ${day.isToday ? 'is-today' : ''}`}
@@ -466,7 +523,7 @@ export function CalendarView() {
                   <span className="cl-ribs__lab" title="Campaigns">
                     <SvgIcon name="flag" />
                   </span>
-                  {visibleCampaigns.map((camp) => (
+                  {visibleCampaigns.map((camp: any) => (
                     <button
                       key={camp.id}
                       type="button"
@@ -495,8 +552,8 @@ export function CalendarView() {
                 </div>
 
                 {/* 7 Day Columns */}
-                {daysOfWeek.map((day, dayIndex) => {
-                  const dayPosts = visiblePosts.filter((p) => p.dayIndex === dayIndex);
+                {daysOfWeek.map((day: any, dayIndex: number) => {
+                  const dayPosts = visiblePosts.filter((p: any) => p.dayIndex === dayIndex);
                   return (
                     <div
                       key={day.name}
@@ -519,7 +576,7 @@ export function CalendarView() {
                       })}
 
                       {/* Scheduled Post Tiles */}
-                      {dayPosts.map((post) => (
+                      {dayPosts.map((post: any) => (
                         <button
                           key={post.id}
                           type="button"

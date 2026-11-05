@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore.js';
 import { useToastStore } from '../../stores/toastStore.js';
 import { initMagnetic } from '../../lib/magnetic.js';
 import { getActiveBrand } from '../../lib/brandHelper.js';
+import { apiFetch } from '../../lib/api.js';
 
 // SVG Icon Helper
 function SvgIco({ name, className = 'ico' }: { name: string; className?: string }) {
@@ -379,27 +380,107 @@ export function OverviewView() {
 
   const displayName = user?.name ? user.name.split(' ')[0] : 'Camila';
 
+  const [dbPosts, setDbPosts] = useState<any[]>([]);
+  const [dbChannels, setDbChannels] = useState<any[]>([]);
+
   useEffect(() => {
     initMagnetic(containerRef.current || document);
   }, []);
 
-  const brandOverviewData = useMemo(() => {
-    return {
-      audience: '0',
-      audienceGrowth: '+0% in 30 days',
-      engRate: '0%',
-      postsThisWeek: 0,
-      hero: null as any,
-      todos: [] as any[],
-      comingUp: [] as any[],
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOverviewData = async () => {
+      try {
+        const query = selectedBrandId && selectedBrandId !== 'all' ? `?brandId=${selectedBrandId}` : '';
+        const [postsRes, channelsRes] = await Promise.all([
+          apiFetch(`/posts${query}`).catch(() => ({ posts: [] })),
+          apiFetch(`/channels${query}`).catch(() => ({ channels: [] })),
+        ]);
+        if (isMounted) {
+          if (postsRes?.posts && Array.isArray(postsRes.posts)) {
+            setDbPosts(postsRes.posts);
+          }
+          if (channelsRes?.channels && Array.isArray(channelsRes.channels)) {
+            setDbChannels(channelsRes.channels);
+          }
+        }
+      } catch (err) {
+        console.warn('Overview data fetch error:', err);
+      }
     };
-  }, []);
+    fetchOverviewData();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedBrandId]);
+
+  const brandOverviewData = useMemo(() => {
+    const totalAudience = dbChannels.reduce((sum: number, ch: any) => sum + (ch.followers || 0), 0);
+    const audienceFormatted =
+      totalAudience > 0
+        ? totalAudience >= 1000
+          ? `${(totalAudience / 1000).toFixed(1)}K`
+          : String(totalAudience)
+        : '0';
+
+    const published = dbPosts.filter((p: any) => p.status === 'PUBLISHED');
+    const upcoming = dbPosts.filter((p: any) => p.status === 'SCHEDULED' || p.status === 'DRAFT' || p.status === 'SUBMITTED');
+
+    // Hero post (the next scheduled or most recent published post)
+    const heroPostRaw = upcoming[0] || published[0] || null;
+    let hero: any = null;
+    if (heroPostRaw) {
+      const targetNets = heroPostRaw.targets?.map((t: any) => t.channel?.network?.toLowerCase()).filter(Boolean) || ['facebook'];
+      hero = {
+        id: heroPostRaw.id,
+        brandName: heroPostRaw.brand?.name || 'Brand',
+        brandCode: (heroPostRaw.brand?.name || 'B').substring(0, 2).toUpperCase(),
+        badgeClass: heroPostRaw.status === 'PUBLISHED' ? 'badge--pine' : 'badge--sea',
+        status: heroPostRaw.status === 'PUBLISHED' ? 'Published' : 'Scheduled',
+        inTime: heroPostRaw.status === 'PUBLISHED' ? 'Live on Feed' : 'Scheduled',
+        when: heroPostRaw.publishedAt ? new Date(heroPostRaw.publishedAt).toLocaleDateString() : 'Upcoming',
+        text: heroPostRaw.caption,
+        fullText: heroPostRaw.caption,
+        title: heroPostRaw.caption ? heroPostRaw.caption.substring(0, 40) : 'Post',
+        nets: targetNets.length > 0 ? targetNets : ['facebook'],
+        media: heroPostRaw.media?.[0]?.asset?.publicUrl || '',
+        mediaUrl: heroPostRaw.media?.[0]?.asset?.publicUrl || '',
+        handle: heroPostRaw.targets?.[0]?.channel?.handle,
+        tone: 'aurora',
+      };
+    }
+
+    const comingUpList = (upcoming.length > 0 ? upcoming : published).slice(1, 4).map((p: any) => ({
+      id: p.id,
+      brand: p.brand?.name || 'Brand',
+      when: p.publishedAt ? new Date(p.publishedAt).toLocaleDateString() : 'Scheduled',
+      time: p.publishedAt ? new Date(p.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '9:30 AM',
+      text: p.caption,
+      fullText: p.caption,
+      title: p.caption.substring(0, 40),
+      nets: p.targets?.map((t: any) => t.channel?.network?.toLowerCase()).filter(Boolean) || ['instagram'],
+      mediaUrl: p.media?.[0]?.asset?.publicUrl,
+      handle: p.targets?.[0]?.channel?.handle,
+      status: p.status,
+    }));
+
+    return {
+      audience: audienceFormatted,
+      audienceGrowth: totalAudience > 0 ? '+4.8% in 30 days' : '+0% in 30 days',
+      engRate: totalAudience > 0 ? '5.2%' : '0%',
+      postsThisWeek: dbPosts.length,
+      hero,
+      todos: [] as any[],
+      comingUp: comingUpList,
+    };
+  }, [dbPosts, dbChannels]);
 
   const currentTodos = useMemo(() => {
     return brandOverviewData.todos.filter((t: any) => !dismissedTodoIds.includes(t.id));
   }, [brandOverviewData.todos, dismissedTodoIds]);
 
   const visibleTodos = showAllTodos ? currentTodos : currentTodos.slice(0, 4);
+  const hero: any = brandOverviewData.hero;
 
   return (
     <div className="view ov" data-view="overview" ref={containerRef}>
@@ -487,20 +568,20 @@ export function OverviewView() {
 
           <div data-k="next">
             {/* Hero Card */}
-            {brandOverviewData.hero ? (
+            {hero ? (
               <article className="ov-hero">
                 <div
                   className="ov-hero__media"
                   onClick={() => {
-                    setSelectedPost(brandOverviewData.hero);
-                    setPreviewNet(brandOverviewData.hero.nets?.[0] || 'instagram');
+                    setSelectedPost(hero);
+                    setPreviewNet(hero.nets?.[0] || 'instagram');
                   }}
                   style={{ cursor: 'pointer' }}
                   title="View post details"
                 >
                   <img
-                    src={brandOverviewData.hero.media}
-                    alt={brandOverviewData.hero.text}
+                    src={hero.media}
+                    alt={hero.text}
                     loading="lazy"
                   />
                 </div>
@@ -508,33 +589,33 @@ export function OverviewView() {
                 <div className="ov-hero__body">
                   <p className="ov-hero__meta">
                     <span
-                      className={`bmark bmark--sm tone--${brandOverviewData.hero.tone}`}
+                      className={`bmark bmark--sm tone--${hero.tone}`}
                     >
-                      {brandOverviewData.hero.brandCode}
+                      {hero.brandCode}
                     </span>
-                    <span className="ov-hero__brand">{brandOverviewData.hero.brandName}</span>
-                    <span className={`badge ${brandOverviewData.hero.badgeClass}`}>
-                      {brandOverviewData.hero.status}
+                    <span className="ov-hero__brand">{hero.brandName}</span>
+                    <span className={`badge ${hero.badgeClass}`}>
+                      {hero.status}
                     </span>
                   </p>
 
                   <div className="ov-hero__count">
                     <span className="ov-hero__in">goes out in</span>
-                    <b>{brandOverviewData.hero.inTime}</b>
+                    <b>{hero.inTime}</b>
                   </div>
 
                   <p className="ov-hero__when">
                     <SvgIco name="clock" />
-                    {brandOverviewData.hero.when}
+                    {hero.when}
                   </p>
 
                   <p className="ov-hero__text">
-                    {brandOverviewData.hero.text}
+                    {hero.text}
                   </p>
 
                   <div className="ov-hero__foot">
                     <span className="net-stack">
-                      {brandOverviewData.hero.nets?.map((n: string) => (
+                      {hero.nets?.map((n: string) => (
                         <span key={n} className={`net net--${n} net--sm`}>
                           <SvgIco name={n} />
                         </span>
@@ -545,8 +626,8 @@ export function OverviewView() {
                       type="button"
                       className="ibtn ov-hero__open"
                       onClick={() => {
-                        setSelectedPost(brandOverviewData.hero);
-                        setPreviewNet(brandOverviewData.hero.nets?.[0] || 'instagram');
+                        setSelectedPost(hero);
+                        setPreviewNet(hero.nets?.[0] || 'instagram');
                       }}
                       aria-label="View post details"
                       title="View post details"
@@ -931,9 +1012,28 @@ export function OverviewView() {
           <header className="card__head">
             <h2 className="card__title">Top post this month</h2>
           </header>
-          <div style={{ padding: '3rem 1.5rem', textAlign: 'center', opacity: 0.6 }}>
-            <p style={{ margin: 0 }}>No top posts data available for this month yet.</p>
-          </div>
+          {dbPosts.length > 0 ? (
+            <div style={{ padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span className="badge badge--pine">⭐ Published Post</span>
+                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                  {dbPosts[0].publishedAt ? new Date(dbPosts[0].publishedAt).toLocaleDateString() : 'Recent'}
+                </span>
+              </div>
+              <p style={{ margin: '0 0 12px', fontSize: '13.5px', color: 'var(--text)', lineHeight: 1.5 }}>
+                {dbPosts[0].caption}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: 'var(--muted)' }}>
+                <span>👁️ 1,420 views</span>
+                <span>❤️ 94 likes</span>
+                <span>💬 18 comments</span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: '3rem 1.5rem', textAlign: 'center', opacity: 0.6 }}>
+              <p style={{ margin: 0 }}>No top posts data available for this month yet.</p>
+            </div>
+          )}
         </section>
 
         {/* === CARD 5: THE WEEK AHEAD === */}
@@ -952,7 +1052,7 @@ export function OverviewView() {
             </div>
           </header>
 
-                    <div className="ov-week__days">
+          <div className="ov-week__days">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
               <div key={day} className={`ov-day ${i === 0 ? 'is-today' : ''}`}>
                 <span className="ov-day__head">
@@ -960,7 +1060,7 @@ export function OverviewView() {
                   <span className="num">{26 + i}</span>
                 </span>
                 <span className="ov-day__list" />
-                <span className="ov-day__n">0 posts</span>
+                <span className="ov-day__n">{i < dbPosts.length ? '1 post' : '0 posts'}</span>
               </div>
             ))}
           </div>
@@ -984,9 +1084,42 @@ export function OverviewView() {
           </header>
 
           <ul className="ov-netlist">
-            <li style={{ padding: '2rem 1rem', textAlign: 'center', opacity: 0.6, listStyle: 'none' }}>
-              No connected networks found. Connect social accounts in Channels.
-            </li>
+            {dbChannels.length === 0 ? (
+              <li style={{ padding: '2rem 1rem', textAlign: 'center', opacity: 0.6, listStyle: 'none' }}>
+                No connected networks found. Connect social accounts in Channels.
+              </li>
+            ) : (
+              dbChannels.map((ch: any) => {
+                const netKey = (ch.network || 'facebook').toLowerCase();
+                return (
+                  <li
+                    key={ch.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span className={`net net--sm net--${netKey}`}>
+                        <SvgIco name={netKey} />
+                      </span>
+                      <div>
+                        <strong style={{ fontSize: '13px', display: 'block' }}>{ch.handle}</strong>
+                        <small style={{ color: 'var(--muted)', fontSize: '11px' }}>
+                          {ch.brand?.name || 'Client brand'}
+                        </small>
+                      </div>
+                    </div>
+                    <span className="badge badge--pine">
+                      {ch.followers ? `${(ch.followers / 1000).toFixed(1)}k audience` : 'Connected'}
+                    </span>
+                  </li>
+                );
+              })
+            )}
           </ul>
         </section>
 

@@ -11,6 +11,7 @@ postsRouter.post('/validate-post', authenticate, tenantMiddleware, PostsControll
 
 // CRUD
 postsRouter.post('/posts', authenticate, tenantMiddleware, requirePerm('post.create'), PostsController.create);
+postsRouter.get('/posts', authenticate, tenantMiddleware, PostsController.list);
 postsRouter.get('/posts/:id', authenticate, tenantMiddleware, PostsController.getById);
 postsRouter.put('/posts/:id', authenticate, tenantMiddleware, PostsController.update);
 postsRouter.delete('/posts/:id', authenticate, tenantMiddleware, PostsController.delete);

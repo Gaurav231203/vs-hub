@@ -18,6 +18,20 @@ export class PostsController {
     }
   }
 
+  static async list(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { brandId, status, limit } = req.query;
+      const posts = await PostsService.list(req.ctx!, {
+        brandId: brandId as string,
+        status: status as any,
+        limit: limit ? Number(limit) : undefined,
+      });
+      return res.status(200).json({ posts });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;

@@ -175,6 +175,57 @@ export class PostsService {
     return await this.getById(ctx, post.id);
   }
 
+  static async list(ctx: UserContext, filters: { brandId?: string; status?: any; limit?: number }) {
+    const where: any = {
+      workspaceId: ctx.workspaceId,
+      deletedAt: null,
+    };
+
+    if (filters.brandId && filters.brandId !== 'all') {
+      where.brandId = filters.brandId;
+    } else if (!ctx.allBrands) {
+      where.brandId = { in: ctx.brandIds };
+    }
+
+    if (filters.status && filters.status !== 'all') {
+      where.status = filters.status;
+    }
+
+    const posts = await prisma.post.findMany({
+      where,
+      orderBy: [
+        { publishedAt: 'desc' },
+        { scheduledAt: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      take: filters.limit || 50,
+      include: {
+        brand: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+            title: true,
+          },
+        },
+        targets: {
+          include: {
+            channel: true,
+          },
+        },
+        media: {
+          include: {
+            asset: true,
+          },
+        },
+      },
+    });
+
+    return posts;
+  }
+
   static async getById(ctx: UserContext, id: string) {
     const post = await prisma.post.findUnique({
       where: { id },
