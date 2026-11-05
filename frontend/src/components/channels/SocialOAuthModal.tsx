@@ -512,41 +512,61 @@ export function SocialOAuthModal({
           )}
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               type="button"
-              className="btn btn--ghost"
+              className="btn btn--sm"
               onClick={onBack}
               disabled={isRedirecting}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={isRedirecting}
-              onClick={handleOfficialOAuthConnect}
               style={{
-                background: cfg.buttonBg,
-                color: cfg.buttonText,
+                background: 'rgba(242, 183, 64, 0.15)',
+                color: '#f2b740',
+                border: '1px solid rgba(242, 183, 64, 0.35)',
                 fontWeight: 700,
-                fontSize: '14px',
-                padding: '10px 20px',
-                borderRadius: '12px',
-                border: 'none',
+                fontSize: '12.5px',
+                padding: '8px 14px',
+                borderRadius: '10px',
                 cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 14px -4px rgba(0,0,0,0.5)',
               }}
             >
-              {isRedirecting
-                ? 'Redirecting to Official Login...'
-                : cfg.hasDirectMetaOAuth
-                ? `Continue to Official ${cfg.name} Login →`
-                : `Connect ${cfg.name} via Official OAuth →`}
+              🔑 Connect with ID &amp; Password
             </button>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={onBack}
+                disabled={isRedirecting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={isRedirecting}
+                onClick={handleOfficialOAuthConnect}
+                style={{
+                  background: cfg.buttonBg,
+                  color: cfg.buttonText,
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  padding: '10px 20px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px -4px rgba(0,0,0,0.5)',
+                }}
+              >
+                {isRedirecting
+                  ? 'Redirecting to Official Login...'
+                  : cfg.hasDirectMetaOAuth
+                  ? `Continue to Official ${cfg.name} Login →`
+                  : `Connect ${cfg.name} via Official OAuth →`}
+              </button>
+            </div>
           </div>
         </div>
       </div>

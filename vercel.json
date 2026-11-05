@@ -1,21 +1,21 @@
 {
+  "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://vs-hub-1.onrender.com/api/:path*"
+      "source": "/api/(.*)",
+      "destination": "https://vs-hub-1.onrender.com/api/$1"
     },
     {
-      "source": "/uploads/:path*",
-      "destination": "https://vs-hub-1.onrender.com/uploads/:path*"
+      "source": "/uploads/(.*)",
+      "destination": "https://vs-hub-1.onrender.com/uploads/$1"
     },
     {
-      "source": "/s/:path*",
-      "destination": "https://vs-hub-1.onrender.com/s/:path*"
+      "source": "/s/(.*)",
+      "destination": "https://vs-hub-1.onrender.com/s/$1"
     },
     {
-      "source": "/((?!api|uploads|s).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
 }
-

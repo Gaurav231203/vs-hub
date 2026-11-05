@@ -19,7 +19,7 @@ export class InstagramPublisher implements Publisher {
       }
     }
 
-    const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_');
+    const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
       const containerId = cachedContainerId || `ig_container_${channel.externalId}_${Date.now()}`;

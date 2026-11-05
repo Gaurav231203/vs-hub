@@ -23,7 +23,7 @@ export class XPublisher implements Publisher {
       throw new Error(`X (Twitter) post exceeds 280 character limit (${effectiveLength} characters).`);
     }
 
-    const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_');
+    const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
       const tweetId = `tweet_${channel.externalId}_${Date.now()}`;

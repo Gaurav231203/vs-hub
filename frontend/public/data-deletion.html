@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Data Deletion Instructions - VS Adda</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #1f2937; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f9fafb; }
+    .card { background: #ffffff; border-radius: 12px; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; }
+    h1 { color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px; }
+    h2 { color: #1f2937; margin-top: 24px; }
+    p, li { color: #4b5563; }
+    .badge { display: inline-block; padding: 4px 10px; background: #e0f2fe; color: #0369a1; border-radius: 9999px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+    .code-box { background: #f3f4f6; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; margin: 12px 0; }
+    footer { text-align: center; margin-top: 40px; color: #9ca3af; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">GDPR &amp; Meta Compliance</span>
+    <h1>User Data Deletion Instructions</h1>
+    <p><strong>App Name:</strong> VS Adda | <strong>App ID:</strong> 1700460381501081</p>
+
+    <p>In accordance with Meta Platform Policy and global data protection regulations (GDPR/CCPA), VS Adda provides a transparent and automated process for users to request complete deletion of their stored data.</p>
+
+    <h2>Option 1: Disconnect via VS Adda Dashboard</h2>
+    <ol>
+      <li>Log in to your VS Adda workspace.</li>
+      <li>Navigate to <strong>Channels</strong> from the left navigation bar.</li>
+      <li>Locate the social account you wish to remove and click the three-dot menu ➔ <strong>Disconnect Channel</strong>.</li>
+      <li>Confirm deletion. All stored access tokens, channel metadata, and associated cached metrics will be permanently deleted from our database immediately.</li>
+    </ol>
+
+    <h2>Option 2: Revoke Access via Facebook / Instagram</h2>
+    <ol>
+      <li>Go to your Facebook Profile ➔ <strong>Settings &amp; Privacy</strong> ➔ <strong>Settings</strong>.</li>
+      <li>Click on <strong>Apps and Websites</strong>.</li>
+      <li>Find <strong>VS Adda</strong> and click <strong>Remove</strong>.</li>
+      <li>Meta will automatically trigger our automated Deauthorize &amp; Data Deletion Webhook:
+        <div class="code-box">POST https://vs-hub-1.onrender.com/api/v1/oauth/meta/data-deletion</div>
+      </li>
+    </ol>
+
+    <h2>Option 3: Manual Data Deletion Request</h2>
+    <p>You can also send a data deletion request directly to our privacy officer at <code>privacy@vsadda.com</code> or <code>contact@vsadda.com</code> with your account email and brand name.</p>
+  </div>
+  <footer>&copy; 2026 VS Adda. All rights reserved.</footer>
+</body>
+</html>

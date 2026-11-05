@@ -126,6 +126,15 @@ export function createApp(): Express {
   app.get('/health', healthHandler);
   app.get('/api/v1/health', healthHandler);
 
+  // Legal endpoints (Meta Developer App review compliance)
+  const privacyHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Privacy Policy - VS Adda</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.6;color:#333;}</style></head><body><h1>Privacy Policy - VS Adda</h1><p><strong>Effective Date:</strong> November 5, 2026 | <strong>App ID:</strong> 1700460381501081</p><p>VS Adda respects your privacy. We process social media identifiers, OAuth tokens, and analytics solely to schedule, publish, and analyze authorized brand content. We do not sell or share user data. To request data deletion, contact privacy@vsadda.com or visit /data-deletion.</p></body></html>`;
+  const termsHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Terms of Service - VS Adda</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.6;color:#333;}</style></head><body><h1>Terms of Service - VS Adda</h1><p><strong>Effective Date:</strong> November 5, 2026 | <strong>App ID:</strong> 1700460381501081</p><p>By using VS Adda, you agree to comply with third-party platform terms (Meta, Google, X, LinkedIn). You may disconnect your accounts at any time from the Channels dashboard.</p></body></html>`;
+  const deletionHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Data Deletion - VS Adda</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.6;color:#333;}</style></head><body><h1>User Data Deletion Instructions - VS Adda</h1><p><strong>App ID:</strong> 1700460381501081</p><p>To delete your data, disconnect your channel via the VS Adda Channels tab or remove the app in your Facebook Settings -> Apps and Websites. Alternatively, email privacy@vsadda.com.</p></body></html>`;
+
+  app.get(['/privacy', '/api/v1/privacy'], (_req, res) => res.type('html').send(privacyHtml));
+  app.get(['/terms', '/api/v1/terms'], (_req, res) => res.type('html').send(termsHtml));
+  app.get(['/data-deletion', '/api/v1/data-deletion'], (_req, res) => res.type('html').send(deletionHtml));
+
   // Mount API modules
   app.use('/api/v1', authRouter);
   app.use('/api/v1', brandsRouter);
