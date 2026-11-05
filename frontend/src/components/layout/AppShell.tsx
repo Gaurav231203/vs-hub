@@ -73,6 +73,19 @@ export function AppShell() {
     try {
       await apiFetch(`/brands/${brand.id}`, { method: 'DELETE' });
       removeBrand(brand.id);
+
+      // Clean up localStorage custom channels for this brand
+      try {
+        const saved = localStorage.getItem('vs_custom_channels');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const filtered = parsed.filter((c: any) => c.brandId !== brand.id);
+            localStorage.setItem('vs_custom_channels', JSON.stringify(filtered));
+          }
+        }
+      } catch {}
+
       addToast({
         type: 'success',
         message: `Brand "${brand.name}" deleted permanently`,

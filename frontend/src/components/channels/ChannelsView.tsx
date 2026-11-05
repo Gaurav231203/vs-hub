@@ -123,6 +123,7 @@ const getInitialChannels = (): ChannelItem[] => {
 export function ChannelsView() {
   const navigate = useNavigate();
   const addToast = useToastStore((state) => state.addToast);
+  const { brands, selectedBrandId: authBrandId } = useAuthStore();
   const outletCtx = useOutletContext<{ selectedBrandId?: string; setSelectedBrandId?: (id: string) => void }>() || {};
 
   const [channels, setChannels] = useState<ChannelItem[]>(getInitialChannels);
@@ -132,7 +133,7 @@ export function ChannelsView() {
     const fetchDbChannels = async () => {
       try {
         const res: any = await apiFetch('/channels');
-        if (res && res.channels && Array.isArray(res.channels) && res.channels.length > 0) {
+        if (res && res.channels && Array.isArray(res.channels)) {
           const dbChannels: ChannelItem[] = res.channels.map((ch: any) => {
             const rawNet = (ch.network || 'instagram').toLowerCase();
             const prefix = ['instagram', 'x', 'tiktok', 'threads'].includes(rawNet) ? '@' : '';
@@ -153,17 +154,11 @@ export function ChannelsView() {
             };
           });
 
-          setChannels((prev) => {
-            const dbIds = new Set(dbChannels.map((c) => c.id));
-            const dbKeys = new Set(dbChannels.map((c) => `${c.brandId}_${c.net}`));
-            const remaining = prev.filter((c) => !dbIds.has(c.id) && !dbKeys.has(`${c.brandId}_${c.net}`));
-            const merged = [...dbChannels, ...remaining];
-            try {
-              const customOnly = merged.filter((c) => !INITIAL_CHANNELS.some((ic) => ic.id === c.id));
-              localStorage.setItem('vs_custom_channels', JSON.stringify(customOnly));
-            } catch {}
-            return merged;
-          });
+          // Set state to authoritative database channels — never resurrect deleted channels!
+          setChannels(dbChannels);
+          try {
+            localStorage.setItem('vs_custom_channels', JSON.stringify(dbChannels));
+          } catch {}
         }
       } catch {
         // Fallback to localStorage / initial channels if offline
@@ -171,7 +166,7 @@ export function ChannelsView() {
     };
 
     fetchDbChannels();
-  }, []);
+  }, [brands]);
   const [filter, setFilter] = useState<'all' | 'attention' | 'paused'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showConnectModal, setShowConnectModal] = useState(false);
@@ -328,13 +323,16 @@ export function ChannelsView() {
     }
   };
 
-  const { brands, selectedBrandId: authBrandId } = useAuthStore();
   const activeBrandId = outletCtx.selectedBrandId || authBrandId || 'all';
 
   // Scoped channels based on active brand selection
   const scopedChannels = useMemo(() => {
-    if (!activeBrandId || activeBrandId === 'all') return channels;
-    return channels.filter((c) => matchesBrand(c.brandId, activeBrandId, brands));
+    // Only keep channels that belong to active, non-deleted brands
+    const validBrandIds = new Set((brands || []).map((b) => b.id));
+    const liveChannels = channels.filter((c) => validBrandIds.has(c.brandId));
+
+    if (!activeBrandId || activeBrandId === 'all') return liveChannels;
+    return liveChannels.filter((c) => matchesBrand(c.brandId, activeBrandId, brands));
   }, [channels, activeBrandId, brands]);
 
   // Filter channels with secondary tab and search query

@@ -19,12 +19,19 @@ channelsRouter.use('/channels', authenticate, tenantMiddleware);
 channelsRouter.get('/channels/stats', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const ctx = req.ctx!;
-    const brandScope = ctx.allBrands ? {} : { brandId: { in: ctx.brandIds } };
+
+    // Resolve active brands in this workspace
+    const workspaceBrands = await prisma.brand.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      select: { id: true },
+    });
+    const activeBrandIds = workspaceBrands.map((b) => b.id);
+    const brandIdsToQuery = ctx.allBrands ? activeBrandIds : ctx.brandIds.filter((id) => activeBrandIds.includes(id));
 
     const channels = await prisma.channel.findMany({
       where: {
         workspaceId: ctx.workspaceId,
-        ...brandScope,
+        brandId: { in: brandIdsToQuery },
       },
       select: {
         id: true,
@@ -104,17 +111,35 @@ channelsRouter.get('/channels', async (req: Request, res: Response, next: NextFu
     const brandId = req.query.brandId as string | undefined;
     const ctx = req.ctx!;
 
+    // 1. Get all active brands in this workspace
+    const workspaceBrands = await prisma.brand.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      select: { id: true },
+    });
+    const activeBrandIds = workspaceBrands.map((b) => b.id);
+
+    // 2. Automatically clean up any orphaned channels belonging to deleted brands
+    await prisma.channel.deleteMany({
+      where: {
+        workspaceId: ctx.workspaceId,
+        brandId: { notIn: activeBrandIds },
+      },
+    }).catch(() => {});
+
     const where: any = {
       workspaceId: ctx.workspaceId,
     };
 
     if (brandId) {
-      if (!ctx.allBrands && !ctx.brandIds.includes(brandId)) {
+      if (!activeBrandIds.includes(brandId) || (!ctx.allBrands && !ctx.brandIds.includes(brandId))) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Brand not found' } });
       }
       where.brandId = brandId;
     } else if (!ctx.allBrands) {
-      where.brandId = { in: ctx.brandIds };
+      const allowed = ctx.brandIds.filter((id) => activeBrandIds.includes(id));
+      where.brandId = { in: allowed };
+    } else {
+      where.brandId = { in: activeBrandIds };
     }
 
     const channels = await prisma.channel.findMany({
