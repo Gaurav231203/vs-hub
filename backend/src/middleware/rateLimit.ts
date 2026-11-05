@@ -19,11 +19,11 @@ export const connectRateLimiter = rateLimit({
 
 /**
  * Rate limiter for OAuth authorize and callback endpoints
- * 10 requests per 5 minutes per IP
+ * 150 requests per 5 minutes per IP
  */
 export const oauthRateLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  max: 10,
+  max: 150,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

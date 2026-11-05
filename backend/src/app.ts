@@ -29,6 +29,9 @@ import { reviewRouter } from './modules/approvals/review.routes.js';
 export function createApp(): Express {
   const app = express();
 
+  // Trust reverse proxy (Render, Vercel, Cloudflare) for accurate client IP resolution
+  app.set('trust proxy', 1);
+
   // 1. Request ID
   app.use(requestId);
 

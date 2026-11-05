@@ -381,7 +381,6 @@ invitesRouter.get(
  */
 invitesRouter.get(
   '/oauth/meta/callback',
-  oauthRateLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { code, state, error, error_description, mock } = req.query;
