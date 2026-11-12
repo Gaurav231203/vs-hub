@@ -109,8 +109,8 @@ export class BrandsService {
     const webBase = baseUrl || getWebUrl();
     const inviteUrl = `${webBase}/connect/${raw}`;
 
-    // 5. Send onboarding invite email via Resend
-    await EmailService.sendConnectInvite({
+    // 5. Send onboarding invite email via active provider (Brevo / Resend / SMTP)
+    const emailDelivery = await EmailService.sendConnectInvite({
       toEmail: contact.email,
       clientName: contact.name,
       brandName: brand.name,
@@ -128,6 +128,7 @@ export class BrandsService {
         rawToken: raw,
         expiresAt: invite.expiresAt,
       },
+      emailDelivery,
     };
   }
 
@@ -212,7 +213,14 @@ export class BrandsService {
    * Generate fresh invite for brand.
    * Requirement 3: Automatically revokes older active invites.
    */
-  static async generateInvite(workspaceId: string, brandId: string, userId: string, expiresInDays = 7, baseUrl?: string) {
+  static async generateInvite(
+    workspaceId: string,
+    brandId: string,
+    userId: string,
+    expiresInDays = 7,
+    baseUrl?: string,
+    emailOverride?: string
+  ) {
     // 1. Strict workspace scoping to prevent IDOR
     const brand = await prisma.brand.findFirst({
       where: { id: brandId, workspaceId },
@@ -261,17 +269,26 @@ export class BrandsService {
     const webBase = baseUrl || getWebUrl();
     const inviteUrl = `${webBase}/connect/${raw}`;
 
-    // 5. Send email if primary contact exists
+    // 5. Send email if target email exists
     const contact = brand.contacts[0];
-    if (contact?.email) {
-      await EmailService.sendConnectInvite({
-        toEmail: contact.email,
-        clientName: contact.name,
+    const targetEmail = (emailOverride?.trim() || contact?.email || '').toLowerCase();
+    let emailDelivery = null;
+    if (targetEmail && targetEmail.includes('@')) {
+      emailDelivery = await EmailService.sendConnectInvite({
+        toEmail: targetEmail,
+        clientName: contact?.name || brand.name,
         brandName: brand.name,
         agencyName: brand.workspace.name,
         inviteUrl,
         expiresInDays,
       });
+    } else {
+      emailDelivery = {
+        sent: false,
+        provider: 'none' as const,
+        to: targetEmail,
+        error: 'No primary client contact email configured for this brand',
+      };
     }
 
     return {
@@ -281,7 +298,8 @@ export class BrandsService {
       inviteUrl,
       rawToken: raw,
       expiresAt: invite.expiresAt,
-      contactEmail: contact?.email || null,
+      contactEmail: targetEmail || null,
+      emailDelivery,
     };
   }
 

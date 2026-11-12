@@ -52,6 +52,7 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
   const [description, setDescription] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [createdInvite, setCreatedInvite] = useState<{
     inviteUrl: string;
     rawToken: string;
@@ -60,6 +61,14 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
     contactEmail: string;
     contactName: string;
     contactPhone?: string;
+    emailDelivery?: {
+      sent: boolean;
+      provider: string;
+      from?: string;
+      to: string;
+      messageId?: string;
+      error?: string;
+    };
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const [whatsappSent, setWhatsappSent] = useState(false);
@@ -136,12 +145,21 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
         contactEmail: res.contact.email,
         contactName: clientContactName.trim(),
         contactPhone: phone.trim() || res.contact.phone || undefined,
+        emailDelivery: res.emailDelivery,
       });
 
-      addToast({
-        type: 'success',
-        message: `Brand "${newBrand.name}" created and onboarding invite sent!`,
-      });
+      if (res.emailDelivery && !res.emailDelivery.sent) {
+        addToast({
+          type: 'error',
+          message: `Brand "${newBrand.name}" created, but email failed: ${res.emailDelivery.error || 'Verify Brevo / SMTP configuration'}`,
+          durationMs: 7000,
+        });
+      } else {
+        addToast({
+          type: 'success',
+          message: `Brand "${newBrand.name}" created and onboarding invite sent to ${res.contact.email}!`,
+        });
+      }
 
       if (onCreated) {
         onCreated(newBrand);
@@ -153,6 +171,43 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!createdInvite?.brandId || isResendingEmail) return;
+    setIsResendingEmail(true);
+    try {
+      const res = await apiFetch(`/brands/${createdInvite.brandId}/invite`, {
+        method: 'POST',
+        body: JSON.stringify({ email: createdInvite.contactEmail }),
+      });
+      setCreatedInvite((prev) =>
+        prev
+          ? {
+              ...prev,
+              inviteUrl: sanitizeInviteUrl(res.inviteUrl) || prev.inviteUrl,
+              rawToken: res.rawToken || prev.rawToken,
+              emailDelivery: res.emailDelivery,
+            }
+          : prev
+      );
+      if (res.emailDelivery?.sent) {
+        addToast({
+          type: 'success',
+          message: `Invite email delivered to ${createdInvite.contactEmail}!`,
+        });
+      } else {
+        addToast({
+          type: 'error',
+          message: `Email delivery failed: ${res.emailDelivery?.error || 'Check email settings'}`,
+          durationMs: 7000,
+        });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to resend invite email.' });
+    } finally {
+      setIsResendingEmail(false);
     }
   };
 
@@ -420,32 +475,79 @@ export function NewBrandModal({ isOpen, onClose, onCreated }: NewBrandModalProps
               </p>
             </div>
 
-            {/* Email Dispatch Confirmation Card */}
-            <div
-              style={{
-                background: 'rgba(34, 197, 94, 0.07)',
-                border: '1px solid rgba(34, 197, 94, 0.25)',
-                borderRadius: '16px',
-                padding: '14px 16px',
-                textAlign: 'left',
-                margin: '0 0 14px 0',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px rgba(34, 197, 94, 0.6)' }} />
-                  <strong style={{ fontSize: '13px', color: 'var(--text)' }}>
-                    Emailed directly to client:
-                  </strong>
+            {/* Email Dispatch Confirmation Card (Truthful live delivery status) */}
+            {(() => {
+              const delivery = createdInvite.emailDelivery;
+              const emailFailed = delivery ? !delivery.sent : false;
+              const accentColor = emailFailed ? '#ef4444' : '#22c55e';
+              const bg = emailFailed ? 'rgba(239, 68, 68, 0.08)' : 'rgba(34, 197, 94, 0.07)';
+              const border = emailFailed ? 'rgba(239, 68, 68, 0.35)' : 'rgba(34, 197, 94, 0.25)';
+
+              return (
+                <div
+                  style={{
+                    background: bg,
+                    border: `1px solid ${border}`,
+                    borderRadius: '16px',
+                    padding: '14px 16px',
+                    textAlign: 'left',
+                    margin: '0 0 14px 0',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: accentColor,
+                          boxShadow: `0 0 8px ${accentColor}99`,
+                        }}
+                      />
+                      <strong style={{ fontSize: '13px', color: 'var(--text)' }}>
+                        {emailFailed ? 'Email delivery failed:' : 'Emailed directly to client:'}
+                      </strong>
+                    </div>
+                    <span style={{ fontSize: '12.5px', color: accentColor, fontWeight: 600, wordBreak: 'break-all' }}>
+                      {createdInvite.contactEmail}
+                    </span>
+                  </div>
+
+                  {emailFailed ? (
+                    <p style={{ fontSize: '12px', color: '#ef4444', margin: '0 0 10px 0', lineHeight: 1.45, wordBreak: 'break-word' }}>
+                      {delivery?.error || 'Could not reach email provider. Please verify BREVO_API_KEY and EMAIL_FROM on Render, or share the link via WhatsApp below.'}
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 8px 0', lineHeight: 1.45 }}>
+                      Invitation email dispatched via <strong>{delivery?.provider === 'smtp' ? 'SMTP' : 'Brevo API'}</strong>
+                      {delivery?.from ? ` (${delivery.from})` : ''}. Ask client to check Inbox / Spam / Promotions.
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleResendEmail}
+                    disabled={isResendingEmail}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      borderRadius: '8px',
+                      border: `1px solid ${border}`,
+                      background: 'var(--solid)',
+                      color: emailFailed ? '#ef4444' : 'var(--text)',
+                      cursor: isResendingEmail ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {isResendingEmail ? 'Sending Email...' : emailFailed ? '↻ Retry Send Email' : '↻ Resend Invite Email'}
+                  </button>
                 </div>
-                <span style={{ fontSize: '12.5px', color: '#22c55e', fontWeight: 600, wordBreak: 'break-all' }}>
-                  {createdInvite.contactEmail}
-                </span>
-              </div>
-              <p style={{ fontSize: '12px', color: 'var(--muted)', margin: 0, lineHeight: 1.45 }}>
-                Invitation email has been dispatched via Brevo with direct onboarding steps.
-              </p>
-            </div>
+              );
+            })()}
 
             {/* WhatsApp Card */}
             <div

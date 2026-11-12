@@ -109,10 +109,11 @@ invitesRouter.post(
       const webBase = getWebUrl(req);
       const inviteUrl = `${webBase}/connect/${raw}`;
 
-      // Dispatch invite email if client contact exists
+      // Dispatch invite email if client contact exists and not suppressed
       const primaryContact = brand.contacts[0];
-      if (primaryContact?.email) {
-        await EmailService.sendConnectInvite({
+      let emailDelivery = null;
+      if (primaryContact?.email && req.body?.skipEmail !== true) {
+        emailDelivery = await EmailService.sendConnectInvite({
           toEmail: primaryContact.email,
           clientName: primaryContact.name,
           brandName: brand.name,
@@ -129,6 +130,7 @@ invitesRouter.post(
         inviteUrl,
         rawToken: raw,
         expiresAt: invite.expiresAt,
+        emailDelivery,
       });
     } catch (err) {
       next(err);

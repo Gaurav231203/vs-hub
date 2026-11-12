@@ -3,6 +3,7 @@ import { authenticate } from '../../middleware/auth.js';
 import { tenantMiddleware } from '../../middleware/tenant.js';
 import { requirePerm } from '../../middleware/rbac.js';
 import { BrandsService } from './brands.service.js';
+import { EmailService } from '../../lib/email.js';
 import { getWebUrl } from '../../lib/urls.js';
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
@@ -50,6 +51,56 @@ brandsRouter.get(
 );
 
 /**
+ * GET /api/v1/brands/email-status
+ * Diagnostics endpoint to verify live email provider health (Brevo / Resend / SMTP) without exposing secrets
+ */
+brandsRouter.get(
+  '/brands/email-status',
+  authenticate,
+  tenantMiddleware,
+  requirePerm('channels.manage'),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const diagnostics = await EmailService.getDiagnostics();
+      res.json(diagnostics);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/brands/test-email
+ * Sends a diagnostic test email to confirm live inbox delivery
+ */
+brandsRouter.post(
+  '/brands/test-email',
+  authenticate,
+  tenantMiddleware,
+  requirePerm('channels.manage'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const toEmail = String(req.body?.toEmail || '').trim();
+      if (!toEmail || !toEmail.includes('@')) {
+        res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Valid toEmail is required' } });
+        return;
+      }
+      const delivery = await EmailService.sendConnectInvite({
+        toEmail,
+        clientName: 'Admin Test',
+        brandName: 'Diagnostic Test Brand',
+        agencyName: 'VS Adda',
+        inviteUrl: `${getWebUrl(req)}/channels`,
+        expiresInDays: 7,
+      });
+      res.status(delivery.sent ? 200 : 502).json({ emailDelivery: delivery });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
  * GET /api/v1/brands/:id
  * Get single brand details
  */
@@ -82,12 +133,14 @@ brandsRouter.post(
       const ctx = req.ctx!;
       const baseUrl = getWebUrl(req);
       const expiresInDays = req.body.expiresInDays ? Number(req.body.expiresInDays) : 7;
+      const emailOverride = typeof req.body?.email === 'string' ? req.body.email : undefined;
       const result = await BrandsService.generateInvite(
         ctx.workspaceId,
         req.params.id,
         ctx.userId,
         expiresInDays,
-        baseUrl
+        baseUrl,
+        emailOverride
       );
       res.status(201).json(result);
     } catch (err) {
