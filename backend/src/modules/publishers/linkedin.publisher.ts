@@ -19,19 +19,7 @@ export class LinkedInPublisher implements Publisher {
     const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
-      const shareUrn = `urn:li:share:li_${channel.externalId}_${Date.now()}`;
-      logger.info(
-        { channelId: channel.id, externalId: channel.externalId, shareUrn },
-        '[LinkedInPublisher] Mock publish executed'
-      );
-      return {
-        externalPostId: shareUrn,
-        metrics: {
-          impressions: Math.floor(Math.random() * 800) + 50,
-          likes: Math.floor(Math.random() * 60) + 5,
-          clicks: Math.floor(Math.random() * 30) + 2,
-        },
-      };
+      throw new Error('LinkedIn channel requires an official OAuth connection. Manual or mock channels cannot publish live.');
     }
 
     try {

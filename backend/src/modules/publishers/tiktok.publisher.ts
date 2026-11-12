@@ -19,18 +19,7 @@ export class TikTokPublisher implements Publisher {
     const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
-      const publishId = `tiktok_publish_${channel.externalId}_${Date.now()}`;
-      logger.info(
-        { channelId: channel.id, externalId: channel.externalId, publishId },
-        '[TikTokPublisher] Mock publish executed'
-      );
-      return {
-        externalPostId: publishId,
-        metrics: {
-          impressions: Math.floor(Math.random() * 2500) + 200,
-          likes: Math.floor(Math.random() * 200) + 20,
-        },
-      };
+      throw new Error('TikTok channel requires an official OAuth connection. Manual or mock channels cannot publish live.');
     }
 
     try {

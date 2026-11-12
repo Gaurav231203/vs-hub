@@ -26,18 +26,7 @@ export class XPublisher implements Publisher {
     const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
-      const tweetId = `tweet_${channel.externalId}_${Date.now()}`;
-      logger.info(
-        { channelId: channel.id, externalId: channel.externalId, tweetId },
-        '[XPublisher] Mock publish executed'
-      );
-      return {
-        externalPostId: tweetId,
-        metrics: {
-          impressions: Math.floor(Math.random() * 900) + 50,
-          likes: Math.floor(Math.random() * 70) + 5,
-        },
-      };
+      throw new Error('X (Twitter) channel requires an official OAuth connection. Manual or mock channels cannot publish live.');
     }
 
     try {

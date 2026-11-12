@@ -1967,7 +1967,7 @@ export function ComposeView() {
                 <button
                   type="button"
                   onClick={() => publishNowMutation.mutate()}
-                  disabled={publishNowMutation.isPending || isUploadingMedia || blockingErrors.length > 0 || (!caption && mediaUrls.length === 0)}
+                  disabled={publishNowMutation.isPending || isUploadingMedia || blockingErrors.length > 0 || (!caption.trim() && mediaUrls.length === 0)}
                   className="btn cm-sec magnetic"
                 >
                   {isUploadingMedia ? 'Uploading image...' : publishNowMutation.isPending ? 'Publishing live...' : 'Publish now'}

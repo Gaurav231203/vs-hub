@@ -6,6 +6,7 @@ import { tenantMiddleware } from '../../middleware/tenant.js';
 import { requirePerm } from '../../middleware/rbac.js';
 import { LibraryService } from './library.service.js';
 import { AppError } from '../../middleware/error.js';
+import { getApiUrl } from '../../lib/urls.js';
 
 import crypto from 'crypto';
 
@@ -111,6 +112,7 @@ libraryRouter.post(
         filename,
         contentType,
         byteSize: Number(byteSize),
+        apiBaseUrl: getApiUrl(req),
       });
 
       res.json(result);

@@ -19,31 +19,46 @@ export class FacebookPublisher implements Publisher {
       }
     }
 
-    // Check for simulated/test tokens
+    // Reject simulated/mock/manual channels instead of faking a live publish
     const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
-      logger.info({ channelId: channel.id, externalId: channel.externalId }, '[FacebookPublisher] Manual/simulated publish executed');
-      return {
-        externalPostId: `fb_${channel.externalId}_${Date.now()}`,
-        metrics: {
-          impressions: Math.floor(Math.random() * 1000) + 50,
-          reach: Math.floor(Math.random() * 800) + 40,
-          likes: Math.floor(Math.random() * 50) + 5,
-        },
-      };
+      throw new Error('Facebook channel requires an official Meta OAuth connection. Manual or mock channels cannot publish live.');
     }
 
     // Real Meta Graph API Call
     try {
       if (mediaUrls && mediaUrls.length > 0) {
-        let publicPhotoUrl = mediaUrls[0];
-        if (publicPhotoUrl.startsWith('/')) {
-          const apiBase = process.env.API_URL || 'https://vs-hub-1.onrender.com';
-          publicPhotoUrl = `${apiBase.replace(/\/$/, '')}${publicPhotoUrl}`;
+        let publicMediaUrl = mediaUrls[0];
+        if (publicMediaUrl.startsWith('/')) {
+          const apiBase = process.env.API_URL || process.env.RENDER_EXTERNAL_URL || 'https://vs-hub-1.onrender.com';
+          publicMediaUrl = `${apiBase.replace(/\/$/, '')}${publicMediaUrl}`;
         }
-        if (publicPhotoUrl.startsWith('blob:')) {
+        if (publicMediaUrl.startsWith('blob:')) {
           throw new Error('Image is a local browser blob and was not uploaded to server. Please select a valid uploaded image.');
+        }
+
+        const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(publicMediaUrl);
+        if (isVideo) {
+          const videoUrl = `${GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${channel.externalId}/videos`;
+          const res = await fetch(videoUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              file_url: publicMediaUrl,
+              description: caption,
+              access_token: accessToken,
+            }),
+          });
+          const data = (await res.json()) as any;
+          if (!res.ok || data.error) {
+            throw new Error(data.error?.message || `Facebook Video Publish failed with status ${res.status}`);
+          }
+          return {
+            externalPostId: data.id,
+            metrics: { impressions: 0, reach: 0, likes: 0, comments: 0 },
+            rawResponse: data,
+          };
         }
 
         // Photo post: POST /{page-id}/photos
@@ -52,7 +67,7 @@ export class FacebookPublisher implements Publisher {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            url: publicPhotoUrl,
+            url: publicMediaUrl,
             caption: caption,
             access_token: accessToken,
           }),
@@ -65,6 +80,7 @@ export class FacebookPublisher implements Publisher {
 
         return {
           externalPostId: data.post_id || data.id,
+          metrics: { impressions: 0, reach: 0, likes: 0, comments: 0 },
           rawResponse: data,
         };
       } else {
@@ -90,6 +106,7 @@ export class FacebookPublisher implements Publisher {
 
         return {
           externalPostId: data.id,
+          metrics: { impressions: 0, reach: 0, likes: 0, comments: 0 },
           rawResponse: data,
         };
       }

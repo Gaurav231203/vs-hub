@@ -19,18 +19,7 @@ export class PinterestPublisher implements Publisher {
     const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
-      const pinId = `pin_${channel.externalId}_${Date.now()}`;
-      logger.info(
-        { channelId: channel.id, externalId: channel.externalId, pinId },
-        '[PinterestPublisher] Mock publish executed'
-      );
-      return {
-        externalPostId: pinId,
-        metrics: {
-          impressions: Math.floor(Math.random() * 1100) + 80,
-          saves: Math.floor(Math.random() * 50) + 5,
-        },
-      };
+      throw new Error('Pinterest channel requires an official OAuth connection. Manual or mock channels cannot publish live.');
     }
 
     try {

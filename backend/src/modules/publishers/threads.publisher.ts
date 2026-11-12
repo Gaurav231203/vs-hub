@@ -22,19 +22,7 @@ export class ThreadsPublisher implements Publisher {
     const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
-      const containerId = cachedContainerId || `threads_container_${channel.externalId}_${Date.now()}`;
-      logger.info(
-        { channelId: channel.id, externalId: channel.externalId, containerId },
-        '[ThreadsPublisher] Mock publish executed'
-      );
-      return {
-        externalPostId: `th_${channel.externalId}_${Date.now()}`,
-        metaContainerId: containerId,
-        metrics: {
-          impressions: Math.floor(Math.random() * 600) + 30,
-          likes: Math.floor(Math.random() * 40) + 3,
-        },
-      };
+      throw new Error('Threads channel requires an official OAuth connection. Manual or mock channels cannot publish live.');
     }
 
     let containerId = cachedContainerId;

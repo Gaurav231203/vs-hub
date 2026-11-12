@@ -133,6 +133,7 @@ export class LibraryService {
       filename: string;
       contentType: string;
       byteSize: number;
+      apiBaseUrl?: string;
     }
   ) {
     if (!ctx.allBrands && !ctx.brandIds.includes(input.brandId)) {
@@ -152,6 +153,7 @@ export class LibraryService {
       filename: input.filename,
       contentType: input.contentType,
       byteSize: input.byteSize,
+      apiBaseUrl: input.apiBaseUrl,
     });
   }
 

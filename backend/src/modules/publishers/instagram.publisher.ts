@@ -22,21 +22,7 @@ export class InstagramPublisher implements Publisher {
     const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
-      const containerId = cachedContainerId || `ig_container_${channel.externalId}_${Date.now()}`;
-      logger.info(
-        { channelId: channel.id, externalId: channel.externalId, containerId, reused: !!cachedContainerId },
-        '[InstagramPublisher] Mock publish executed'
-      );
-      return {
-        externalPostId: `ig_${channel.externalId}_${Date.now()}`,
-        metaContainerId: containerId,
-        metrics: {
-          impressions: Math.floor(Math.random() * 1200) + 80,
-          reach: Math.floor(Math.random() * 950) + 60,
-          likes: Math.floor(Math.random() * 80) + 10,
-          comments: Math.floor(Math.random() * 10) + 1,
-        },
-      };
+      throw new Error('Instagram channel requires an official Meta OAuth connection. Manual or mock channels cannot publish live.');
     }
 
     if (!mediaUrls || mediaUrls.length === 0) {
@@ -45,7 +31,7 @@ export class InstagramPublisher implements Publisher {
 
     let imageUrl = mediaUrls[0];
     if (imageUrl.startsWith('/')) {
-      const apiBase = process.env.API_URL || 'https://vs-hub-1.onrender.com';
+      const apiBase = process.env.API_URL || process.env.RENDER_EXTERNAL_URL || 'https://vs-hub-1.onrender.com';
       imageUrl = `${apiBase.replace(/\/$/, '')}${imageUrl}`;
     }
     if (imageUrl.startsWith('blob:')) {
@@ -70,13 +56,31 @@ export class InstagramPublisher implements Publisher {
 
         const containerData = (await containerRes.json()) as any;
         if (!containerRes.ok || containerData.error) {
-          throw new Error(containerData.error?.message || `Instagram container creation failed (${containerRes.status})`);
+          const detail = containerData.error?.error_user_msg
+            ? `${containerData.error.message} — ${containerData.error.error_user_msg}`
+            : containerData.error?.message;
+          throw new Error(detail || `Instagram container creation failed (${containerRes.status})`);
         }
 
         containerId = containerData.id;
         logger.info({ channelId: channel.id, containerId }, '[InstagramPublisher] Media container created');
       } else {
         logger.info({ channelId: channel.id, containerId }, '[InstagramPublisher] Reusing existing media container');
+      }
+
+      // Step 1.5: Poll Instagram container until Meta finishes processing media
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const statusRes = await fetch(
+          `${GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${containerId}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`
+        );
+        const statusData = (await statusRes.json()) as any;
+        if (statusData?.status_code === 'FINISHED' || statusData?.status_code === 'PUBLISHED') {
+          break;
+        }
+        if (statusData?.status_code === 'ERROR' || statusData?.status_code === 'EXPIRED') {
+          throw new Error(`Instagram media processing failed (${statusData.status_code}: ${statusData.status || 'unknown'})`);
+        }
+        await new Promise((r) => setTimeout(r, 1500));
       }
 
       // Step 2: Publish Container
@@ -92,8 +96,10 @@ export class InstagramPublisher implements Publisher {
 
       const publishData = (await publishRes.json()) as any;
       if (!publishRes.ok || publishData.error) {
-        // Return containerId so caller can cache it for retry without re-creating container
-        const err: any = new Error(publishData.error?.message || `Instagram container publish failed (${publishRes.status})`);
+        const detail = publishData.error?.error_user_msg
+          ? `${publishData.error.message} — ${publishData.error.error_user_msg}`
+          : publishData.error?.message;
+        const err: any = new Error(detail || `Instagram container publish failed (${publishRes.status})`);
         err.containerId = containerId;
         throw err;
       }
@@ -101,6 +107,7 @@ export class InstagramPublisher implements Publisher {
       return {
         externalPostId: publishData.id,
         metaContainerId: containerId,
+        metrics: { impressions: 0, reach: 0, likes: 0, comments: 0 },
         rawResponse: publishData,
       };
     } catch (err: any) {

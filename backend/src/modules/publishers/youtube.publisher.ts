@@ -19,23 +19,15 @@ export class YouTubePublisher implements Publisher {
     const isMock = !accessToken || accessToken.startsWith('mock_') || accessToken.startsWith('simulated_') || accessToken.startsWith('manual_') || channel.externalId.startsWith('mock_') || channel.externalId.startsWith('manual_');
 
     if (isMock) {
-      const videoId = `yt_vid_${channel.externalId}_${Date.now()}`;
-      logger.info(
-        { channelId: channel.id, externalId: channel.externalId, videoId },
-        '[YouTubePublisher] Mock publish executed'
-      );
-      return {
-        externalPostId: videoId,
-        metrics: {
-          impressions: Math.floor(Math.random() * 1500) + 100,
-          likes: Math.floor(Math.random() * 80) + 10,
-        },
-      };
+      throw new Error('YouTube channel requires an official Google/YouTube OAuth connection. Manual or mock channels cannot publish live.');
+    }
+
+    if (!mediaUrls || mediaUrls.length === 0) {
+      throw new Error('YouTube requires a video file attachment to upload.');
     }
 
     try {
-      // Live YouTube Data API v3 Resumable Upload
-      // Extract title from caption first line or max 100 chars
+      // Live YouTube Data API v3 Resumable Upload (Step 1: init, Step 2: upload video binary)
       const lines = caption.split('\n');
       const title = lines[0].slice(0, 100) || 'New Video Upload';
       const description = caption;
@@ -69,9 +61,37 @@ export class YouTubePublisher implements Publisher {
         throw new Error(`YouTube API init error (${initRes.status}): ${errText}`);
       }
 
-      const videoId = `yt_vid_${Date.now()}`;
+      const uploadLocation = initRes.headers.get('location');
+      if (!uploadLocation) {
+        throw new Error('YouTube upload session did not return a resumable upload Location URL.');
+      }
+
+      const mediaFetch = await fetch(mediaUrls[0]);
+      if (!mediaFetch.ok) {
+        throw new Error(`Could not download source video for YouTube upload (${mediaFetch.status})`);
+      }
+      const videoBytes = Buffer.from(await mediaFetch.arrayBuffer());
+      const putRes = await fetch(uploadLocation, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': mediaFetch.headers.get('content-type') || 'video/mp4',
+          'Content-Length': String(videoBytes.byteLength),
+        },
+        body: videoBytes,
+      });
+
+      if (!putRes.ok) {
+        const putErr = await putRes.text();
+        throw new Error(`YouTube video binary upload failed (${putRes.status}): ${putErr}`);
+      }
+
+      const uploadedJson: any = await putRes.json();
+      if (!uploadedJson?.id) {
+        throw new Error('YouTube API did not return a published video ID.');
+      }
+
       return {
-        externalPostId: videoId,
+        externalPostId: uploadedJson.id,
         metrics: { impressions: 0, likes: 0 },
       };
     } catch (err: any) {
