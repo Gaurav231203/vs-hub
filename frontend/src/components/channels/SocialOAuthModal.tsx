@@ -157,7 +157,7 @@ const NETWORK_CONFIGS: Record<OAuthNetwork, NetworkConfig> = {
     iconBg: '#101010',
     loginTitle: 'Connect Threads Account',
     loginSubtitle: 'Publish text updates and media to your Threads profile.',
-    hasDirectMetaOAuth: true,
+    hasDirectMetaOAuth: false,
     scopes: [
       'Publish text threads, carousels, and image posts',
       'Track reply counts and thread engagement analytics',
@@ -172,7 +172,6 @@ export function SocialOAuthModal({
   brandId,
   onClose,
   onBack,
-  onSuccess,
 }: SocialOAuthModalProps) {
   if (!isOpen) return null;
 
@@ -189,154 +188,60 @@ export function SocialOAuthModal({
 
   const cfg = NETWORK_CONFIGS[network] || NETWORK_CONFIGS.instagram;
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
 
-  // Manual ID & Password Connection state
-  const [mode, setMode] = useState<'manual' | 'oauth'>('manual');
-  const [handle, setHandle] = useState('');
-  const [accountLogin, setAccountLogin] = useState('');
-  const [accountPassword, setAccountPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSubmittingManual, setIsSubmittingManual] = useState(false);
-
-  const handleManualConnect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!handle.trim()) {
-      addToast({ type: 'error', message: 'Please enter account handle or page name.' });
+  const handleOfficialOAuthConnect = async () => {
+    if (!cfg.hasDirectMetaOAuth) {
+      addToast({
+        type: 'error',
+        message: `${cfg.name} Official OAuth is not configured on this server yet. Connect Facebook or Instagram via Meta OAuth.`,
+      });
       return;
     }
 
-    setIsSubmittingManual(true);
-    try {
-      const res: any = await apiFetch('/channels/connect-manual', {
-        method: 'POST',
-        body: JSON.stringify({
-          brandId: effectiveBrandId,
-          network: network.toUpperCase(),
-          handle: handle.trim(),
-          accountLogin: accountLogin.trim(),
-          accountPassword: accountPassword.trim(),
-        }),
-      });
-
-      if (res && res.channel) {
-        const rawNet = (res.channel.network || network).toLowerCase();
-        const cleanHandle = res.channel.handle || handle.trim();
-        const newCh = {
-          id: res.channel.id,
-          brandId: res.channel.brandId,
-          net: rawNet,
-          handle: cleanHandle,
-          followers: Number(res.channel.followers ?? 0),
-          growthPct: null,
-          daysLeft: 60,
-          totalDays: 60,
-          lastSync: 'Just now',
-          connectedBy: 'Manual ID & Password',
-          status: 'connected',
-          postingEnabled: true,
-        };
-
-        try {
-          const saved = localStorage.getItem('vs_custom_channels');
-          const prev = saved ? JSON.parse(saved) : [];
-          const updated = [newCh, ...prev.filter((c: any) => c.id !== newCh.id)];
-          localStorage.setItem('vs_custom_channels', JSON.stringify(updated));
-        } catch {}
-
-        window.dispatchEvent(new CustomEvent('channel:created', { detail: newCh }));
-
-        addToast({
-          type: 'success',
-          message: res.message || `Successfully connected ${cfg.name} (${cleanHandle})! Past posts synced to dashboard.`,
-        });
-
-        if (onSuccess) {
-          onSuccess({
-            handle: cleanHandle,
-            network,
-            brandId: effectiveBrandId,
-            followers: newCh.followers,
-          });
-        }
-        onClose();
-      }
-    } catch (err: any) {
-      addToast({
-        type: 'error',
-        message: err.message || 'Failed to connect channel manually.',
-      });
-    } finally {
-      setIsSubmittingManual(false);
-    }
-  };
-
-  const handleOfficialOAuthConnect = async () => {
     setIsRedirecting(true);
+    try {
+      addToast({ type: 'info', message: 'Redirecting to official Meta OAuth login...' });
 
-    if (cfg.hasDirectMetaOAuth) {
+      let authUrl: string | null = null;
+
+      // 1. Try direct authenticated Meta auth-url endpoint first
       try {
-        addToast({ type: 'info', message: 'Redirecting to official Meta OAuth login...' });
-
-        let authUrl: string | null = null;
-
-        // 1. Try direct authenticated Meta auth-url endpoint first
-        try {
-          const directAuth: any = await apiFetch(`/channels/meta/auth-url?brandId=${effectiveBrandId}`);
-          if (directAuth?.authUrl) {
-            authUrl = directAuth.authUrl;
-          }
-        } catch (e1) {
-          console.warn('Direct auth-url endpoint failed, trying invite token fallback:', e1);
+        const directAuth: any = await apiFetch(`/channels/meta/auth-url?brandId=${effectiveBrandId}`);
+        if (directAuth?.authUrl) {
+          authUrl = directAuth.authUrl;
         }
-
-        // 2. Fallback to invite token flow
-        if (!authUrl) {
-          const inviteRes: any = await apiFetch('/invites/connect', {
-            method: 'POST',
-            body: JSON.stringify({ brandId: effectiveBrandId }),
-          });
-
-          if (inviteRes?.rawToken) {
-            const authRes: any = await apiFetch(`/invites/${inviteRes.rawToken}/meta-auth`);
-            if (authRes?.authUrl) {
-              authUrl = authRes.authUrl;
-            }
-          }
-        }
-
-        if (!authUrl) {
-          throw new Error('No authorization URL returned from server.');
-        }
-
-        // Immediate browser redirect to official provider OAuth
-        window.location.href = authUrl;
-        return;
-      } catch (err: any) {
-        setIsRedirecting(false);
-        addToast({
-          type: 'error',
-          message: err.message || 'Could not launch Meta login dialog. Make sure Meta App ID is configured on Render.',
-        });
+      } catch (e1) {
+        console.warn('Direct auth-url endpoint failed, trying invite token fallback:', e1);
       }
-    } else {
-      // For other providers: generate Zero-Login OAuth Connect link
-      try {
+
+      // 2. Fallback to invite token flow
+      if (!authUrl) {
         const inviteRes: any = await apiFetch('/invites/connect', {
           method: 'POST',
           body: JSON.stringify({ brandId: effectiveBrandId }),
         });
-        if (inviteRes?.inviteUrl) {
-          setGeneratedInviteLink(inviteRes.inviteUrl);
+
+        if (inviteRes?.rawToken) {
+          const authRes: any = await apiFetch(`/invites/${inviteRes.rawToken}/meta-auth`);
+          if (authRes?.authUrl) {
+            authUrl = authRes.authUrl;
+          }
         }
-      } catch (err: any) {
-        addToast({
-          type: 'error',
-          message: err.message || `Failed to initiate ${cfg.name} OAuth flow.`,
-        });
-      } finally {
-        setIsRedirecting(false);
       }
+
+      if (!authUrl) {
+        throw new Error('No authorization URL returned from server.');
+      }
+
+      // Immediate browser redirect to official provider OAuth
+      window.location.href = authUrl;
+      return;
+    } catch (err: any) {
+      setIsRedirecting(false);
+      addToast({
+        type: 'error',
+        message: err.message || 'Could not launch Meta login dialog. Make sure Meta App ID is configured on Render.',
+      });
     }
   };
 
@@ -474,348 +379,133 @@ export function SocialOAuthModal({
             </p>
           </div>
 
-          {/* Connection Mode Tabs */}
+          {/* Security Notice: Never Asks Passwords */}
           <div
             style={{
-              display: 'flex',
-              background: 'rgba(255,255,255,0.06)',
+              padding: '12px 16px',
               borderRadius: '12px',
-              padding: '4px',
+              background: cfg.hasDirectMetaOAuth ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.12)',
+              border: cfg.hasDirectMetaOAuth
+                ? '1px solid rgba(16, 185, 129, 0.25)'
+                : '1px solid rgba(245, 158, 11, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontSize: '12.5px',
+              color: cfg.hasDirectMetaOAuth ? '#6ee7b7' : '#fcd34d',
               marginBottom: '20px',
-              gap: '6px',
             }}
           >
-            <button
-              type="button"
-              onClick={() => setMode('manual')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                background: mode === 'manual' ? 'var(--ink, #f2b740)' : 'transparent',
-                color: mode === 'manual' ? '#111315' : 'var(--text, #eef0ee)',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
-            >
-              <span>🔑</span> Manual ID &amp; Password
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('oauth')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                background: mode === 'oauth' ? 'var(--ink, #f2b740)' : 'transparent',
-                color: mode === 'oauth' ? '#111315' : 'var(--text, #eef0ee)',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
-            >
-              <span>🌐</span> Official OAuth
-            </button>
+            <span style={{ fontSize: '16px' }}>{cfg.hasDirectMetaOAuth ? '🛡️' : '⚠️'}</span>
+            <span>
+              {cfg.hasDirectMetaOAuth ? (
+                <>
+                  <strong>Zero-Password Official OAuth:</strong> Murmura never asks for or stores your social media
+                  password. Authentication occurs directly on Meta&apos;s official servers.
+                </>
+              ) : (
+                <>
+                  <strong>Official OAuth Not Configured Yet:</strong> {cfg.name} OAuth app credentials are not
+                  configured on this server yet. Connect <strong>Facebook</strong> or <strong>Instagram</strong>{' '}
+                  using official Meta OAuth.
+                </>
+              )}
+            </span>
           </div>
 
-          {mode === 'manual' ? (
-            <form onSubmit={handleManualConnect} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div className="field field--wide">
-                <span className="field__label">
-                  {['facebook', 'linkedin'].includes(network) ? 'Page Name / Handle' : 'Username / Handle'}
-                </span>
-                <input
-                  type="text"
-                  required
-                  className="input"
-                  placeholder={
-                    ['facebook', 'youtube', 'linkedin'].includes(network)
-                      ? 'e.g. Gaurav Official Page'
-                      : 'e.g. @gaurav_official'
-                  }
-                  value={handle}
-                  onChange={(e) => setHandle(e.target.value)}
-                />
-              </div>
-
-              <div className="field field--wide">
-                <span className="field__label">Account Login ID / Email (Optional)</span>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g. client@gmail.com or +91 9876543210"
-                  value={accountLogin}
-                  onChange={(e) => setAccountLogin(e.target.value)}
-                />
-              </div>
-
-              <div className="field field--wide">
-                <span className="field__label">Account Password / Access Key</span>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="input"
-                    placeholder="Enter account password or access key"
-                    value={accountPassword}
-                    onChange={(e) => setAccountPassword(e.target.value)}
-                    style={{ paddingRight: '50px' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--muted, #94a3b8)',
-                      cursor: 'pointer',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  background: 'rgba(34, 197, 94, 0.12)',
-                  border: '1px solid rgba(34, 197, 94, 0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  fontSize: '12px',
-                  color: '#86efac',
-                }}
-              >
-                <span style={{ fontSize: '15px' }}>⚡</span>
-                <span>
-                  <b>Dashboard Sync:</b> Account connects instantly with ID &amp; Password. Client&apos;s past posts and engagement will sync into your dashboard.
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  className="btn btn--subtle"
-                  onClick={onClose}
-                  disabled={isSubmittingManual}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingManual}
-                  className="btn btn--ink"
+          {/* Requested Scopes */}
+          <div
+            style={{
+              background: 'var(--glass-2, rgba(255,255,255,0.05))',
+              border: '1px solid var(--line, rgba(255,255,255,0.08))',
+              borderRadius: '16px',
+              padding: '16px',
+              marginBottom: '24px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '11.5px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: 'var(--muted, #94a3b8)',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <svg className="ico" viewBox="0 0 24 24" style={{ width: 14, height: 14, color: 'var(--good, #5fcfa6)' }}>
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              Requested Permissions
+            </div>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '10px' }}>
+              {cfg.scopes.map((scope, idx) => (
+                <li
+                  key={idx}
                   style={{
-                    background: 'var(--ink, #f2b740)',
-                    color: '#111315',
-                    fontWeight: 700,
-                    padding: '10px 20px',
-                    borderRadius: '12px',
-                  }}
-                >
-                  {isSubmittingManual ? 'Connecting...' : `Confirm & Connect ${cfg.name}`}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              {/* Security Notice: Never Asks Passwords */}
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  fontSize: '12.5px',
-                  color: '#6ee7b7',
-                  marginBottom: '20px',
-                }}
-              >
-                <span style={{ fontSize: '16px' }}>🛡️</span>
-                <span>
-                  <strong>Zero-Password Security:</strong> Murmura never asks for or stores your social media password. Authentication occurs directly on the provider's official servers.
-                </span>
-              </div>
-
-              {/* Requested Scopes */}
-              <div
-                style={{
-                  background: 'var(--glass-2, rgba(255,255,255,0.05))',
-                  border: '1px solid var(--line, rgba(255,255,255,0.08))',
-                  borderRadius: '16px',
-                  padding: '16px',
-                  marginBottom: '24px',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    color: 'var(--muted, #94a3b8)',
-                    marginBottom: '12px',
+                    fontSize: '13px',
+                    color: 'var(--text, #eef0ee)',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    lineHeight: 1.4,
                   }}
                 >
-                  <svg className="ico" viewBox="0 0 24 24" style={{ width: 14, height: 14, color: 'var(--good, #5fcfa6)' }}>
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
-                  Requested Permissions
-                </div>
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '10px' }}>
-                  {cfg.scopes.map((scope, idx) => (
-                    <li
-                      key={idx}
-                      style={{
-                        fontSize: '13px',
-                        color: 'var(--text, #eef0ee)',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '10px',
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: 'var(--good, #5fcfa6)',
-                          fontWeight: 800,
-                          fontSize: '14px',
-                        }}
-                      >
-                        ✓
-                      </span>
-                      <span>{scope}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Client Connection Link (for non-Meta networks or remote clients) */}
-              {generatedInviteLink && (
-                <div
-                  style={{
-                    padding: '14px',
-                    borderRadius: '12px',
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    marginBottom: '20px',
-                  }}
-                >
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#93c5fd', marginBottom: '6px' }}>
-                    🔗 Secure Connection Portal Link
-                  </div>
-                  <input
-                    type="text"
-                    readOnly
-                    value={generatedInviteLink}
+                  <span
                     style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      background: 'rgba(0,0,0,0.3)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#fff',
-                      fontSize: '12px',
-                      marginBottom: '8px',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn--sm btn--ink"
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedInviteLink);
-                      addToast({ type: 'success', message: 'Connection link copied to clipboard!' });
-                    }}
-                  >
-                    Copy Link
-                  </button>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn btn--sm"
-                  onClick={() => setMode('manual')}
-                  disabled={isRedirecting}
-                  style={{
-                    background: 'rgba(242, 183, 64, 0.15)',
-                    color: '#f2b740',
-                    border: '1px solid rgba(242, 183, 64, 0.35)',
-                    fontWeight: 700,
-                    fontSize: '12.5px',
-                    padding: '8px 14px',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  🔑 Switch to ID &amp; Password
-                </button>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    onClick={onClose}
-                    disabled={isRedirecting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={isRedirecting}
-                    onClick={handleOfficialOAuthConnect}
-                    style={{
-                      background: cfg.buttonBg,
-                      color: cfg.buttonText,
-                      fontWeight: 700,
+                      color: 'var(--good, #5fcfa6)',
+                      fontWeight: 800,
                       fontSize: '14px',
-                      padding: '10px 20px',
-                      borderRadius: '12px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 4px 14px -4px rgba(0,0,0,0.5)',
                     }}
                   >
-                    {isRedirecting
-                      ? 'Redirecting to Official Login...'
-                      : cfg.hasDirectMetaOAuth
-                      ? `Continue to Official ${cfg.name} Login →`
-                      : `Connect ${cfg.name} via Official OAuth →`}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+                    ✓
+                  </span>
+                  <span>{scope}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={onClose}
+              disabled={isRedirecting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={isRedirecting || !cfg.hasDirectMetaOAuth}
+              onClick={handleOfficialOAuthConnect}
+              style={{
+                background: cfg.hasDirectMetaOAuth ? cfg.buttonBg : 'rgba(255,255,255,0.12)',
+                color: cfg.hasDirectMetaOAuth ? cfg.buttonText : 'var(--muted, #94a3b8)',
+                fontWeight: 700,
+                fontSize: '14px',
+                padding: '10px 20px',
+                borderRadius: '12px',
+                border: 'none',
+                cursor: cfg.hasDirectMetaOAuth ? 'pointer' : 'not-allowed',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: cfg.hasDirectMetaOAuth ? '0 4px 14px -4px rgba(0,0,0,0.5)' : 'none',
+              }}
+            >
+              {isRedirecting
+                ? 'Redirecting to Official Login...'
+                : cfg.hasDirectMetaOAuth
+                ? `Continue to Official ${cfg.name} Login →`
+                : `${cfg.name} OAuth Not Configured`}
+            </button>
+          </div>
           </div>
         </div>
       </div>,

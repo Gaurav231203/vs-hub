@@ -305,12 +305,7 @@ export function ChannelsView() {
   // Connect wizard state
   const [wizardBrand, setWizardBrand] = useState<string>('');
   const [wizardNet, setWizardNet] = useState<string>('facebook');
-  const [wizardHandle, setWizardHandle] = useState<string>('');
-  const [wizardLogin, setWizardLogin] = useState<string>('');
-  const [wizardPassword, setWizardPassword] = useState<string>('');
-  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [wizardCustomBrandName, setWizardCustomBrandName] = useState<string>('');
-  const [connectMethod, setConnectMethod] = useState<'manual' | 'oauth'>('manual');
   const [isSubmittingConnect, setIsSubmittingConnect] = useState<boolean>(false);
   const [activeOAuthNet, setActiveOAuthNet] = useState<OAuthNetwork | null>(null);
 
@@ -1498,113 +1493,19 @@ export function ChannelsView() {
                 onSubmit={async (e) => {
                   e.preventDefault();
                   const effectiveBrandId =
-                    wizardBrand && wizardBrand !== 'ember'
+                    wizardBrand && wizardBrand !== 'ember' && wizardBrand !== '__new__'
                       ? wizardBrand
                       : (activeBrandId !== 'all' ? activeBrandId : '') || allKnownBrands[0]?.id || brands[0]?.id || '';
-                  const effectiveBrandName =
-                    wizardCustomBrandName.trim() ||
-                    allKnownBrands.find((b) => b.id === effectiveBrandId)?.name ||
-                    wizardHandle.trim().replace(/^@/, '') ||
-                    'Main Brand';
 
-                  if (!wizardHandle.trim()) {
-                    addToast({ type: 'error', message: 'Please enter account handle or page name.' });
-                    return;
-                  }
-
-                  if (connectMethod === 'manual') {
-                    setIsSubmittingConnect(true);
-                    try {
-                      const res: any = await apiFetch('/channels/connect-manual', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                          brandId: effectiveBrandId,
-                          brandName: effectiveBrandName,
-                          network: wizardNet.toUpperCase(),
-                          handle: wizardHandle.trim(),
-                          accountLogin: wizardLogin.trim(),
-                          accountPassword: wizardPassword.trim(),
-                        }),
-                      });
-
-                      if (res && res.channel) {
-                        const rawNet = (res.channel.network || wizardNet).toLowerCase();
-                        const cleanHandle = res.channel.handle || wizardHandle.trim();
-                        const newCh: ChannelItem = {
-                          id: res.channel.id,
-                          brandId: res.channel.brandId,
-                          net: rawNet as any,
-                          handle: cleanHandle,
-                          followers: Number(res.channel.followers ?? 0),
-                          growthPct: null,
-                          daysLeft: 60,
-                          totalDays: 60,
-                          lastSync: 'Just now',
-                          connectedBy: 'Manual ID & Password',
-                          status: 'connected',
-                          postingEnabled: true,
-                        };
-
-                        // 1. If brand was created/returned, register in authStore!
-                        if (res.brand) {
-                          const currentBrands = useAuthStore.getState().brands || [];
-                          if (!currentBrands.some((b) => b.id === res.brand.id)) {
-                            useAuthStore.setState({
-                              brands: [res.brand, ...currentBrands],
-                              selectedBrandId: res.brand.id,
-                            });
-                          }
-                        }
-
-                        // Ensure active brand scope matches newly connected channel
-                        if (res.channel?.brandId) {
-                          outletCtx.setSelectedBrandId?.(res.channel.brandId);
-                          useAuthStore.setState({ selectedBrandId: res.channel.brandId });
-                        }
-
-                        // 2. Add channel to channels state
-                        setChannels((prev) => {
-                          const updated = [newCh, ...prev.filter((c) => c.id !== newCh.id)];
-                          try {
-                            localStorage.setItem('vs_custom_channels', JSON.stringify(updated));
-                          } catch {}
-                          return updated;
-                        });
-
-                        // 3. Dispatch global sync event
-                        window.dispatchEvent(new CustomEvent('channel:created', { detail: newCh }));
-
-                        // 4. Reload from authoritative database
-                        await fetchDbChannels();
-
-                        addToast({
-                          type: 'success',
-                          message: res.message || `Successfully connected ${NETWORK_METAS[wizardNet]?.name} (${cleanHandle})! Past posts synced to dashboard.`,
-                        });
-
-                        setShowConnectModal(false);
-                        setWizardHandle('');
-                        setWizardLogin('');
-                        setWizardPassword('');
-                        setWizardCustomBrandName('');
-                      }
-                    } catch (err: any) {
-                      addToast({
-                        type: 'error',
-                        message: err.message || 'Failed to connect channel manually.',
-                      });
-                    } finally {
-                      setIsSubmittingConnect(false);
-                    }
-                    return;
-                  }
-
-                  // 2. Official OAuth Mode
                   if (wizardNet === 'facebook' || wizardNet === 'instagram') {
-                    setShowConnectModal(false);
+                    if (!effectiveBrandId) {
+                      addToast({ type: 'error', message: 'Please select a brand before connecting.' });
+                      return;
+                    }
+                    setIsSubmittingConnect(true);
                     addToast({
                       type: 'info',
-                      message: `Connecting to official ${NETWORK_METAS[wizardNet]?.name} (Meta)...`,
+                      message: `Redirecting to official ${NETWORK_METAS[wizardNet]?.name} (Meta) login...`,
                     });
 
                     let authUrl: string | null = null;
@@ -1634,25 +1535,34 @@ export function ChannelsView() {
                       }
 
                       if (authUrl) {
+                        setShowConnectModal(false);
                         window.location.href = authUrl;
                         return;
                       }
+                      throw new Error('Could not generate official Meta authorization URL.');
                     } catch (err: any) {
                       console.warn('Real Meta OAuth redirect error:', err);
                       addToast({
                         type: 'error',
                         message: err.message || 'Could not start Meta login. Make sure Meta App ID is configured on Render.',
                       });
+                    } finally {
+                      setIsSubmittingConnect(false);
                     }
+                    return;
                   }
-                  setActiveOAuthNet(wizardNet as OAuthNetwork);
+
+                  addToast({
+                    type: 'error',
+                    message: `${NETWORK_METAS[wizardNet]?.name || wizardNet} Official OAuth is not configured on this server yet. Connect Facebook or Instagram via official Meta OAuth.`,
+                  });
                 }}
               >
                 <div className="mform__head">
                   <div>
                     <h3 className="mform__title">Connect Social Account</h3>
                     <p className="mform__sub">
-                      Manually add your client&apos;s ID &amp; Password to link their accounts and sync past posts.
+                      Authorize real social accounts via Official OAuth (zero password storage).
                     </p>
                   </div>
                   <button
@@ -1665,61 +1575,6 @@ export function ChannelsView() {
                       <line x1="18" y1="6" x2="6" y2="18" />
                       <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
-                  </button>
-                </div>
-
-                {/* Connection Mode Tabs */}
-                <div
-                  style={{
-                    display: 'flex',
-                    background: 'rgba(255,255,255,0.06)',
-                    borderRadius: '12px',
-                    padding: '4px',
-                    marginBottom: '18px',
-                    gap: '6px',
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setConnectMethod('manual')}
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: connectMethod === 'manual' ? 'var(--ink, #f2b740)' : 'transparent',
-                      color: connectMethod === 'manual' ? '#111315' : 'var(--text, #eef0ee)',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <span>🔑</span> Manual ID &amp; Password
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConnectMethod('oauth')}
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: connectMethod === 'oauth' ? 'var(--ink, #f2b740)' : 'transparent',
-                      color: connectMethod === 'oauth' ? '#111315' : 'var(--text, #eef0ee)',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <span>🌐</span> Official OAuth
                   </button>
                 </div>
 
@@ -1844,103 +1699,8 @@ export function ChannelsView() {
                   )}
                 </div>
 
-                {connectMethod === 'manual' ? (
-                  <>
-                    {/* Account Handle / Page Name */}
-                    <div className="field field--wide" style={{ marginTop: '12px' }}>
-                      <span className="field__label">
-                        {wizardNet === 'facebook' || wizardNet === 'linkedin'
-                          ? 'Page Name / Handle'
-                          : 'Username / Handle'}
-                      </span>
-                      <input
-                        type="text"
-                        required
-                        className="input"
-                        placeholder={
-                          ['facebook', 'youtube', 'linkedin'].includes(wizardNet)
-                            ? 'e.g. Gaurav Official Page'
-                            : 'e.g. @gaurav_official'
-                        }
-                        value={wizardHandle}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setWizardHandle(val);
-                          if (!wizardCustomBrandName && allKnownBrands.length === 0) {
-                            setWizardCustomBrandName(val.replace(/^@/, ''));
-                          }
-                        }}
-                      />
-                    </div>
-
-                    {/* Account Login ID / Email */}
-                    <div className="field field--wide" style={{ marginTop: '12px' }}>
-                      <span className="field__label">Account Login ID / Email (Optional)</span>
-                      <input
-                        type="text"
-                        className="input"
-                        placeholder="e.g. client@gmail.com or +91 9876543210"
-                        value={wizardLogin}
-                        onChange={(e) => setWizardLogin(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Account Password / Token */}
-                    <div className="field field--wide" style={{ marginTop: '12px' }}>
-                      <span className="field__label">Account Password / Access Key</span>
-                      <div style={{ position: 'relative' }}>
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          className="input"
-                          placeholder="Enter account password or access key"
-                          value={wizardPassword}
-                          onChange={(e) => setWizardPassword(e.target.value)}
-                          style={{ paddingRight: '50px' }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          style={{
-                            position: 'absolute',
-                            right: '10px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--muted, #94a3b8)',
-                            cursor: 'pointer',
-                            fontSize: '12.5px',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {showPassword ? 'Hide' : 'Show'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Past Posts Sync Banner */}
-                    <div
-                      style={{
-                        marginTop: '14px',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        background: 'rgba(34, 197, 94, 0.12)',
-                        border: '1px solid rgba(34, 197, 94, 0.25)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        fontSize: '12px',
-                        color: '#86efac',
-                      }}
-                    >
-                      <span style={{ fontSize: '15px' }}>⚡</span>
-                      <span>
-                        <b>Dashboard Sync:</b> Account connects instantly. Client&apos;s past posts and audience metrics will be automatically populated in your overview feed.
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  /* OAuth explanation */
+                {/* OAuth status notice */}
+                {wizardNet === 'facebook' || wizardNet === 'instagram' ? (
                   <div
                     style={{
                       marginTop: '16px',
@@ -1958,6 +1718,27 @@ export function ChannelsView() {
                     <span style={{ fontSize: '16px' }}>🔒</span>
                     <span>
                       Will redirect to official <b>{NETWORK_METAS[wizardNet]?.name} Login</b> dialog to grant permissions.
+                    </span>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      background: 'rgba(245, 158, 11, 0.12)',
+                      border: '1px solid rgba(245, 158, 11, 0.28)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      fontSize: '12.5px',
+                      color: '#fcd34d',
+                    }}
+                  >
+                    <span style={{ fontSize: '16px' }}>⚠️</span>
+                    <span>
+                      <b>Official OAuth not configured yet:</b> {NETWORK_METAS[wizardNet]?.name} app credentials are
+                      not set on this server. Use <b>Facebook</b> or <b>Instagram</b> to link real accounts via Meta OAuth.
                     </span>
                   </div>
                 )}
@@ -1983,12 +1764,16 @@ export function ChannelsView() {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn--ink" disabled={isSubmittingConnect}>
-                    {connectMethod === 'manual'
+                  <button
+                    type="submit"
+                    className="btn btn--ink"
+                    disabled={isSubmittingConnect || (wizardNet !== 'facebook' && wizardNet !== 'instagram')}
+                  >
+                    {wizardNet === 'facebook' || wizardNet === 'instagram'
                       ? isSubmittingConnect
-                        ? 'Connecting & Syncing...'
-                        : 'Connect & Sync Account to Dashboard →'
-                      : `Continue to Official ${NETWORK_METAS[wizardNet]?.name} Login →`}
+                        ? 'Redirecting...'
+                        : `Continue to Official ${NETWORK_METAS[wizardNet]?.name} Login →`
+                      : `${NETWORK_METAS[wizardNet]?.name} OAuth Not Configured`}
                   </button>
                 </div>
               </form>
@@ -2017,58 +1802,6 @@ export function ChannelsView() {
             onBack={() => {
               setActiveOAuthNet(null);
               setShowConnectModal(true);
-            }}
-            onSuccess={async ({ handle: newHandle, network: newNet, brandId: bId, followers }) => {
-              const bName = allKnownBrands.find((b) => b.id === bId)?.name || resolvedBrandName;
-              const netMeta = NETWORK_METAS[newNet];
-
-              const newChannel: ChannelItem = {
-                id: `ch-${bId}-${newNet}-${Date.now()}`,
-                brandId: bId,
-                net: newNet as any,
-                handle: newHandle,
-                followers: Number(followers ?? 0),
-                growthPct: null,
-                daysLeft: 60,
-                totalDays: 60,
-                lastSync: 'Just now',
-                connectedBy: 'Official OAuth',
-                status: 'connected',
-                postingEnabled: true,
-              };
-
-              setChannels((prev) => {
-                const filtered = prev.filter((c) => !(c.brandId === bId && c.net === newNet));
-                const updated = [newChannel, ...filtered];
-                try {
-                  const customOnly = updated.filter((c) => !INITIAL_CHANNELS.some((ic) => ic.id === c.id));
-                  localStorage.setItem('vs_custom_channels', JSON.stringify(customOnly));
-                } catch (e) {
-                  console.error(e);
-                }
-                return updated;
-              });
-
-              setActiveOAuthNet(null);
-              setShowConnectModal(false);
-              addToast({
-                type: 'success',
-                message: `Successfully connected ${netMeta?.name || newNet} account (${newHandle}) to ${bName}!`,
-              });
-
-              // Persist to backend database so it stays across all devices and refreshes
-              try {
-                await apiFetch('/channels/connect-mock', {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    brandId: bId,
-                    network: newNet.toUpperCase(),
-                    handle: newHandle,
-                  }),
-                });
-              } catch (err) {
-                console.warn('Backend channel persist warning:', err);
-              }
             }}
           />
         );

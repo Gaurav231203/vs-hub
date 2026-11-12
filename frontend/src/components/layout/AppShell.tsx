@@ -127,14 +127,9 @@ export function AppShell() {
 
   // Connect Channel Modal state
   const [showConnectModal, setShowConnectModal] = useState(false);
-  const [connectNet, setConnectNet] = useState('instagram');
+  const [connectNet, setConnectNet] = useState('facebook');
   const [connectBrandId, setConnectBrandId] = useState(brands[0]?.id || 'b_eo');
   const [activeOAuthNet, setActiveOAuthNet] = useState<OAuthNetwork | null>(null);
-  const [connectMethod, setConnectMethod] = useState<'manual' | 'oauth'>('manual');
-  const [connectHandle, setConnectHandle] = useState('');
-  const [connectLogin, setConnectLogin] = useState('');
-  const [connectPassword, setConnectPassword] = useState('');
-  const [showConnectPassword, setShowConnectPassword] = useState(false);
   const [isSubmittingConnect, setIsSubmittingConnect] = useState(false);
 
   // Invite Teammate Modal state
@@ -1309,91 +1304,15 @@ export function AppShell() {
                     ? connectBrandId
                     : (selectedBrandId && selectedBrandId !== 'all' ? selectedBrandId : '') || brands[0]?.id || '';
 
-                if (connectMethod === 'manual') {
-                  if (!connectHandle.trim()) {
-                    addToast({ type: 'error', message: 'Please enter account handle or page name.' });
+                if (connectNet === 'facebook' || connectNet === 'instagram') {
+                  if (!effectiveBrandId) {
+                    addToast({ type: 'error', message: 'Please select a brand before connecting.' });
                     return;
                   }
-
                   setIsSubmittingConnect(true);
-                  try {
-                    const res: any = await apiFetch('/channels/connect-manual', {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        brandId: effectiveBrandId,
-                        brandName: connectHandle.trim().replace(/^@/, '') || 'Main Brand',
-                        network: connectNet.toUpperCase(),
-                        handle: connectHandle.trim(),
-                        accountLogin: connectLogin.trim(),
-                        accountPassword: connectPassword.trim(),
-                      }),
-                    });
-
-                    if (res && res.channel) {
-                      const rawNet = (res.channel.network || connectNet).toLowerCase();
-                      const cleanHandle = res.channel.handle || connectHandle.trim();
-                      const newCh = {
-                        id: res.channel.id,
-                        brandId: res.channel.brandId,
-                        net: rawNet,
-                        handle: cleanHandle,
-                        followers: Number(res.channel.followers ?? 0),
-                        growthPct: null,
-                        daysLeft: 60,
-                        totalDays: 60,
-                        lastSync: 'Just now',
-                        connectedBy: 'Manual ID & Password',
-                        status: 'connected',
-                        postingEnabled: true,
-                      };
-
-                      // 1. If brand was created/returned, register in authStore!
-                      if (res.brand) {
-                        const currentBrands = useAuthStore.getState().brands || [];
-                        if (!currentBrands.some((b) => b.id === res.brand.id)) {
-                          useAuthStore.setState({
-                            brands: [res.brand, ...currentBrands],
-                            selectedBrandId: res.brand.id,
-                          });
-                        }
-                      }
-
-                      try {
-                        const saved = localStorage.getItem('vs_custom_channels');
-                        const prev = saved ? JSON.parse(saved) : [];
-                        const updated = [newCh, ...prev.filter((c: any) => c.id !== newCh.id)];
-                        localStorage.setItem('vs_custom_channels', JSON.stringify(updated));
-                      } catch {}
-
-                      window.dispatchEvent(new CustomEvent('channel:created', { detail: newCh }));
-
-                      addToast({
-                        type: 'success',
-                        message: res.message || `Successfully connected ${NETWORKS.find((n) => n.id === connectNet)?.name || connectNet} (${cleanHandle})! Past posts synced to dashboard.`,
-                      });
-
-                      setShowConnectModal(false);
-                      setConnectHandle('');
-                      setConnectLogin('');
-                      setConnectPassword('');
-                    }
-                  } catch (err: any) {
-                    addToast({
-                      type: 'error',
-                      message: err.message || 'Failed to connect channel manually.',
-                    });
-                  } finally {
-                    setIsSubmittingConnect(false);
-                  }
-                  return;
-                }
-
-                // 2. Official OAuth Mode
-                if (connectNet === 'facebook' || connectNet === 'instagram') {
-                  setShowConnectModal(false);
                   addToast({
                     type: 'info',
-                    message: `Connecting to official ${NETWORKS.find((n) => n.id === connectNet)?.name || 'Meta'}...`,
+                    message: `Redirecting to official ${NETWORKS.find((n) => n.id === connectNet)?.name || 'Meta'} login...`,
                   });
 
                   let authUrl: string | null = null;
@@ -1419,24 +1338,33 @@ export function AppShell() {
                     }
 
                     if (authUrl) {
+                      setShowConnectModal(false);
                       window.location.href = authUrl;
                       return;
                     }
+                    throw new Error('Could not generate official Meta authorization URL.');
                   } catch (err: any) {
                     addToast({
                       type: 'error',
                       message: err.message || 'Could not start Meta login. Make sure Meta App ID is configured on Render.',
                     });
+                  } finally {
+                    setIsSubmittingConnect(false);
                   }
+                  return;
                 }
-                setActiveOAuthNet(connectNet as OAuthNetwork);
+
+                addToast({
+                  type: 'error',
+                  message: `${NETWORKS.find((n) => n.id === connectNet)?.name || connectNet} Official OAuth is not configured on this server yet. Connect Facebook or Instagram via official Meta OAuth.`,
+                });
               }}
             >
               <div className="mform__head">
                 <div>
                   <h3 className="mform__title">Connect Social Account</h3>
                   <p className="mform__sub">
-                    Manually add your client&apos;s ID &amp; Password to link their accounts and sync past posts.
+                    Authorize real social accounts via Official OAuth (zero password storage).
                   </p>
                 </div>
                 <button
@@ -1449,61 +1377,6 @@ export function AppShell() {
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                </button>
-              </div>
-
-              {/* Connection Mode Tabs */}
-              <div
-                style={{
-                  display: 'flex',
-                  background: 'rgba(255,255,255,0.06)',
-                  borderRadius: '12px',
-                  padding: '4px',
-                  marginBottom: '16px',
-                  gap: '6px',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setConnectMethod('manual')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: connectMethod === 'manual' ? 'var(--ink, #f2b740)' : 'transparent',
-                    color: connectMethod === 'manual' ? '#111315' : 'var(--text, #eef0ee)',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  <span>🔑</span> Manual ID &amp; Password
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConnectMethod('oauth')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: connectMethod === 'oauth' ? 'var(--ink, #f2b740)' : 'transparent',
-                    color: connectMethod === 'oauth' ? '#111315' : 'var(--text, #eef0ee)',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  <span>🌐</span> Official OAuth
                 </button>
               </div>
 
@@ -1589,7 +1462,7 @@ export function AppShell() {
                     <input
                       className="input"
                       placeholder="Brand name (e.g. Main Brand)"
-                      value={connectHandle ? connectHandle.replace(/^@/, '') : 'Main Brand'}
+                      value="Main Brand"
                       readOnly
                       style={{ color: 'var(--text)' }}
                     />
@@ -1607,97 +1480,8 @@ export function AppShell() {
                 )}
               </div>
 
-              {connectMethod === 'manual' ? (
-                <>
-                  {/* Account Handle / Page Name */}
-                  <div className="field field--wide" style={{ marginTop: '12px' }}>
-                    <span className="field__label">
-                      {connectNet === 'facebook' || connectNet === 'linkedin'
-                        ? 'Page Name / Handle'
-                        : 'Username / Handle'}
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      className="input"
-                      placeholder={
-                        ['facebook', 'youtube', 'linkedin'].includes(connectNet)
-                          ? 'e.g. Gaurav Official Page'
-                          : 'e.g. @gaurav_official'
-                      }
-                      value={connectHandle}
-                      onChange={(e) => setConnectHandle(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Account Login ID / Email */}
-                  <div className="field field--wide" style={{ marginTop: '12px' }}>
-                    <span className="field__label">Account Login ID / Email (Optional)</span>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="e.g. client@gmail.com or +91 9876543210"
-                      value={connectLogin}
-                      onChange={(e) => setConnectLogin(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Account Password / Token */}
-                  <div className="field field--wide" style={{ marginTop: '12px' }}>
-                    <span className="field__label">Account Password / Access Key</span>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={showConnectPassword ? 'text' : 'password'}
-                        className="input"
-                        placeholder="Enter account password or access key"
-                        value={connectPassword}
-                        onChange={(e) => setConnectPassword(e.target.value)}
-                        style={{ paddingRight: '50px' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConnectPassword(!showConnectPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '10px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'transparent',
-                          border: 'none',
-                          color: 'var(--muted, #94a3b8)',
-                          cursor: 'pointer',
-                          fontSize: '12.5px',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {showConnectPassword ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Past Posts Sync Banner */}
-                  <div
-                    style={{
-                      marginTop: '14px',
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      background: 'rgba(34, 197, 94, 0.12)',
-                      border: '1px solid rgba(34, 197, 94, 0.25)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      fontSize: '12px',
-                      color: '#86efac',
-                    }}
-                  >
-                    <span style={{ fontSize: '15px' }}>⚡</span>
-                    <span>
-                      <b>Dashboard Sync:</b> Account connects instantly. Client&apos;s past posts and audience metrics will be automatically populated in your overview feed.
-                    </span>
-                  </div>
-                </>
-              ) : (
-                /* OAuth explanation */
+              {/* OAuth explanation */}
+              {connectNet === 'facebook' || connectNet === 'instagram' ? (
                 <div
                   style={{
                     marginTop: '16px',
@@ -1715,6 +1499,28 @@ export function AppShell() {
                   <span style={{ fontSize: '16px' }}>🔒</span>
                   <span>
                     Will redirect to official <b>{NETWORKS.find((n) => n.id === connectNet)?.name || 'Network'} Login</b> dialog to grant permissions.
+                  </span>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    marginTop: '16px',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.28)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    fontSize: '12.5px',
+                    color: '#fcd34d',
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>⚠️</span>
+                  <span>
+                    <b>Official OAuth not configured yet:</b>{' '}
+                    {NETWORKS.find((n) => n.id === connectNet)?.name || connectNet} OAuth credentials are not set on
+                    this server. Use <b>Facebook</b> or <b>Instagram</b> via Meta OAuth.
                   </span>
                 </div>
               )}
@@ -1741,7 +1547,7 @@ export function AppShell() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingConnect}
+                  disabled={isSubmittingConnect || (connectNet !== 'facebook' && connectNet !== 'instagram')}
                   className="btn btn--ink"
                   style={{
                     background: 'var(--ink, #f2b740)',
@@ -1749,11 +1555,11 @@ export function AppShell() {
                     fontWeight: 700,
                   }}
                 >
-                  {isSubmittingConnect
-                    ? 'Connecting...'
-                    : connectMethod === 'manual'
-                    ? `Confirm & Connect ${NETWORKS.find((n) => n.id === connectNet)?.name || 'Account'}`
-                    : `Continue to ${NETWORKS.find((n) => n.id === connectNet)?.name || 'Official Login'} →`}
+                  {connectNet === 'facebook' || connectNet === 'instagram'
+                    ? isSubmittingConnect
+                      ? 'Redirecting...'
+                      : `Continue to Official ${NETWORKS.find((n) => n.id === connectNet)?.name || 'Login'} →`
+                    : `${NETWORKS.find((n) => n.id === connectNet)?.name || 'Network'} OAuth Not Configured`}
                 </button>
               </div>
             </form>
@@ -1764,7 +1570,7 @@ export function AppShell() {
       {/* Social Media OAuth Login Dialog */}
       <SocialOAuthModal
         isOpen={!!activeOAuthNet}
-        network={activeOAuthNet || 'instagram'}
+        network={activeOAuthNet || 'facebook'}
         brandName={brands.find((b) => b.id === connectBrandId)?.name || 'Brand'}
         brandId={connectBrandId}
         onClose={() => {
@@ -1773,55 +1579,6 @@ export function AppShell() {
         onBack={() => {
           setActiveOAuthNet(null);
           setShowConnectModal(true);
-        }}
-        onSuccess={async ({ handle: newHandle, network: newNet, brandId: bId }) => {
-          const targetBrand = brands.find((b) => b.id === bId) || brands[0];
-          const netName = NETWORKS.find((n) => n.id === newNet)?.name || 'Account';
-          
-          // Save locally so ChannelsView immediately sees it
-          try {
-            const saved = localStorage.getItem('vs_custom_channels');
-            const list = saved ? JSON.parse(saved) : [];
-            const newCh = {
-              id: `ch-${bId}-${newNet}-${Date.now()}`,
-              brandId: bId,
-              net: newNet as any,
-              handle: newHandle,
-              followers: 0,
-              growthPct: null,
-              daysLeft: 60,
-              totalDays: 60,
-              lastSync: 'Just now',
-              connectedBy: user?.name || 'Devon',
-              status: 'connected',
-              postingEnabled: true,
-            };
-            const filtered = list.filter((c: any) => !(c.brandId === bId && c.net === newNet));
-            localStorage.setItem('vs_custom_channels', JSON.stringify([newCh, ...filtered]));
-          } catch (e) {
-            console.error(e);
-          }
-
-          addToast({
-            type: 'success',
-            message: `Successfully connected ${targetBrand?.name || 'Brand'} · ${netName} (${newHandle})`,
-          });
-          setActiveOAuthNet(null);
-          setShowConnectModal(false);
-
-          // Persist to backend database
-          try {
-            await apiFetch('/channels/connect-mock', {
-              method: 'POST',
-              body: JSON.stringify({
-                brandId: bId,
-                network: newNet.toUpperCase(),
-                handle: newHandle,
-              }),
-            });
-          } catch (err) {
-            console.warn('Failed to persist channel to backend:', err);
-          }
         }}
       />
 

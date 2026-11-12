@@ -630,55 +630,11 @@ invitesRouter.post(
         );
       }
 
-      const cleanHandle = String(handle).trim();
-      const chExternalId =
-        externalId || `${normalizedNet.toLowerCase()}_${cleanHandle.replace(/[^a-zA-Z0-9_]/g, '')}_${Date.now()}`;
-      const followerCount = Number(followers) || 0;
-
-      // Upsert the channel
-      const channel = await prisma.channel.upsert({
-        where: {
-          brandId_network_externalId: {
-            brandId: invite.brandId,
-            network: normalizedNet,
-            externalId: chExternalId,
-          },
-        },
-        update: {
-          handle: cleanHandle,
-          status: ChannelStatus.CONNECTED,
-          lastSyncAt: new Date(),
-          postingEnabled: true,
-        },
-        create: {
-          workspaceId: invite.workspaceId,
-          brandId: invite.brandId,
-          network: normalizedNet,
-          externalId: chExternalId,
-          handle: cleanHandle,
-          followers: followerCount,
-          status: ChannelStatus.CONNECTED,
-          postingEnabled: true,
-          lastSyncAt: new Date(),
-        },
-      });
-
-      // Update brand status to CONNECTED
-      await prisma.brand.update({
-        where: { id: invite.brandId },
-        data: { status: BrandStatus.CONNECTED },
-      });
-
-      res.status(201).json({
-        success: true,
-        channel: {
-          id: channel.id,
-          network: channel.network,
-          handle: channel.handle,
-          status: channel.status,
-          followers: channel.followers,
-        },
-      });
+      throw new AppError(
+        'OAUTH_REQUIRED',
+        `${normalizedNet} requires official OAuth authentication, which is not configured yet. Unverified handle-only linking is disabled.`,
+        400
+      );
     } catch (err) {
       next(err);
     }
