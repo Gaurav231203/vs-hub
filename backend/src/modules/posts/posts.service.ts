@@ -45,7 +45,7 @@ async function syncPostMedia(
   media?: Array<{ assetId: string; position: number; altText?: string | null }>,
   mediaUrls?: string[]
 ) {
-  if (Array.isArray(media)) {
+  if (Array.isArray(media) && media.length > 0) {
     await tx.postMedia.deleteMany({ where: { postId } });
     for (const m of media) {
       await tx.postMedia.create({
@@ -71,7 +71,7 @@ async function syncPostMedia(
             workspaceId,
             brandId,
             title: `Media ${i + 1}`,
-            kind: url.match(/\.(mp4|mov)$/i) ? 'VIDEO' : 'IMAGE',
+            kind: url.match(/\.(mp4|mov|webm)(\?|$)/i) ? 'VIDEO' : 'IMAGE',
             url,
             bytes: 1024,
             tags: [],
@@ -86,6 +86,8 @@ async function syncPostMedia(
         },
       });
     }
+  } else if (Array.isArray(media)) {
+    await tx.postMedia.deleteMany({ where: { postId } });
   }
 }
 
@@ -141,17 +143,15 @@ export class PostsService {
         },
       });
 
-      // Targets
-      if (Array.isArray(input.channelIds)) {
-        for (const channelId of input.channelIds) {
-          await tx.postTarget.create({
-            data: {
-              postId: created.id,
-              channelId,
-              status: 'QUEUED',
-            },
-          });
-        }
+      // Targets (bulk insert avoids multiple round-trips inside transaction)
+      if (Array.isArray(input.channelIds) && input.channelIds.length > 0) {
+        await tx.postTarget.createMany({
+          data: input.channelIds.map((channelId: string) => ({
+            postId: created.id,
+            channelId,
+            status: 'QUEUED',
+          })),
+        });
       }
 
       // Media
@@ -170,7 +170,7 @@ export class PostsService {
       });
 
       return created;
-    });
+    }, { timeout: 20000, maxWait: 10000 });
 
     return await this.getById(ctx, post.id);
   }
@@ -319,6 +319,26 @@ export class PostsService {
       input.scheduledAt !== undefined ? validateScheduledDate(input.scheduledAt) : post.scheduledAt;
     const channelIds = validateChannelIds(input.channelIds);
 
+    // Validate channel ownership BEFORE opening transaction to avoid holding locks across network latency
+    if (Array.isArray(channelIds) && channelIds.length > 0) {
+      const validChannels = await prisma.channel.findMany({
+        where: {
+          id: { in: channelIds },
+          workspaceId: ctx.workspaceId,
+          brandId: post.brandId,
+        },
+        select: { id: true },
+      });
+
+      if (validChannels.length !== channelIds.length) {
+        throw new AppError(
+          'INVALID_CHANNELS',
+          'One or more selected channels do not exist or do not belong to this brand/workspace.',
+          403
+        );
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       // a) Update post record
       await tx.post.update({
@@ -334,19 +354,20 @@ export class PostsService {
         },
       });
 
-      // b) Revoke all ACTIVE review tokens linked to this post
-      await tx.approvalToken.updateMany({
-        where: { postId: id, status: 'ACTIVE' },
-        data: { status: 'REVOKED', revokedAt: new Date() },
-      });
+      // b) Revoke active review tokens only if post was under review/scheduled
+      if (post.status === 'PENDING' || post.status === 'SCHEDULED') {
+        await tx.approvalToken.updateMany({
+          where: { postId: id, status: 'ACTIVE' },
+          data: { status: 'REVOKED', revokedAt: new Date() },
+        });
+      }
 
-      // c) Purge queued publish jobs if post was scheduled or modified
-      if (post.status === 'SCHEDULED' || newStatus === 'DRAFT') {
+      // c) Purge queued publish jobs only when editing a previously scheduled post
+      if (post.status === 'SCHEDULED') {
         await tx.publishJob.deleteMany({
           where: { postId: id, status: 'QUEUED' },
         });
 
-        // Also clean up any pending job queue entries
         await tx.job.deleteMany({
           where: {
             status: 'QUEUED',
@@ -358,35 +379,16 @@ export class PostsService {
         });
       }
 
-      // Update channels if provided with strict multi-tenant boundary
+      // Update channels if provided
       if (Array.isArray(channelIds)) {
-        if (channelIds.length > 0) {
-          const validChannels = await prisma.channel.findMany({
-            where: {
-              id: { in: channelIds },
-              workspaceId: ctx.workspaceId,
-              brandId: post.brandId,
-            },
-            select: { id: true },
-          });
-
-          if (validChannels.length !== channelIds.length) {
-            throw new AppError(
-              'INVALID_CHANNELS',
-              'One or more selected channels do not exist or do not belong to this brand/workspace.',
-              403
-            );
-          }
-        }
-
         await tx.postTarget.deleteMany({ where: { postId: id } });
-        for (const chId of input.channelIds) {
-          await tx.postTarget.create({
-            data: {
+        if (channelIds.length > 0) {
+          await tx.postTarget.createMany({
+            data: channelIds.map((chId) => ({
               postId: id,
               channelId: chId,
               status: 'QUEUED',
-            },
+            })),
           });
         }
       }
@@ -419,7 +421,7 @@ export class PostsService {
           meta: { previousStatus: post.status, newStatus, version: bumpedVersion },
         },
       });
-    });
+    }, { timeout: 20000, maxWait: 10000 });
 
     return await this.getById(ctx, id);
   }
@@ -676,7 +678,7 @@ export class PostsService {
       throw new AppError('PUBLISH_FAILED', `Publishing failed: ${errors.join(' | ')}`, 502);
     }
 
-    return { ...updatedPost, ...(errors.length > 0 ? { warnings: errors } : {}) };
+    return { post: updatedPost, warnings: errors };
   }
 
   static async publishManually(ctx: UserContext, id: string) {

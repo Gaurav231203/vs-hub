@@ -15,6 +15,7 @@ export const createPostSchema = z.object({
   scheduledAt: z.string().datetime().optional().nullable(),
   publishMode: z.enum(['AUTOMATIC', 'MANUAL']).default('AUTOMATIC').optional(),
   media: z.array(postMediaSchema).default([]),
+  mediaUrls: z.array(z.string()).optional(),
 });
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;
@@ -26,6 +27,7 @@ export const updatePostSchema = z.object({
   scheduledAt: z.string().datetime().optional().nullable(),
   publishMode: z.enum(['AUTOMATIC', 'MANUAL']).optional(),
   media: z.array(postMediaSchema).optional(),
+  mediaUrls: z.array(z.string()).optional(),
   campaignId: z.string().optional().nullable(),
   version: z.number().int().min(1).optional(),
 });

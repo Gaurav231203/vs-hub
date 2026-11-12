@@ -96,8 +96,11 @@ export class PostsController {
   static async publishNow(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const post = await PostsService.publishNow(req.ctx!, id);
-      return res.status(200).json({ post });
+      const result = await PostsService.publishNow(req.ctx!, id);
+      return res.status(200).json({
+        post: result.post,
+        ...(result.warnings && result.warnings.length > 0 ? { warnings: result.warnings } : {}),
+      });
     } catch (err) {
       next(err);
     }

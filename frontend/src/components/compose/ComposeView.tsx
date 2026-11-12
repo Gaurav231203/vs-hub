@@ -247,7 +247,12 @@ export function ComposeView() {
         const mi = String(d.getMinutes()).padStart(2, '0');
         setScheduledDate(`${yr}-${mo}-${da}T${hr}:${mi}`);
       }
-      if (p.mediaUrls) setMediaUrls(p.mediaUrls);
+      if (p.mediaUrls?.length) {
+        setMediaUrls(p.mediaUrls);
+      } else if (Array.isArray(p.media) && p.media.length > 0) {
+        const assetUrls = p.media.map((m: any) => m?.asset?.url).filter(Boolean);
+        if (assetUrls.length > 0) setMediaUrls(assetUrls);
+      }
       if (p.targets?.length) {
         setSelectedChannelIds(p.targets.map((t: any) => t.channelId));
       }
