@@ -11,10 +11,12 @@ export interface MetaPageCandidate {
   pageToken: string;
   isProfile?: boolean;
   avatarUrl?: string;
+  followers?: number;
   instagram?: {
     id: string;
     username: string;
     profilePictureUrl?: string;
+    followersCount?: number;
   };
 }
 
@@ -187,7 +189,7 @@ export async function exchangeMetaCodeForAccounts(
     }
 
     // 4. Fetch User's Real Facebook Pages and linked Instagram Business/Creator Accounts
-    const accountsUrl = `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,profile_picture_url}&access_token=${encodeURIComponent(longLivedToken)}`;
+    const accountsUrl = `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,fan_count,followers_count,picture.type(large){url},instagram_business_account{id,username,profile_picture_url,followers_count}&access_token=${encodeURIComponent(longLivedToken)}`;
     const accountsRes = await fetch(accountsUrl);
     const accountsData = (await accountsRes.json()) as any;
 
@@ -216,11 +218,22 @@ export async function exchangeMetaCodeForAccounts(
       pageName: page.name,
       pageToken: page.access_token,
       isProfile: false,
+      avatarUrl: page.picture?.data?.url,
+      followers:
+        page.followers_count !== undefined
+          ? Number(page.followers_count)
+          : page.fan_count !== undefined
+            ? Number(page.fan_count)
+            : 0,
       instagram: page.instagram_business_account
         ? {
             id: page.instagram_business_account.id,
             username: (page.instagram_business_account.username || '').replace(/^@+/, ''),
             profilePictureUrl: page.instagram_business_account.profile_picture_url,
+            followersCount:
+              page.instagram_business_account.followers_count !== undefined
+                ? Number(page.instagram_business_account.followers_count)
+                : 0,
           }
         : undefined,
     }));

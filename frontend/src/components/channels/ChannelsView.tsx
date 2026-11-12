@@ -27,14 +27,36 @@ interface ChannelItem {
   net: 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'pinterest' | 'threads' | 'x' | 'linkedin';
   handle: string;
   followers: number;
-  growthPct: number;
+  growthPct: number | null;
   daysLeft: number;
   totalDays: number;
   lastSync: string;
   connectedBy: string;
   connectedByPhoto?: string;
+  avatarUrl?: string;
   status: 'connected' | 'expiring' | 'disconnected';
   postingEnabled: boolean;
+}
+
+function formatRelativeSyncTime(lastSyncAt?: string | null): string {
+  if (!lastSyncAt) return 'Connected';
+  const parsed = new Date(lastSyncAt);
+  if (Number.isNaN(parsed.getTime())) return 'Connected';
+  const diffSec = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 1000));
+  if (diffSec < 60) return 'Just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  return parsed.toLocaleDateString();
+}
+
+function computeTokenDaysLeft(tokenExpiresAt?: string | null, backendDaysLeft?: number, totalDays = 60): number {
+  if (typeof backendDaysLeft === 'number' && !Number.isNaN(backendDaysLeft)) {
+    return Math.max(0, Math.min(totalDays, backendDaysLeft));
+  }
+  if (!tokenExpiresAt) return totalDays;
+  const expiry = new Date(tokenExpiresAt);
+  if (Number.isNaN(expiry.getTime())) return totalDays;
+  return Math.max(0, Math.min(totalDays, Math.ceil((expiry.getTime() - Date.now()) / 86400000)));
 }
 
 const INITIAL_CHANNELS: ChannelItem[] = [];
@@ -128,14 +150,42 @@ export function ChannelsView() {
 
   const [channels, setChannels] = useState<ChannelItem[]>(getInitialChannels);
   const [isSyncingChannels, setIsSyncingChannels] = useState(false);
+  const autoSyncedOnceRef = React.useRef(false);
 
   // Sync real channels from backend database on load, focus, and live interval
   const fetchDbChannels = useCallback(async (showFeedback = false) => {
     setIsSyncingChannels(true);
     try {
+      // On explicit Sync click, ask backend middle handler to fetch fresh live data from Meta/social APIs first
+      if (showFeedback) {
+        await apiFetch('/channels/sync-all', { method: 'POST' }).catch(() => null);
+      }
+
       const res: any = await apiFetch('/channels');
       if (res && res.channels && Array.isArray(res.channels)) {
-        const dbChannels: ChannelItem[] = res.channels.map((ch: any) => {
+        let rawList: any[] = res.channels;
+
+        // One-time auto-heal: if any connected Meta channel hasn't been synced via live API yet, run live sync now
+        const needsInitialLiveSync =
+          !autoSyncedOnceRef.current &&
+          rawList.some(
+            (ch: any) =>
+              (ch.network === 'FACEBOOK' || ch.network === 'INSTAGRAM') &&
+              (!ch.lastSyncAt || ch.followers === 1250 || ch.followers === 4800)
+          );
+
+        if (needsInitialLiveSync) {
+          autoSyncedOnceRef.current = true;
+          const syncRes: any = await apiFetch('/channels/sync-all', { method: 'POST' }).catch(() => null);
+          if (syncRes?.success) {
+            const refreshed: any = await apiFetch('/channels').catch(() => null);
+            if (refreshed?.channels && Array.isArray(refreshed.channels)) {
+              rawList = refreshed.channels;
+            }
+          }
+        }
+
+        const dbChannels: ChannelItem[] = rawList.map((ch: any) => {
           const rawNet = (ch.network || 'instagram').toLowerCase();
           const prefix = ['instagram', 'x', 'tiktok', 'threads'].includes(rawNet) ? '@' : '';
           const cleanHandle = ch.handle?.startsWith('@') ? ch.handle : `${prefix}${ch.handle || 'account'}`;
@@ -144,12 +194,13 @@ export function ChannelsView() {
             brandId: ch.brandId,
             net: rawNet as any,
             handle: cleanHandle,
-            followers: ch.followers || 14200,
-            growthPct: 4.8,
-            daysLeft: 60,
-            totalDays: 60,
-            lastSync: 'Synced with database',
+            followers: Number(ch.followers ?? 0),
+            growthPct: typeof ch.growthPct === 'number' ? ch.growthPct : null,
+            daysLeft: computeTokenDaysLeft(ch.tokenExpiresAt, ch.daysLeft, ch.totalDays || 60),
+            totalDays: ch.totalDays || 60,
+            lastSync: formatRelativeSyncTime(ch.lastSyncAt),
             connectedBy: ch.connectedById ? 'Agency Dashboard' : 'Zero-Login Portal',
+            avatarUrl: ch.avatarUrl || undefined,
             status: (ch.status === 'CONNECTED' || ch.status === 'PAUSED') ? 'connected' : ch.status === 'EXPIRING' ? 'expiring' : 'disconnected',
             postingEnabled: ch.postingEnabled ?? (ch.status !== 'PAUSED'),
           };
@@ -162,7 +213,7 @@ export function ChannelsView() {
         } catch {}
 
         if (showFeedback) {
-          addToast({ type: 'success', message: `Synced ${dbChannels.length} connected channel(s) from database.` });
+          addToast({ type: 'success', message: `Synced ${dbChannels.length} connected channel(s) with live social data.` });
         }
       }
     } catch (err: any) {
@@ -949,15 +1000,30 @@ export function ChannelsView() {
                             <div>
                               <b className="ch-card__num">{formatCompactNumber(c.followers)}</b>
                               <small>
-                                followers · <span className="ch-up">+{c.growthPct}%</span> in 30 d
+                                {c.growthPct !== null ? (
+                                  <>
+                                    followers ·{' '}
+                                    <span className={c.growthPct >= 0 ? 'ch-up' : 'ch-down'}>
+                                      {c.growthPct >= 0 ? '+' : ''}
+                                      {c.growthPct}%
+                                    </span>{' '}
+                                    in 30 d
+                                  </>
+                                ) : c.followers > 0 ? (
+                                  <>followers · Live synced</>
+                                ) : (
+                                  <>
+                                    followers · {c.net === 'facebook' ? 'Live OAuth (Page needed for insights)' : 'Live synced'}
+                                  </>
+                                )}
                               </small>
                             </div>
                             <span className="ch-spark">
                               <svg viewBox="0 0 150 40" preserveAspectRatio="none">
                                 <path
-                                  d="M0,32 C45,30 90,22 150,8"
+                                  d={c.followers > 0 ? 'M0,32 C45,30 90,22 150,8' : 'M0,24 L150,24'}
                                   fill="none"
-                                  stroke={isDown ? 'var(--faint)' : 'var(--pine)'}
+                                  stroke={isDown || c.followers === 0 ? 'var(--faint)' : 'var(--pine)'}
                                   strokeWidth="2.2"
                                   strokeLinecap="round"
                                 />
@@ -1420,8 +1486,8 @@ export function ChannelsView() {
                           brandId: res.channel.brandId,
                           net: rawNet as any,
                           handle: cleanHandle,
-                          followers: res.channel.followers || 14200,
-                          growthPct: 4.8,
+                          followers: Number(res.channel.followers ?? 0),
+                          growthPct: null,
                           daysLeft: 60,
                           totalDays: 60,
                           lastSync: 'Just now',
@@ -1912,8 +1978,8 @@ export function ChannelsView() {
                 brandId: bId,
                 net: newNet as any,
                 handle: newHandle,
-                followers: followers || 15400,
-                growthPct: Number((Math.random() * 8 + 2).toFixed(1)),
+                followers: Number(followers ?? 0),
+                growthPct: null,
                 daysLeft: 60,
                 totalDays: 60,
                 lastSync: 'Just now',

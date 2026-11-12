@@ -7,6 +7,7 @@ import { AppError } from '../../middleware/error.js';
 import { Network, ChannelStatus, ConnectInviteStatus, PostStatus, TargetStatus, BrandStatus } from '@prisma/client';
 import { generateSecureToken, encrypt } from '../../lib/crypto.js';
 import { generateMetaOAuthState, getMetaAuthorizeUrl } from './meta.service.js';
+import { ChannelSyncService, computeChannelGrowthPct, computeDaysLeft } from './sync.service.js';
 import { getWebUrl } from '../../lib/urls.js';
 import { logger } from '../../lib/logger.js';
 
@@ -179,9 +180,37 @@ channelsRouter.get('/channels', async (req: Request, res: Response, next: NextFu
       orderBy: { createdAt: 'desc' },
     });
 
+    const channelIds = channels.map((c) => c.id);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
+    const recentMetrics =
+      channelIds.length > 0
+        ? await prisma.metricDaily.findMany({
+            where: {
+              channelId: { in: channelIds },
+              date: { gte: thirtyDaysAgo },
+            },
+            orderBy: { date: 'asc' },
+            select: { channelId: true, date: true, followers: true },
+          })
+        : [];
+
+    const metricsByChannel = new Map<string, Array<{ date: Date; followers: number }>>();
+    for (const row of recentMetrics) {
+      const list = metricsByChannel.get(row.channelId) || [];
+      list.push({ date: row.date, followers: row.followers });
+      metricsByChannel.set(row.channelId, list);
+    }
+
     const sanitizedChannels = channels.map((c) => {
       const { accessTokenEnc, refreshTokenEnc, ...safeChannel } = c as any;
-      return safeChannel;
+      const growthPct = computeChannelGrowthPct(metricsByChannel.get(c.id) || []);
+      const daysLeft = computeDaysLeft(c.tokenExpiresAt);
+      return {
+        ...safeChannel,
+        growthPct,
+        daysLeft,
+        totalDays: 60,
+      };
     });
 
     return res.status(200).json({ channels: sanitizedChannels });
@@ -300,6 +329,81 @@ channelsRouter.post(
 );
 
 /**
+ * POST /api/v1/channels/sync-all
+ * Live middle-handler sync: fetches real follower counts, avatars, and posts
+ * from connected Meta / social APIs using encrypted tokens.
+ */
+channelsRouter.post('/channels/sync-all', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ctx = req.ctx!;
+    const requestedBrandId = (req.body?.brandId as string) || (req.query.brandId as string) || undefined;
+
+    const workspaceBrands = await prisma.brand.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      select: { id: true },
+    });
+    const activeBrandIds = workspaceBrands.map((b) => b.id);
+    const allowedBrands = ctx.allBrands
+      ? activeBrandIds
+      : ctx.brandIds.filter((id) => activeBrandIds.includes(id));
+
+    if (requestedBrandId && !allowedBrands.includes(requestedBrandId)) {
+      throw new AppError('NOT_FOUND', 'Brand not found', 404);
+    }
+
+    const channels = await prisma.channel.findMany({
+      where: {
+        workspaceId: ctx.workspaceId,
+        brandId: requestedBrandId ? requestedBrandId : { in: allowedBrands },
+      },
+      select: { id: true },
+    });
+
+    const settled = await Promise.allSettled(
+      channels.map((ch) => ChannelSyncService.syncChannel(ch.id))
+    );
+
+    const results = settled
+      .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+      .map((r) => r.value);
+
+    const syncedCount = results.filter((r) => r.synced).length;
+
+    res.json({
+      success: true,
+      total: channels.length,
+      syncedCount,
+      results,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/v1/channels/:id/sync
+ * Sync a single connected channel with live social API data
+ */
+channelsRouter.post('/channels/:id/sync', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ctx = req.ctx!;
+    const channel = await prisma.channel.findFirst({
+      where: { id: req.params.id, workspaceId: ctx.workspaceId },
+    });
+    if (!channel) throw new AppError('CHANNEL_NOT_FOUND', 'Channel not found', 404);
+
+    if (!ctx.allBrands && !ctx.brandIds.includes(channel.brandId)) {
+      throw new AppError('CHANNEL_NOT_FOUND', 'Channel not found', 404);
+    }
+
+    const outcome = await ChannelSyncService.syncChannel(channel.id);
+    res.json({ success: true, outcome });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * POST /api/v1/channels/connect-manual
  * Connects any social channel for any brand with user-provided credentials
  * and seeds historical client posts so past + new posts appear in dashboard.
@@ -383,11 +487,12 @@ channelsRouter.post(
           network: normalizedNet,
           externalId,
           handle: cleanHandle,
-          followers: followers ? Number(followers) : Math.floor(Math.random() * 30000) + 3500,
+          followers: followers ? Number(followers) : 0,
           status: ChannelStatus.CONNECTED,
           postingEnabled: true,
           accessTokenEnc: encryptedToken,
           tokenExpiresAt: expiresAt,
+          lastSyncAt: new Date(),
           connectedById: ctx.userId,
         },
         update: {
@@ -526,7 +631,7 @@ channelsRouter.post(
           network: normalizedNet,
           externalId,
           handle: handle.replace(/^@/, ''),
-          followers: Math.floor(Math.random() * 50000) + 1200,
+          followers: 0,
           status: ChannelStatus.CONNECTED,
           postingEnabled: true,
           accessTokenEnc: encryptedToken,

@@ -382,6 +382,7 @@ export function OverviewView() {
 
   const [dbPosts, setDbPosts] = useState<any[]>([]);
   const [dbChannels, setDbChannels] = useState<any[]>([]);
+  const [dbSummary, setDbSummary] = useState<any>(null);
 
   useEffect(() => {
     initMagnetic(containerRef.current || document);
@@ -392,9 +393,11 @@ export function OverviewView() {
     const fetchOverviewData = async () => {
       try {
         const query = selectedBrandId && selectedBrandId !== 'all' ? `?brandId=${selectedBrandId}` : '';
-        const [postsRes, channelsRes] = await Promise.all([
+        const summaryQuery = selectedBrandId && selectedBrandId !== 'all' ? `?range=30D&brandId=${selectedBrandId}` : '?range=30D';
+        const [postsRes, channelsRes, summaryRes] = await Promise.all([
           apiFetch(`/posts${query}`).catch(() => ({ posts: [] })),
           apiFetch(`/channels${query}`).catch(() => ({ channels: [] })),
+          apiFetch(`/analytics/summary${summaryQuery}`).catch(() => null),
         ]);
         if (isMounted) {
           if (postsRes?.posts && Array.isArray(postsRes.posts)) {
@@ -402,6 +405,9 @@ export function OverviewView() {
           }
           if (channelsRes?.channels && Array.isArray(channelsRes.channels)) {
             setDbChannels(channelsRes.channels);
+          }
+          if (summaryRes) {
+            setDbSummary(summaryRes);
           }
         }
       } catch (err) {
@@ -464,16 +470,24 @@ export function OverviewView() {
       status: p.status,
     }));
 
+    const growthNum = typeof dbSummary?.followerGrowthPct === 'number' ? dbSummary.followerGrowthPct : 0;
+    const engNum = typeof dbSummary?.engagementRate === 'number' ? dbSummary.engagementRate : 0;
+
     return {
       audience: audienceFormatted,
-      audienceGrowth: totalAudience > 0 ? '+4.8% in 30 days' : '+0% in 30 days',
-      engRate: totalAudience > 0 ? '5.2%' : '0%',
+      audienceGrowth:
+        growthNum !== 0
+          ? `${growthNum > 0 ? '+' : ''}${growthNum}% in 30 days`
+          : dbChannels.length > 0
+            ? 'Live synced'
+            : '+0% in 30 days',
+      engRate: `${engNum}%`,
       postsThisWeek: dbPosts.length,
       hero,
       todos: [] as any[],
       comingUp: comingUpList,
     };
-  }, [dbPosts, dbChannels]);
+  }, [dbPosts, dbChannels, dbSummary]);
 
   const currentTodos = useMemo(() => {
     return brandOverviewData.todos.filter((t: any) => !dismissedTodoIds.includes(t.id));

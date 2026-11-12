@@ -20,6 +20,7 @@ import { ChannelStatus, Network, BrandStatus, ConnectInviteStatus } from '@prism
 import { OAuthSessionService } from './oauthSession.service.js';
 import { EmailService } from '../../lib/email.js';
 import { getWebUrl } from '../../lib/urls.js';
+import { ChannelSyncService } from '../channels/sync.service.js';
 
 export const invitesRouter = Router();
 
@@ -632,7 +633,7 @@ invitesRouter.post(
       const cleanHandle = String(handle).trim();
       const chExternalId =
         externalId || `${normalizedNet.toLowerCase()}_${cleanHandle.replace(/[^a-zA-Z0-9_]/g, '')}_${Date.now()}`;
-      const followerCount = Number(followers) || Math.floor(1200 + Math.random() * 45000);
+      const followerCount = Number(followers) || 0;
 
       // Upsert the channel
       const channel = await prisma.channel.upsert({
@@ -687,20 +688,32 @@ invitesRouter.post(
 /* ==========================================================================
    HELPER: Bind & Encrypt Meta Accounts in DB
    ========================================================================== */
-async function bindMetaAccountsToBrand({
+export async function bindMetaAccountsToBrand({
   workspaceId,
   brandId,
   page,
+  deps,
 }: {
   workspaceId: string;
   brandId: string;
   page: MetaPageCandidate;
+  deps?: {
+    db?: any;
+    syncChannel?: (channelId: string) => Promise<any>;
+    encryptFn?: (plain: string) => string;
+  };
 }) {
-  const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
-  const encryptedPageToken = encrypt(page.pageToken);
+  const db = deps?.db ?? prisma;
+  const syncChannelFn = deps?.syncChannel ?? ((id: string) => ChannelSyncService.syncChannel(id));
+  const encryptFn = deps?.encryptFn ?? encrypt;
 
-  // 1. Bind / Upsert Facebook Page Channel
-  await prisma.channel.upsert({
+  const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
+  const syncedAt = new Date();
+  const encryptedPageToken = encryptFn(page.pageToken);
+  const realFbFollowers = page.isProfile ? 0 : (page.followers ?? 0);
+
+  // 1. Bind / Upsert Facebook Page or Personal Profile Channel (no hardcoded dummy follower count)
+  const fbChannel = await db.channel.upsert({
     where: {
       brandId_network_externalId: {
         brandId,
@@ -719,7 +732,8 @@ async function bindMetaAccountsToBrand({
       postingEnabled: true,
       accessTokenEnc: encryptedPageToken,
       tokenExpiresAt: expiresAt,
-      followers: 1250,
+      followers: realFbFollowers,
+      lastSyncAt: syncedAt,
     },
     update: {
       handle: page.pageName,
@@ -727,13 +741,22 @@ async function bindMetaAccountsToBrand({
       status: ChannelStatus.CONNECTED,
       accessTokenEnc: encryptedPageToken,
       tokenExpiresAt: expiresAt,
+      followers: realFbFollowers,
+      lastSyncAt: syncedAt,
       lastError: null,
     },
   });
 
+  if (fbChannel?.id) {
+    await syncChannelFn(fbChannel.id).catch((err: any) => {
+      logger.warn({ channelId: fbChannel.id, err: err?.message }, 'Initial Meta Facebook sync skipped');
+    });
+  }
+
   // 2. If an Instagram Business Account is linked to this page, bind / upsert it
   if (page.instagram) {
-    await prisma.channel.upsert({
+    const realIgFollowers = page.instagram.followersCount ?? 0;
+    const igChannel = await db.channel.upsert({
       where: {
         brandId_network_externalId: {
           brandId,
@@ -752,7 +775,8 @@ async function bindMetaAccountsToBrand({
         postingEnabled: true,
         accessTokenEnc: encryptedPageToken,
         tokenExpiresAt: expiresAt,
-        followers: 4800,
+        followers: realIgFollowers,
+        lastSyncAt: syncedAt,
       },
       update: {
         handle: `@${page.instagram.username}`,
@@ -760,13 +784,21 @@ async function bindMetaAccountsToBrand({
         status: ChannelStatus.CONNECTED,
         accessTokenEnc: encryptedPageToken,
         tokenExpiresAt: expiresAt,
+        followers: realIgFollowers,
+        lastSyncAt: syncedAt,
         lastError: null,
       },
     });
+
+    if (igChannel?.id) {
+      await syncChannelFn(igChannel.id).catch((err: any) => {
+        logger.warn({ channelId: igChannel.id, err: err?.message }, 'Initial Meta Instagram sync skipped');
+      });
+    }
   }
 
   logger.info(
-    { brandId, pageId: page.pageId, igId: page.instagram?.id },
-    'Meta channels connected and encrypted successfully'
+    { brandId, pageId: page.pageId, igId: page.instagram?.id, followers: realFbFollowers },
+    'Meta channels connected and synced with real account data'
   );
 }
