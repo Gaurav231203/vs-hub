@@ -127,9 +127,11 @@ export function ChannelsView() {
   const outletCtx = useOutletContext<{ selectedBrandId?: string; setSelectedBrandId?: (id: string) => void }>() || {};
 
   const [channels, setChannels] = useState<ChannelItem[]>(getInitialChannels);
+  const [isSyncingChannels, setIsSyncingChannels] = useState(false);
 
-  // Sync real channels from backend database on load
-  const fetchDbChannels = useCallback(async () => {
+  // Sync real channels from backend database on load, focus, and live interval
+  const fetchDbChannels = useCallback(async (showFeedback = false) => {
+    setIsSyncingChannels(true);
     try {
       const res: any = await apiFetch('/channels');
       if (res && res.channels && Array.isArray(res.channels)) {
@@ -147,7 +149,7 @@ export function ChannelsView() {
             daysLeft: 60,
             totalDays: 60,
             lastSync: 'Synced with database',
-            connectedBy: 'Zero-Login Portal',
+            connectedBy: ch.connectedById ? 'Agency Dashboard' : 'Zero-Login Portal',
             status: (ch.status === 'CONNECTED' || ch.status === 'PAUSED') ? 'connected' : ch.status === 'EXPIRING' ? 'expiring' : 'disconnected',
             postingEnabled: ch.postingEnabled ?? (ch.status !== 'PAUSED'),
           };
@@ -158,16 +160,61 @@ export function ChannelsView() {
         try {
           localStorage.setItem('vs_custom_channels', JSON.stringify(dbChannels));
         } catch {}
+
+        if (showFeedback) {
+          addToast({ type: 'success', message: `Synced ${dbChannels.length} connected channel(s) from database.` });
+        }
       }
-    } catch {
-      // Fallback to localStorage / initial channels if offline
+    } catch (err: any) {
+      if (showFeedback) {
+        addToast({ type: 'error', message: err?.message || 'Failed to sync channels from server.' });
+      }
+    } finally {
+      setIsSyncingChannels(false);
     }
-  }, []);
+  }, [addToast]);
+
+  const activeBrandId = outletCtx.selectedBrandId || authBrandId || 'all';
 
   useEffect(() => {
     fetchDbChannels();
-  }, [brands, fetchDbChannels]);
-  const activeBrandId = outletCtx.selectedBrandId || authBrandId || 'all';
+  }, [brands, activeBrandId, fetchDbChannels]);
+
+  // Auto-sync when returning to tab (e.g. after connecting via OAuth / client link) or every 15s
+  useEffect(() => {
+    const handleFocus = () => fetchDbChannels();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchDbChannels();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchDbChannels();
+      }
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(interval);
+    };
+  }, [fetchDbChannels]);
+
+  // Show toast & force-sync when returning with ?connected=true
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('connected') === 'true') {
+      try {
+        localStorage.removeItem('vs_custom_channels');
+      } catch {}
+      fetchDbChannels();
+      addToast({ type: 'success', message: 'Social account connected and synced!' });
+    }
+  }, [fetchDbChannels, addToast]);
 
   const [filter, setFilter] = useState<'all' | 'attention' | 'paused'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -734,6 +781,17 @@ export function ChannelsView() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </label>
+
+            <button
+              type="button"
+              className="btn btn--sm btn--ghost"
+              onClick={() => fetchDbChannels(true)}
+              disabled={isSyncingChannels}
+              title="Refresh connected channels from database"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              {isSyncingChannels ? 'Syncing...' : '↻ Sync'}
+            </button>
           </div>
 
           {/* Brand Sections */}
