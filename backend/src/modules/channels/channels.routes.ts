@@ -7,6 +7,7 @@ import { AppError } from '../../middleware/error.js';
 import { Network, ChannelStatus, ConnectInviteStatus, PostStatus, TargetStatus, BrandStatus } from '@prisma/client';
 import { generateSecureToken, encrypt } from '../../lib/crypto.js';
 import { generateMetaOAuthState, getMetaAuthorizeUrl } from './meta.service.js';
+import { getWebUrl } from '../../lib/urls.js';
 import { logger } from '../../lib/logger.js';
 
 export const channelsRouter = Router();
@@ -113,7 +114,7 @@ channelsRouter.get(
         },
       });
 
-      const state = generateMetaOAuthState(raw, brandId);
+      const state = generateMetaOAuthState(raw, brandId, getWebUrl(req));
       const authUrl = getMetaAuthorizeUrl(state, req);
 
       res.json({ authUrl, brandId, brandName: brand.name });

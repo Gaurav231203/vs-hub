@@ -3,7 +3,7 @@ import { Request } from 'express';
 import { env } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
 import { AppError } from '../../middleware/error.js';
-import { getApiUrl } from '../../lib/urls.js';
+import { getApiUrl, isTrustedWebHost } from '../../lib/urls.js';
 
 export interface MetaPageCandidate {
   pageId: string;
@@ -19,12 +19,13 @@ export interface MetaPageCandidate {
 }
 
 /**
- * Generate CSRF-protected state parameter linked to invite token and brand
+ * Generate CSRF-protected state parameter linked to invite token, brand, and originating trusted web origin
  */
-export function generateMetaOAuthState(inviteToken: string, brandId: string): string {
+export function generateMetaOAuthState(inviteToken: string, brandId: string, webUrl?: string): string {
   const payload = JSON.stringify({
     token: inviteToken,
     brandId,
+    ...(webUrl ? { webUrl } : {}),
     timestamp: Date.now(),
     nonce: crypto.randomBytes(8).toString('hex'),
   });
@@ -38,7 +39,7 @@ export function generateMetaOAuthState(inviteToken: string, brandId: string): st
 /**
  * Verify and decode CSRF-protected state parameter
  */
-export function verifyMetaOAuthState(state: string): { inviteToken: string; brandId: string } {
+export function verifyMetaOAuthState(state: string): { inviteToken: string; brandId: string; webUrl?: string } {
   try {
     const [encodedPayload, hmac] = state.split('.');
     if (!encodedPayload || !hmac) {
@@ -62,7 +63,17 @@ export function verifyMetaOAuthState(state: string): { inviteToken: string; bran
       throw new Error('State has expired');
     }
 
-    return { inviteToken: data.token, brandId: data.brandId };
+    let safeWebUrl: string | undefined;
+    if (typeof data.webUrl === 'string' && data.webUrl) {
+      try {
+        const parsed = new URL(data.webUrl);
+        if (isTrustedWebHost(parsed.hostname)) {
+          safeWebUrl = `${parsed.protocol}//${parsed.host}`;
+        }
+      } catch {}
+    }
+
+    return { inviteToken: data.token, brandId: data.brandId, ...(safeWebUrl ? { webUrl: safeWebUrl } : {}) };
   } catch (err: any) {
     logger.warn({ err: err.message }, 'Failed to verify Meta OAuth state');
     throw new AppError('INVALID_STATE', 'Security verification failed or link expired. Please try connecting again.', 400);

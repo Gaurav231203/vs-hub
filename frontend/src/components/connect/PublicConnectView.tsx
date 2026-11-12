@@ -225,6 +225,14 @@ export function PublicConnectView() {
         } catch {}
 
         setExistingChannels(mergedChannels);
+        const connectedFb = mergedChannels.find((c) => c.network.toUpperCase() === 'FACEBOOK');
+        const connectedIg = mergedChannels.find((c) => c.network.toUpperCase() === 'INSTAGRAM');
+        if (connectedFb && !confirmedPageName) {
+          setConfirmedPageName(connectedFb.handle);
+        }
+        if (connectedIg && !confirmedInstagramHandle) {
+          setConfirmedInstagramHandle(connectedIg.handle.replace(/^@+/, ''));
+        }
         setExpiresAt(data.expiresAt);
       } catch (err: any) {
         setErrorState({

@@ -2,9 +2,38 @@ import { Request } from 'express';
 import { env } from '../config/env.js';
 
 /**
+ * Checks whether a hostname belongs to our own web application (preventing external OAuth
+ * Referer headers such as https://www.facebook.com/ from hijacking post-OAuth redirects).
+ */
+export function isTrustedWebHost(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase();
+  if (!host) return false;
+
+  if (host === 'localhost' || host === '127.0.0.1') return true;
+  if (host.includes('onrender.com')) return false;
+
+  if (env.WEB_URL) {
+    try {
+      const configuredHost = new URL(env.WEB_URL).hostname.toLowerCase();
+      if (host === configuredHost) return true;
+    } catch {}
+  }
+
+  if (host === 'vs-hub-ruddy.vercel.app' || (host.startsWith('vs-hub') && host.endsWith('.vercel.app'))) {
+    return true;
+  }
+
+  if (host === 'vsadda.com' || host.endsWith('.vsadda.com')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Returns the canonical frontend web application base URL.
- * Automatically inspects the incoming Request (Origin, Referer, Host headers),
- * falls back to configured WEB_URL, or defaults to the production Vercel domain.
+ * Only accepts Origin/Referer/X-Forwarded-Host when it matches a trusted frontend host,
+ * otherwise falls back to configured WEB_URL or the production Vercel domain.
  */
 export function getWebUrl(req?: Request): string {
   if (req) {
@@ -12,14 +41,20 @@ export function getWebUrl(req?: Request): string {
     if (origin) {
       try {
         const parsed = new URL(origin);
-        return `${parsed.protocol}//${parsed.host}`;
+        if (isTrustedWebHost(parsed.hostname)) {
+          return `${parsed.protocol}//${parsed.host}`;
+        }
       } catch {}
     }
 
     const forwardedHost = req.headers['x-forwarded-host'] as string | undefined;
-    if (forwardedHost && !forwardedHost.includes('onrender.com') && !forwardedHost.includes('localhost')) {
-      const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
-      return `${proto}://${forwardedHost.split(',')[0].trim()}`;
+    if (forwardedHost) {
+      const rawHost = forwardedHost.split(',')[0].trim();
+      const hostnameOnly = rawHost.split(':')[0];
+      if (isTrustedWebHost(hostnameOnly)) {
+        const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
+        return `${proto}://${rawHost}`;
+      }
     }
   }
 

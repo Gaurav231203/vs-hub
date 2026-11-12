@@ -330,7 +330,7 @@ invitesRouter.get(
         throw new AppError('INVITE_INVALID', 'Invite link is expired or invalid', 400);
       }
 
-      const state = generateMetaOAuthState(rawToken, invite.brandId);
+      const state = generateMetaOAuthState(rawToken, invite.brandId, getWebUrl(req));
       const authUrl = getMetaAuthorizeUrl(state, req);
 
       res.json({ authUrl });
@@ -367,7 +367,7 @@ invitesRouter.get(
       }
 
       // Generate signed state parameter
-      const state = generateMetaOAuthState(rawToken, invite.brandId);
+      const state = generateMetaOAuthState(rawToken, invite.brandId, getWebUrl(req));
       const authUrl = getMetaAuthorizeUrl(state, req);
 
       res.json({ authUrl });
@@ -399,7 +399,8 @@ invitesRouter.get(
       }
 
       // 1. Verify CSRF State
-      const { inviteToken, brandId } = verifyMetaOAuthState(state);
+      const { inviteToken, brandId, webUrl } = verifyMetaOAuthState(state);
+      const resolvedWebBase = webUrl || webBase;
       const hash = hashToken(inviteToken);
 
       const invite = await prisma.connectInvite.findUnique({
@@ -427,7 +428,7 @@ invitesRouter.get(
 
       if (candidatePages.length === 0) {
         return res.redirect(
-          `${webBase}/connect/${inviteToken}?error=NO_PAGES_FOUND&message=${encodeURIComponent(
+          `${resolvedWebBase}/connect/${inviteToken}?error=NO_PAGES_FOUND&message=${encodeURIComponent(
             'No Facebook Pages found under your Facebook account. Please ensure your Facebook account is an Admin of at least one Facebook Page (create one at facebook.com/pages/create), then try again.'
           )}`
         );
@@ -443,7 +444,7 @@ invitesRouter.get(
         });
 
         return res.redirect(
-          `${webBase}/connect/${inviteToken}?step=select-page&sessionId=${sessionId}`
+          `${resolvedWebBase}/connect/${inviteToken}?step=select-page&sessionId=${sessionId}`
         );
       }
 
@@ -470,7 +471,7 @@ invitesRouter.get(
       });
 
       return res.redirect(
-        `${webBase}/connect/${inviteToken}?status=success&network=facebook&pageName=${encodeURIComponent(page.pageName)}`
+        `${resolvedWebBase}/connect/${inviteToken}?status=success&network=facebook&pageName=${encodeURIComponent(page.pageName)}`
       );
     } catch (err: any) {
       next(err);
