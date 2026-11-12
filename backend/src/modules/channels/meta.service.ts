@@ -101,12 +101,16 @@ export function getMetaAuthorizeUrl(state: string, req?: Request): string {
     'pages_show_list',
     'pages_read_engagement',
     'pages_manage_posts',
+    'business_management',
     'instagram_basic',
     'instagram_content_publish',
   ].join(',');
 
-  logger.info({ appId, redirectUri: decodeURIComponent(redirectUri) }, 'Generating official Meta OAuth URL');
-  return `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}&response_type=code&auth_type=rerequest`;
+  const configId = (process.env.META_LOGIN_CONFIG_ID || '').trim();
+  const configParam = configId ? `&config_id=${encodeURIComponent(configId)}` : '';
+
+  logger.info({ appId, redirectUri: decodeURIComponent(redirectUri), hasConfigId: Boolean(configId) }, 'Generating official Meta OAuth URL');
+  return `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}${configParam}&response_type=code&auth_type=rerequest`;
 }
 
 /**
@@ -223,28 +227,50 @@ export async function exchangeMetaCodeForAccounts(
 
     // Also inspect Business Portfolio Pages non-fatally if /me/accounts returned 0
     if (rawPages.length === 0) {
-      try {
-        const bizUrl = `https://graph.facebook.com/v20.0/me/businesses?fields=id,name,owned_pages{${accountsFields}},client_pages{${accountsFields}}&access_token=${encodeURIComponent(longLivedToken)}`;
-        const bizRes = await fetch(bizUrl);
-        const bizData = (await bizRes.json()) as any;
-        if (Array.isArray(bizData?.data)) {
-          const seenIds = new Set<string>();
-          for (const biz of bizData.data) {
-            for (const listKey of ['owned_pages', 'client_pages']) {
-              const pList = biz?.[listKey]?.data;
-              if (Array.isArray(pList)) {
-                for (const p of pList) {
-                  if (p?.id && !seenIds.has(p.id)) {
-                    seenIds.add(p.id);
-                    rawPages.push(p);
+      const bizQueries = [
+        `id,name,owned_pages{${accountsFields}},client_pages{${accountsFields}}`,
+        'id,name,owned_pages{id,name,fan_count,followers_count,picture.type(large){url},instagram_business_account{id,username,profile_picture_url,followers_count}},client_pages{id,name,fan_count,followers_count,picture.type(large){url},instagram_business_account{id,username,profile_picture_url,followers_count}}',
+      ];
+      for (const bizFields of bizQueries) {
+        try {
+          const bizUrl = `https://graph.facebook.com/v20.0/me/businesses?fields=${encodeURIComponent(bizFields)}&limit=50&access_token=${encodeURIComponent(longLivedToken)}`;
+          const bizRes = await fetch(bizUrl);
+          const bizData = (await bizRes.json()) as any;
+          if (Array.isArray(bizData?.data) && bizData.data.length > 0) {
+            const seenIds = new Set<string>();
+            for (const biz of bizData.data) {
+              for (const listKey of ['owned_pages', 'client_pages']) {
+                const pList = biz?.[listKey]?.data;
+                if (Array.isArray(pList)) {
+                  for (const p of pList) {
+                    if (p?.id && !seenIds.has(p.id)) {
+                      seenIds.add(p.id);
+                      rawPages.push(p);
+                    }
                   }
                 }
               }
             }
+            if (rawPages.length > 0) break;
           }
+        } catch {
+          // Non-fatal: business_management scope may not be granted
         }
-      } catch {
-        // Non-fatal: business_management scope may not be granted
+      }
+    }
+
+    // Ensure every Page has a valid access token (fetch /{pageId}?fields=access_token if missing)
+    for (const p of rawPages) {
+      if (!p.access_token && p.id) {
+        try {
+          const ptRes = await fetch(
+            `https://graph.facebook.com/v20.0/${encodeURIComponent(p.id)}?fields=access_token&access_token=${encodeURIComponent(longLivedToken)}`
+          );
+          const ptData = (await ptRes.json()) as any;
+          if (ptData?.access_token) {
+            p.access_token = ptData.access_token;
+          }
+        } catch {}
       }
     }
 
@@ -288,7 +314,7 @@ export async function exchangeMetaCodeForAccounts(
     const pages: MetaPageCandidate[] = rawPages.map((page: any) => ({
       pageId: page.id,
       pageName: page.name,
-      pageToken: page.access_token,
+      pageToken: page.access_token || longLivedToken,
       isProfile: false,
       avatarUrl: page.picture?.data?.url,
       followers:
