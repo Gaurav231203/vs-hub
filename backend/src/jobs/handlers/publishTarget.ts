@@ -83,10 +83,10 @@ export async function handlePublishTarget(payload: { targetId: string; postId: s
         publishedAt: now,
         lastError: null,
         metrics: result.metrics || {
-          impressions: Math.floor(Math.random() * 1500) + 100,
-          reach: Math.floor(Math.random() * 1000) + 80,
-          likes: Math.floor(Math.random() * 60) + 10,
-          comments: Math.floor(Math.random() * 8) + 1,
+          impressions: 0,
+          reach: 0,
+          likes: 0,
+          comments: 0,
         },
       },
     });
@@ -139,59 +139,59 @@ export async function handlePublishTarget(payload: { targetId: string; postId: s
       }).catch(() => {});
     }
 
-    // Re-throw so worker handles retry logic / backoff
+    // Re-throw so worker / publishNow handles failure visibility
     throw err;
-  }
-
-  // Check overall parent Post completion
-  const allTargets = await prisma.postTarget.findMany({
-    where: { postId },
-  });
-
-  const pending = allTargets.filter(
-    (t) => t.status === TargetStatus.QUEUED || t.status === TargetStatus.PUBLISHING
-  );
-
-  if (pending.length === 0) {
-    // All targets have reached a terminal state
-    const publishedCount = allTargets.filter((t) => t.status === TargetStatus.PUBLISHED).length;
-    const failedCount = allTargets.filter((t) => t.status === TargetStatus.FAILED).length;
-
-    let finalStatus: PostStatus = PostStatus.PUBLISHED;
-    let partialFailure = false;
-
-    if (publishedCount === 0 && failedCount > 0) {
-      finalStatus = PostStatus.FAILED;
-    } else if (failedCount > 0) {
-      partialFailure = true;
-    }
-
-    await prisma.post.update({
-      where: { id: postId },
-      data: {
-        status: finalStatus,
-        partialFailure,
-        publishedAt: finalStatus === PostStatus.PUBLISHED ? new Date() : undefined,
-      },
+  } finally {
+    // Reconcile parent Post status regardless of whether target succeeded or threw
+    const allTargets = await prisma.postTarget.findMany({
+      where: { postId },
     });
 
-    // Record audit log
-    await prisma.auditLog.create({
-      data: {
-        workspaceId: target.channel.workspaceId,
-        actorId: target.post.authorId,
-        action: finalStatus === PostStatus.PUBLISHED ? 'post.published' : 'post.publish_failed',
-        entity: 'Post',
-        entityId: postId,
-        brandId: target.channel.brandId,
-        meta: {
-          targetsPublished: publishedCount,
-          targetsFailed: failedCount,
+    const pending = allTargets.filter(
+      (t) => t.status === TargetStatus.QUEUED || t.status === TargetStatus.PUBLISHING
+    );
+
+    if (pending.length === 0) {
+      const publishedCount = allTargets.filter((t) => t.status === TargetStatus.PUBLISHED).length;
+      const failedCount = allTargets.filter((t) => t.status === TargetStatus.FAILED).length;
+
+      let finalStatus: PostStatus = PostStatus.PUBLISHED;
+      let partialFailure = false;
+
+      if (publishedCount === 0 && failedCount > 0) {
+        finalStatus = PostStatus.FAILED;
+      } else if (failedCount > 0) {
+        partialFailure = true;
+      }
+
+      await prisma.post.update({
+        where: { id: postId },
+        data: {
+          status: finalStatus,
           partialFailure,
+          publishedAt: finalStatus === PostStatus.PUBLISHED ? new Date() : undefined,
         },
-      },
-    });
+      });
 
-    logger.info({ postId, finalStatus, partialFailure }, 'Post lifecycle completed');
+      if (target.channel) {
+        await prisma.auditLog.create({
+          data: {
+            workspaceId: target.channel.workspaceId,
+            actorId: target.post.authorId,
+            action: finalStatus === PostStatus.PUBLISHED ? 'post.published' : 'post.publish_failed',
+            entity: 'Post',
+            entityId: postId,
+            brandId: target.channel.brandId,
+            meta: {
+              targetsPublished: publishedCount,
+              targetsFailed: failedCount,
+              partialFailure,
+            },
+          },
+        }).catch(() => {});
+      }
+
+      logger.info({ postId, finalStatus, partialFailure }, 'Post lifecycle completed');
+    }
   }
 }

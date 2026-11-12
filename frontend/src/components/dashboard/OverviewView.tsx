@@ -326,21 +326,60 @@ export function OverviewView() {
 
   const [growthRange, setGrowthRange] = useState<'30' | '90'>('30');
   const [hoveredGrowthIndex, setHoveredGrowthIndex] = useState<number | null>(null);
+  const [dbGrowthSeries, setDbGrowthSeries] = useState<Array<{ date: string; followers: number }>>([]);
 
-  const currentGrowthData = growthRange === '30' ? GROWTH_30D_DATA : GROWTH_90D_DATA;
-  const currentGrowthLabels = growthRange === '30' ? GROWTH_30D_LABELS : GROWTH_90D_LABELS;
+  const growthPointsMeta = useMemo(() => {
+    const valid = dbGrowthSeries
+      .filter((r) => typeof r.followers === 'number')
+      .map((r) => ({
+        date: new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        val: Number(r.followers || 0),
+      }));
+
+    if (valid.length === 0) {
+      return {
+        pointsData: [{ date: 'Today', val: 0 }],
+        gained: 0,
+        growthPct: 0,
+        maxY: 10,
+      };
+    }
+
+    const firstVal = valid[0].val;
+    const lastVal = valid[valid.length - 1].val;
+    const gained = valid.length >= 2 ? lastVal - firstVal : 0;
+    const growthPct = valid.length >= 2 && firstVal > 0 ? Math.round((gained / firstVal) * 1000) / 10 : 0;
+    const maxVal = Math.max(...valid.map((v) => v.val), 10);
+
+    return {
+      pointsData: valid.length === 1 ? [valid[0], valid[0]] : valid,
+      gained,
+      growthPct,
+      maxY: maxVal,
+    };
+  }, [dbGrowthSeries]);
+
+  const currentGrowthData = growthPointsMeta.pointsData;
+  const currentGrowthLabels = useMemo(() => {
+    if (currentGrowthData.length <= 1) return [];
+    const step = Math.max(1, Math.floor(currentGrowthData.length / 6));
+    return currentGrowthData
+      .map((d, index) => ({ date: d.date, index }))
+      .filter((_, i) => i % step === 0 || i === currentGrowthData.length - 1);
+  }, [currentGrowthData]);
 
   const chartPoints = useMemo(() => {
     const startX = 35;
     const endX = 575;
     const spanX = endX - startX;
     const len = currentGrowthData.length;
+    const maxY = growthPointsMeta.maxY || 10;
     return currentGrowthData.map((d, i) => {
-      const x = startX + (i / (len - 1)) * spanX;
-      const y = Math.max(30, Math.min(188, 190 - (d.val / 10) * 160));
+      const x = len > 1 ? startX + (i / (len - 1)) * spanX : (startX + endX) / 2;
+      const y = Math.max(30, Math.min(188, 190 - (d.val / maxY) * 155));
       return { x, y, date: d.date, val: d.val };
     });
-  }, [currentGrowthData]);
+  }, [currentGrowthData, growthPointsMeta.maxY]);
 
   const splineAreaPath = useMemo(() => computeCubicSpline(chartPoints, true, 190), [chartPoints]);
   const splineLinePath = useMemo(() => computeCubicSpline(chartPoints, false, 190), [chartPoints]);
@@ -393,11 +432,12 @@ export function OverviewView() {
     const fetchOverviewData = async () => {
       try {
         const query = selectedBrandId && selectedBrandId !== 'all' ? `?brandId=${selectedBrandId}` : '';
-        const summaryQuery = selectedBrandId && selectedBrandId !== 'all' ? `?range=30D&brandId=${selectedBrandId}` : '?range=30D';
-        const [postsRes, channelsRes, summaryRes] = await Promise.all([
+        const summaryQuery = selectedBrandId && selectedBrandId !== 'all' ? `?range=${growthRange}D&brandId=${selectedBrandId}` : `?range=${growthRange}D`;
+        const [postsRes, channelsRes, summaryRes, growthRes] = await Promise.all([
           apiFetch(`/posts${query}`).catch(() => ({ posts: [] })),
           apiFetch(`/channels${query}`).catch(() => ({ channels: [] })),
           apiFetch(`/analytics/summary${summaryQuery}`).catch(() => null),
+          apiFetch(`/analytics/growth${summaryQuery}`).catch(() => null),
         ]);
         if (isMounted) {
           if (postsRes?.posts && Array.isArray(postsRes.posts)) {
@@ -409,6 +449,11 @@ export function OverviewView() {
           if (summaryRes) {
             setDbSummary(summaryRes);
           }
+          if (growthRes?.current && Array.isArray(growthRes.current)) {
+            setDbGrowthSeries(growthRes.current);
+          } else {
+            setDbGrowthSeries([]);
+          }
         }
       } catch (err) {
         console.warn('Overview data fetch error:', err);
@@ -418,7 +463,7 @@ export function OverviewView() {
     return () => {
       isMounted = false;
     };
-  }, [selectedBrandId]);
+  }, [selectedBrandId, growthRange]);
 
   const brandOverviewData = useMemo(() => {
     const totalAudience = dbChannels.reduce((sum: number, ch: any) => sum + (ch.followers || 0), 0);
@@ -437,6 +482,11 @@ export function OverviewView() {
     let hero: any = null;
     if (heroPostRaw) {
       const targetNets = heroPostRaw.targets?.map((t: any) => t.channel?.network?.toLowerCase()).filter(Boolean) || ['facebook'];
+      const heroMediaUrl =
+        heroPostRaw.media?.[0]?.asset?.url ||
+        heroPostRaw.media?.[0]?.asset?.publicUrl ||
+        heroPostRaw.targets?.[0]?.metrics?.mediaUrl ||
+        '';
       hero = {
         id: heroPostRaw.id,
         brandName: heroPostRaw.brand?.name || 'Brand',
@@ -449,26 +499,34 @@ export function OverviewView() {
         fullText: heroPostRaw.caption,
         title: heroPostRaw.caption ? heroPostRaw.caption.substring(0, 40) : 'Post',
         nets: targetNets.length > 0 ? targetNets : ['facebook'],
-        media: heroPostRaw.media?.[0]?.asset?.publicUrl || '',
-        mediaUrl: heroPostRaw.media?.[0]?.asset?.publicUrl || '',
+        media: heroMediaUrl,
+        mediaUrl: heroMediaUrl,
         handle: heroPostRaw.targets?.[0]?.channel?.handle,
         tone: 'aurora',
       };
     }
 
-    const comingUpList = (upcoming.length > 0 ? upcoming : published).slice(1, 4).map((p: any) => ({
-      id: p.id,
-      brand: p.brand?.name || 'Brand',
-      when: p.publishedAt ? new Date(p.publishedAt).toLocaleDateString() : 'Scheduled',
-      time: p.publishedAt ? new Date(p.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '9:30 AM',
-      text: p.caption,
-      fullText: p.caption,
-      title: p.caption.substring(0, 40),
-      nets: p.targets?.map((t: any) => t.channel?.network?.toLowerCase()).filter(Boolean) || ['instagram'],
-      mediaUrl: p.media?.[0]?.asset?.publicUrl,
-      handle: p.targets?.[0]?.channel?.handle,
-      status: p.status,
-    }));
+    const comingUpList = (upcoming.length > 0 ? upcoming : published).slice(1, 4).map((p: any) => {
+      const itemMediaUrl =
+        p.media?.[0]?.asset?.url ||
+        p.media?.[0]?.asset?.publicUrl ||
+        p.targets?.[0]?.metrics?.mediaUrl ||
+        '';
+      return {
+        id: p.id,
+        brand: p.brand?.name || 'Brand',
+        when: p.publishedAt ? new Date(p.publishedAt).toLocaleDateString() : 'Scheduled',
+        time: p.publishedAt ? new Date(p.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '9:30 AM',
+        text: p.caption,
+        fullText: p.caption,
+        title: (p.caption || 'Social post').substring(0, 40),
+        nets: p.targets?.map((t: any) => t.channel?.network?.toLowerCase()).filter(Boolean) || ['instagram'],
+        mediaUrl: itemMediaUrl,
+        thumb: itemMediaUrl,
+        handle: p.targets?.[0]?.channel?.handle,
+        status: p.status,
+      };
+    });
 
     const growthNum = typeof dbSummary?.followerGrowthPct === 'number' ? dbSummary.followerGrowthPct : 0;
     const engNum = typeof dbSummary?.engagementRate === 'number' ? dbSummary.engagementRate : 0;
@@ -593,11 +651,33 @@ export function OverviewView() {
                   style={{ cursor: 'pointer' }}
                   title="View post details"
                 >
-                  <img
-                    src={hero.media}
-                    alt={hero.text}
-                    loading="lazy"
-                  />
+                  {hero.media && !/\.(mp4|mov|webm)(\?|$)/i.test(hero.media) ? (
+                    <img
+                      src={hero.media}
+                      alt={hero.title}
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        minHeight: '140px',
+                        display: 'grid',
+                        placeItems: 'center',
+                        background: 'var(--well, rgba(255,255,255,0.04))',
+                        color: 'var(--muted)',
+                        fontSize: '12px',
+                        padding: '16px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <span>{hero.media ? '🎬 Video / Reel' : '📝 Social Post'}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="ov-hero__body">
@@ -675,7 +755,18 @@ export function OverviewView() {
                         title={`View ${item.title}`}
                       >
                         <span className="ov-after__thumb">
-                          <img src={item.thumb} alt={item.title} loading="lazy" />
+                          {item.thumb && !/\.(mp4|mov|webm)(\?|$)/i.test(item.thumb) ? (
+                            <img
+                              src={item.thumb}
+                              alt={item.title}
+                              loading="lazy"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: '14px' }}>{item.thumb ? '🎬' : '📝'}</span>
+                          )}
                         </span>
                         <span className="ov-after__txt">
                           <b>{item.title}</b>
@@ -846,15 +937,20 @@ export function OverviewView() {
           </header>
 
           <div className="ov-growth__sum">
-            <b className="num">{growthRange === '30' ? '+89.6K' : '+248.5K'}</b>
+            <b className="num">
+              {growthPointsMeta.gained >= 0 ? '+' : ''}
+              {growthPointsMeta.gained.toLocaleString()}
+            </b>
             <span className="card__sub">
-              new followers in {growthRange} days · {growthRange === '30' ? '10.1%' : '28.4%'} growth
+              {dbGrowthSeries.length >= 2
+                ? `new followers in ${growthRange} days · ${growthPointsMeta.growthPct >= 0 ? '+' : ''}${growthPointsMeta.growthPct}% growth`
+                : `tracked followers (${dbGrowthSeries[0]?.followers ?? 0} total · synced today)`}
             </span>
           </div>
 
           <div className="legend">
             <span>
-              <i className="tone--sea"></i>New followers per day
+              <i className="tone--sea"></i>Total tracked followers per day
             </span>
             {['instagram', 'facebook', 'tiktok', 'pinterest', 'youtube', 'threads', 'x', 'linkedin'].map((net) => (
               <span key={net} className="ov-legnet">
@@ -882,9 +978,13 @@ export function OverviewView() {
               {/* Grid Lines */}
               <g className="chart__grid">
                 <line x1="25" y1="30" x2="590" y2="30" stroke="var(--line)" strokeDasharray="3 4" />
-                <text x="18" y="34" fill="var(--muted)" fontSize="11" textAnchor="end">10K</text>
+                <text x="18" y="34" fill="var(--muted)" fontSize="11" textAnchor="end">
+                  {Math.round(growthPointsMeta.maxY)}
+                </text>
                 <line x1="25" y1="110" x2="590" y2="110" stroke="var(--line)" strokeDasharray="3 4" />
-                <text x="18" y="114" fill="var(--muted)" fontSize="11" textAnchor="end">5K</text>
+                <text x="18" y="114" fill="var(--muted)" fontSize="11" textAnchor="end">
+                  {Math.round(growthPointsMeta.maxY / 2)}
+                </text>
                 <line x1="25" y1="190" x2="590" y2="190" stroke="var(--line)" />
                 <text x="18" y="194" fill="var(--muted)" fontSize="11" textAnchor="end">0</text>
               </g>
@@ -1013,7 +1113,7 @@ export function OverviewView() {
                     fontSize="11.5"
                     fontWeight="600"
                   >
-                    +{Math.round(chartPoints[hoveredGrowthIndex].val * 1000).toLocaleString()} followers
+                    {Math.round(chartPoints[hoveredGrowthIndex].val).toLocaleString()} followers
                   </text>
                 </g>
               )}
@@ -1021,33 +1121,50 @@ export function OverviewView() {
           </div>
         </section>
 
-        {/* === CARD 4: TOP POST THIS MONTH === */}
+        {/* === CARD 4: TOP POST === */}
         <section className="card ov-top" id="ov-top">
           <header className="card__head">
-            <h2 className="card__title">Top post this month</h2>
+            <h2 className="card__title">Top published post</h2>
           </header>
-          {dbPosts.length > 0 ? (
-            <div style={{ padding: '16px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span className="badge badge--pine">⭐ Published Post</span>
-                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                  {dbPosts[0].publishedAt ? new Date(dbPosts[0].publishedAt).toLocaleDateString() : 'Recent'}
-                </span>
+          {(() => {
+            const publishedPosts = dbPosts.filter((p: any) => p.status === 'PUBLISHED');
+            const topPost = publishedPosts[0] || dbPosts[0];
+            if (!topPost) {
+              return (
+                <div style={{ padding: '3rem 1.5rem', textAlign: 'center', opacity: 0.6 }}>
+                  <p style={{ margin: 0 }}>No published posts synced yet.</p>
+                </div>
+              );
+            }
+            const realMetrics = (topPost.targets || []).reduce(
+              (acc: any, t: any) => {
+                const m = t?.metrics || {};
+                acc.views += Number(m.impressions ?? m.reach ?? 0);
+                acc.likes += Number(m.likes ?? 0);
+                acc.comments += Number(m.comments ?? 0);
+                return acc;
+              },
+              { views: 0, likes: 0, comments: 0 }
+            );
+            return (
+              <div style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <span className="badge badge--pine">⭐ {topPost.status === 'PUBLISHED' ? 'Published Post' : topPost.status}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                    {topPost.publishedAt ? new Date(topPost.publishedAt).toLocaleDateString() : 'Recent'}
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 12px', fontSize: '13.5px', color: 'var(--text)', lineHeight: 1.5 }}>
+                  {topPost.caption || '(Media post)'}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: 'var(--muted)' }}>
+                  {realMetrics.views > 0 && <span>👁️ {realMetrics.views.toLocaleString()} views</span>}
+                  <span>❤️ {realMetrics.likes.toLocaleString()} likes</span>
+                  <span>💬 {realMetrics.comments.toLocaleString()} comments</span>
+                </div>
               </div>
-              <p style={{ margin: '0 0 12px', fontSize: '13.5px', color: 'var(--text)', lineHeight: 1.5 }}>
-                {dbPosts[0].caption}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: 'var(--muted)' }}>
-                <span>👁️ 1,420 views</span>
-                <span>❤️ 94 likes</span>
-                <span>💬 18 comments</span>
-              </div>
-            </div>
-          ) : (
-            <div style={{ padding: '3rem 1.5rem', textAlign: 'center', opacity: 0.6 }}>
-              <p style={{ margin: 0 }}>No top posts data available for this month yet.</p>
-            </div>
-          )}
+            );
+          })()}
         </section>
 
         {/* === CARD 5: THE WEEK AHEAD === */}

@@ -305,7 +305,7 @@ export async function fetchMetaChannelSnapshot({
             caption: m.caption || 'Instagram post',
             publishedAt: m.timestamp ? new Date(m.timestamp) : new Date(),
             permalinkUrl: m.permalink,
-            mediaUrl: m.media_url || m.thumbnail_url,
+            mediaUrl: m.thumbnail_url || m.media_url,
             likes,
             comments,
             shares: 0,

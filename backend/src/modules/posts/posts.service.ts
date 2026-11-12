@@ -649,6 +649,10 @@ export class PostsService {
       throw new AppError('VALIDATION_ERROR', 'Please select at least one channel to publish to.', 400);
     }
 
+    if (!post.caption?.trim() && (!post.media || post.media.length === 0)) {
+      throw new AppError('VALIDATION_ERROR', 'Please write a caption or attach media before publishing.', 400);
+    }
+
     const now = new Date();
     await prisma.post.update({
       where: { id },
@@ -663,16 +667,16 @@ export class PostsService {
       try {
         await handlePublishTarget({ targetId: t.id, postId: id });
       } catch (err: any) {
-        errors.push(`${t.channel?.network || 'Channel'}: ${err.message}`);
+        errors.push(`${t.channel?.network || 'Channel'} (${t.channel?.handle || ''}): ${err.message}`);
       }
     }
 
     const updatedPost = await this.getById(ctx, id);
-    if (errors.length > 0 && updatedPost.status === 'FAILED') {
-      throw new AppError('PUBLISH_FAILED', `Publishing failed: ${errors.join('; ')}`, 502);
+    if (errors.length > 0 && (updatedPost.status === 'FAILED' || errors.length === post.targets.length)) {
+      throw new AppError('PUBLISH_FAILED', `Publishing failed: ${errors.join(' | ')}`, 502);
     }
 
-    return updatedPost;
+    return { ...updatedPost, ...(errors.length > 0 ? { warnings: errors } : {}) };
   }
 
   static async publishManually(ctx: UserContext, id: string) {
@@ -698,12 +702,12 @@ export class PostsService {
             publishedAt: now,
             lastError: null,
             metrics: {
-              impressions: Math.floor(Math.random() * 200) + 50,
-              reach: Math.floor(Math.random() * 180) + 40,
-              likes: Math.floor(Math.random() * 25) + 5,
-              comments: Math.floor(Math.random() * 5) + 1,
-              shares: 1,
-              clicks: 3,
+              impressions: 0,
+              reach: 0,
+              likes: 0,
+              comments: 0,
+              shares: 0,
+              clicks: 0,
             },
           },
         });

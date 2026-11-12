@@ -2,7 +2,7 @@ import { Publisher, PublishParams, PublishResult } from './publisher.interface.j
 import { decrypt } from '../../lib/crypto.js';
 import { logger } from '../../lib/logger.js';
 
-const GRAPH_API_VERSION = 'v19.0';
+const GRAPH_API_VERSION = 'v20.0';
 const GRAPH_BASE_URL = 'https://graph.facebook.com';
 
 export class FacebookPublisher implements Publisher {
@@ -81,7 +81,11 @@ export class FacebookPublisher implements Publisher {
 
         const data = (await res.json()) as any;
         if (!res.ok || data.error) {
-          throw new Error(data.error?.message || `Facebook Feed Publish failed with status ${res.status}`);
+          const msg = data.error?.message || `Facebook Feed Publish failed with status ${res.status}`;
+          if (data.error?.code === 200 || msg.includes('publish_to_groups')) {
+            throw new Error('Personal Facebook profiles cannot receive posts via Meta API. Please publish to your connected Facebook Page instead.');
+          }
+          throw new Error(msg);
         }
 
         return {

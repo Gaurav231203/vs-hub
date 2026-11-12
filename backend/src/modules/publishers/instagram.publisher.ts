@@ -2,7 +2,7 @@ import { Publisher, PublishParams, PublishResult } from './publisher.interface.j
 import { decrypt } from '../../lib/crypto.js';
 import { logger } from '../../lib/logger.js';
 
-const GRAPH_API_VERSION = 'v19.0';
+const GRAPH_API_VERSION = 'v20.0';
 const GRAPH_BASE_URL = 'https://graph.facebook.com';
 
 export class InstagramPublisher implements Publisher {
@@ -43,21 +43,29 @@ export class InstagramPublisher implements Publisher {
       throw new Error('Instagram requires at least one image or video attachment.');
     }
 
-    const imageUrl = mediaUrls[0];
+    let imageUrl = mediaUrls[0];
+    if (imageUrl.startsWith('/')) {
+      const apiBase = process.env.API_URL || 'https://vs-hub-1.onrender.com';
+      imageUrl = `${apiBase.replace(/\/$/, '')}${imageUrl}`;
+    }
+    if (imageUrl.startsWith('blob:')) {
+      throw new Error('Selected media is a local browser preview and did not upload to server storage.');
+    }
+
+    const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(imageUrl);
     let containerId = cachedContainerId;
 
     try {
       // Step 1: Create Container (if not already created and cached)
       if (!containerId) {
         const createContainerUrl = `${GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${channel.externalId}/media`;
+        const containerBody = isVideo
+          ? { media_type: 'REELS', video_url: imageUrl, caption, access_token: accessToken }
+          : { image_url: imageUrl, caption, access_token: accessToken };
         const containerRes = await fetch(createContainerUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            image_url: imageUrl,
-            caption: caption,
-            access_token: accessToken,
-          }),
+          body: JSON.stringify(containerBody),
         });
 
         const containerData = (await containerRes.json()) as any;

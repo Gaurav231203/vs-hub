@@ -119,12 +119,23 @@ export class AnalyticsService {
     const prevEngagements = prevMetrics.reduce((sum, m) => sum + m.engagements, 0);
     const prevEngRate = prevImpressions > 0 ? (prevEngagements / prevImpressions) * 100 : 0;
 
-    // Follower growth %: (end - start) / start * 100
-    const startFollowers = currentMetrics[0]?.followers || totalAudience;
-    const endFollowers = currentMetrics[currentMetrics.length - 1]?.followers || totalAudience;
-    const newFollowers = Math.max(0, endFollowers - startFollowers);
+    // Follower growth %: sum followers across ALL channels per calendar date first,
+    // then compare earliest date vs latest date (avoids comparing channel A vs channel B on the same day!)
+    const dailyFollowersMap = new Map<string, number>();
+    for (const row of currentMetrics) {
+      const dayKey = row.date.toISOString().slice(0, 10);
+      dailyFollowersMap.set(dayKey, (dailyFollowersMap.get(dayKey) || 0) + row.followers);
+    }
+    const dailyTotals = Array.from(dailyFollowersMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, sum]) => sum)
+      .filter((sum) => sum > 0);
+
+    const startFollowers = dailyTotals.length >= 2 ? dailyTotals[0] : totalAudience;
+    const endFollowers = dailyTotals.length >= 2 ? dailyTotals[dailyTotals.length - 1] : totalAudience;
+    const newFollowers = dailyTotals.length >= 2 ? Math.max(0, endFollowers - startFollowers) : 0;
     const followerGrowthPct =
-      currentMetrics.length >= 2 && startFollowers > 0
+      dailyTotals.length >= 2 && startFollowers > 0
         ? Math.round(((endFollowers - startFollowers) / startFollowers) * 1000) / 10
         : 0;
 
@@ -473,7 +484,7 @@ export class AnalyticsService {
       brandScope = { brandId: { in: ctx.brandIds } };
     }
 
-    const posts = await prisma.post.findMany({
+    let posts = await prisma.post.findMany({
       where: {
         workspaceId: ctx.workspaceId,
         ...brandScope,
@@ -494,8 +505,36 @@ export class AnalyticsService {
           orderBy: { position: 'asc' },
         },
       },
+      orderBy: { publishedAt: 'desc' },
       take: 50,
     });
+
+    // If no posts published within the last N days, fall back to latest synced historical published posts
+    if (posts.length === 0) {
+      posts = await prisma.post.findMany({
+        where: {
+          workspaceId: ctx.workspaceId,
+          ...brandScope,
+          status: 'PUBLISHED',
+        },
+        include: {
+          brand: {
+            select: { id: true, name: true, color: true },
+          },
+          targets: {
+            include: {
+              channel: { select: { network: true, handle: true } },
+            },
+          },
+          media: {
+            include: { asset: true },
+            orderBy: { position: 'asc' },
+          },
+        },
+        orderBy: { publishedAt: 'desc' },
+        take: 50,
+      });
+    }
 
     // Compute aggregated metrics per post
     const enrichedRaw = posts.map((post) => {

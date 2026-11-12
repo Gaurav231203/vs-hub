@@ -369,15 +369,31 @@ export function ComposeView() {
   // 7. Publish Now Mutation
   const publishNowMutation = useMutation({
     mutationFn: async () => {
+      if (isUploadingMedia) {
+        throw new Error('Please wait for media upload to finish before publishing.');
+      }
+      if (mediaUrls.some((u) => u.startsWith('blob:'))) {
+        throw new Error('Media upload did not complete to server storage. Please remove and re-upload your image/video.');
+      }
+      if (!caption.trim() && mediaUrls.length === 0) {
+        throw new Error('Please write a caption or upload media before publishing.');
+      }
       const saveRes = await saveCurrentPost();
       const targetId = saveRes.post.id;
       return await apiFetch(`/posts/${targetId}/publish-now`, { method: 'POST' });
     },
-    onSuccess: () => {
-      addToast({
-        type: 'success',
-        message: 'Post broadcast live to social networks!',
-      });
+    onSuccess: (res: any) => {
+      if (res?.warnings && Array.isArray(res.warnings) && res.warnings.length > 0) {
+        addToast({
+          type: 'info',
+          message: `Published partially with notes: ${res.warnings.join(' | ')}`,
+        });
+      } else {
+        addToast({
+          type: 'success',
+          message: 'Post published live to your selected social account(s)!',
+        });
+      }
       navigate('/overview');
     },
     onError: (err: any) => {
