@@ -113,6 +113,19 @@ analyticsRouter.get('/analytics/top-posts', async (req, res, next) => {
 });
 
 /**
+ * GET /api/v1/analytics/brands-comparison
+ */
+analyticsRouter.get('/analytics/brands-comparison', async (req, res, next) => {
+  try {
+    const range = req.query.range as any;
+    const brands = await AnalyticsService.getBrandComparison(req.ctx!, { range });
+    res.json({ brands });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/v1/analytics/export.csv
  */
 analyticsRouter.get('/analytics/export.csv', async (req, res, next) => {

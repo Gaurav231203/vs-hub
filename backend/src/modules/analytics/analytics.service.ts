@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma.js';
 import { UserContext } from '@postdesk/shared';
 import { AppError } from '../../middleware/error.js';
 import { Network } from '@prisma/client';
+import { computeChannelGrowthPct } from '../channels/sync.service.js';
 
 export interface AnalyticsQuery {
   range?: '7D' | '30D' | '90D';
@@ -101,8 +102,17 @@ export class AnalyticsService {
     const curEngagements = currentMetrics.reduce((sum, m) => sum + m.engagements, 0);
     const curReach = currentMetrics.reduce((sum, m) => sum + m.reach, 0);
     const curClicks = currentMetrics.reduce((sum, m) => sum + m.clicks, 0);
-    const curPosts = currentMetrics.reduce((sum, m) => sum + m.postsPublished, 0);
+    const curMetricPosts = currentMetrics.reduce((sum, m) => sum + m.postsPublished, 0);
     const curEngRate = curImpressions > 0 ? (curEngagements / curImpressions) * 100 : 0;
+
+    const syncedPostsCount = await prisma.postTarget.count({
+      where: {
+        channelId: { in: channelIds },
+        status: 'PUBLISHED',
+        publishedAt: { gte: start, lte: end },
+      },
+    });
+    const curPosts = Math.max(curMetricPosts, syncedPostsCount);
 
     // Previous totals
     const prevImpressions = prevMetrics.reduce((sum, m) => sum + m.impressions, 0);
@@ -112,8 +122,9 @@ export class AnalyticsService {
     // Follower growth %: (end - start) / start * 100
     const startFollowers = currentMetrics[0]?.followers || totalAudience;
     const endFollowers = currentMetrics[currentMetrics.length - 1]?.followers || totalAudience;
+    const newFollowers = Math.max(0, endFollowers - startFollowers);
     const followerGrowthPct =
-      startFollowers > 0
+      currentMetrics.length >= 2 && startFollowers > 0
         ? Math.round(((endFollowers - startFollowers) / startFollowers) * 1000) / 10
         : 0;
 
@@ -123,7 +134,9 @@ export class AnalyticsService {
         : 0;
 
     return {
+      accountCount: channels.length,
       audience: totalAudience,
+      newFollowers,
       followerGrowthPct,
       impressions: curImpressions,
       impressionsGrowthPct,
@@ -212,9 +225,17 @@ export class AnalyticsService {
     const channels = await prisma.channel.findMany({
       where: channelWhere,
       include: {
+        brand: { select: { id: true, name: true } },
         metrics: {
           where: { date: { gte: start, lte: end } },
           orderBy: { date: 'asc' },
+        },
+        targets: {
+          where: {
+            status: 'PUBLISHED',
+            publishedAt: { gte: start, lte: end },
+          },
+          select: { id: true },
         },
       },
     });
@@ -231,26 +252,55 @@ export class AnalyticsService {
           engagements: 0,
           clicks: 0,
           posts: 0,
+          metricRows: [] as Array<{ date: Date; followers: number }>,
           history: [] as number[],
+          accounts: [] as any[],
         });
       }
       const item = netMap.get(ch.network);
       item.channelCount += 1;
       item.followers += ch.followers;
 
+      let chImpressions = 0;
+      let chEngagements = 0;
+      let chMetricPosts = 0;
+      const chHistory: number[] = [];
+
       for (const m of ch.metrics) {
         item.impressions += m.impressions;
         item.engagements += m.engagements;
         item.clicks += m.clicks;
-        item.posts += m.postsPublished;
+        chImpressions += m.impressions;
+        chEngagements += m.engagements;
+        chMetricPosts += m.postsPublished;
         item.history.push(m.impressions);
+        chHistory.push(m.impressions);
+        item.metricRows.push({ date: m.date, followers: m.followers });
       }
+
+      const chPosts = Math.max(chMetricPosts, ch.targets.length);
+      item.posts += chPosts;
+      const chGrowth = computeChannelGrowthPct(ch.metrics.map((m) => ({ date: m.date, followers: m.followers }))) ?? 0;
+
+      item.accounts.push({
+        id: ch.id,
+        handle: ch.handle,
+        brandName: ch.brand?.name || 'Brand',
+        status: ch.status,
+        followers: ch.followers,
+        growth: chGrowth,
+        impressions: chImpressions,
+        engagementRate: chImpressions > 0 ? Math.round((chEngagements / chImpressions) * 10000) / 100 : 0,
+        posts: chPosts,
+        sparkline: chHistory.slice(-14),
+      });
     }
 
     return Array.from(netMap.values()).map((item) => ({
       network: item.network,
       channelCount: item.channelCount,
       followers: item.followers,
+      growthPct: computeChannelGrowthPct(item.metricRows) ?? 0,
       impressions: item.impressions,
       engagementRate:
         item.impressions > 0
@@ -259,6 +309,7 @@ export class AnalyticsService {
       clicks: item.clicks,
       posts: item.posts,
       sparkline: item.history.slice(-14),
+      accounts: item.accounts,
     }));
   }
 
@@ -447,11 +498,13 @@ export class AnalyticsService {
     });
 
     // Compute aggregated metrics per post
-    const enriched = posts.map((post) => {
+    const enrichedRaw = posts.map((post) => {
       let totalReach = 0;
       let totalImpressions = 0;
       let totalEngagements = 0;
       let totalClicks = 0;
+      let fallbackMediaUrl: string | null = null;
+      let permalinkUrl: string | null = null;
 
       for (const t of post.targets) {
         const m = (t.metrics as any) || {};
@@ -459,6 +512,8 @@ export class AnalyticsService {
         totalImpressions += m.impressions || 0;
         totalEngagements += (m.likes || 0) + (m.comments || 0) + (m.shares || 0) + (m.saves || 0);
         totalClicks += m.clicks || 0;
+        if (!fallbackMediaUrl && m.mediaUrl) fallbackMediaUrl = m.mediaUrl;
+        if (!permalinkUrl && m.permalinkUrl) permalinkUrl = m.permalinkUrl;
       }
 
       const engRate = totalImpressions > 0 ? (totalEngagements / totalImpressions) * 100 : 0;
@@ -472,27 +527,86 @@ export class AnalyticsService {
           network: t.channel.network,
           handle: t.channel.handle,
         })),
-        media: post.media.map((m) => ({
-          url: m.asset.url,
-          kind: m.asset.kind,
-        })),
+        media:
+          post.media.length > 0
+            ? post.media.map((m) => ({ url: m.asset.url, kind: m.asset.kind }))
+            : fallbackMediaUrl
+              ? [{ url: fallbackMediaUrl, kind: 'IMAGE' }]
+              : [],
+        permalinkUrl,
         reach: totalReach,
         impressions: totalImpressions,
         engagements: totalEngagements,
         clicks: totalClicks,
         engagementRate: Math.round(engRate * 100) / 100,
-        xUsualReach: 1.8, // benchmark badge
       };
     });
 
+    const avgReach =
+      enrichedRaw.length > 0
+        ? enrichedRaw.reduce((sum, p) => sum + p.reach, 0) / enrichedRaw.length
+        : 0;
+
+    const enriched = enrichedRaw.map((p) => ({
+      ...p,
+      xUsualReach: avgReach > 0 ? Math.round((p.reach / avgReach) * 10) / 10 : 1,
+    }));
+
     // Sort
     enriched.sort((a, b) => {
-      if (sort === 'engagement') return b.engagementRate - a.engagementRate;
-      if (sort === 'clicks') return b.clicks - a.clicks;
-      return b.reach - a.reach;
+      if (sort === 'engagement') return b.engagementRate - a.engagementRate || b.engagements - a.engagements;
+      if (sort === 'clicks') return b.clicks - a.clicks || b.engagements - a.engagements;
+      return b.reach - a.reach || b.engagements - a.engagements;
     });
 
     return enriched.slice(0, limit);
+  }
+
+  /**
+   * Real brand-by-brand comparison from database channels & metrics
+   */
+  static async getBrandComparison(ctx: UserContext, query: AnalyticsQuery) {
+    const { start, end } = this.parseRange(query.range);
+
+    const brands = await prisma.brand.findMany({
+      where: {
+        workspaceId: ctx.workspaceId,
+        ...(!ctx.allBrands ? { id: { in: ctx.brandIds } } : {}),
+      },
+      include: {
+        channels: {
+          include: {
+            metrics: {
+              where: { date: { gte: start, lte: end } },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return brands.map((b) => {
+      const followers = b.channels.reduce((sum, ch) => sum + ch.followers, 0);
+      let impressions = 0;
+      let engagements = 0;
+      for (const ch of b.channels) {
+        for (const m of ch.metrics) {
+          impressions += m.impressions;
+          engagements += m.engagements;
+        }
+      }
+      const engagementRate = impressions > 0 ? Math.round((engagements / impressions) * 10000) / 100 : 0;
+      return {
+        id: b.id,
+        name: b.name,
+        color: b.color,
+        accountsCount: b.channels.length,
+        followers,
+        impressions,
+        engagements,
+        engagementRate,
+      };
+    });
   }
 
   /**

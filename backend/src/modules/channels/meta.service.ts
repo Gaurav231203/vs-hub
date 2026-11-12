@@ -106,7 +106,7 @@ export function getMetaAuthorizeUrl(state: string, req?: Request): string {
   ].join(',');
 
   logger.info({ appId, redirectUri: decodeURIComponent(redirectUri) }, 'Generating official Meta OAuth URL');
-  return `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}&response_type=code`;
+  return `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}&response_type=code&auth_type=rerequest`;
 }
 
 /**

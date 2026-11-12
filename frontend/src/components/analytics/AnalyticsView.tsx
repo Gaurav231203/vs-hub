@@ -1,10 +1,18 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../lib/api.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import { useToastStore } from '../../stores/toastStore.js';
 import { NetworkIcon } from '../common/NetworkIcon.js';
 import { getActiveBrand } from '../../lib/brandHelper.js';
+
+function formatCompactVal(n: number): string {
+  const num = Number(n || 0);
+  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return String(Math.round(num));
+}
 
 const DATES_30D = [
   'Oct 1', 'Oct 2', 'Oct 3', 'Oct 4', 'Oct 5', 'Oct 6', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10',
@@ -138,12 +146,19 @@ function formatHourRange(h: number): string {
 
 export function AnalyticsView() {
   const { brands, selectedBrandId } = useAuthStore();
+  const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const addToast = useToastStore((state) => state.addToast);
+
+  const urlBrandId = searchParams.get('brand');
+  const effectiveBrandId = urlBrandId || selectedBrandId;
 
   // Active brand resolution
   const activeBrand = useMemo(() => {
-    return getActiveBrand(selectedBrandId, brands);
-  }, [brands, selectedBrandId]);
+    return getActiveBrand(effectiveBrandId, brands);
+  }, [brands, effectiveBrandId]);
+
+  const [isSyncingLive, setIsSyncingLive] = useState(false);
 
   const isHollowHome = !!activeBrand && activeBrand.name.toLowerCase().includes('hollow');
   const isVantageGarage = !!activeBrand && activeBrand.name.toLowerCase().includes('vantage');
@@ -305,15 +320,84 @@ export function AnalyticsView() {
     setImpHover(null);
   };
 
-  // Dynamic brand analytics data computation
-    const brandData = useMemo(() => {
+  const apiRange = `${range}D`;
+  const brandQueryParam = activeBrand?.id ? `&brandId=${encodeURIComponent(activeBrand.id)}` : '';
+  const netQueryParam = activeNetwork !== 'all' ? `&network=${encodeURIComponent(activeNetwork.toUpperCase())}` : '';
+
+  const { data: liveChannelsRes } = useQuery<any>({
+    queryKey: ['analytics-channels', activeBrand?.id || 'all'],
+    queryFn: () =>
+      apiFetch(`/channels${activeBrand?.id ? `?brandId=${encodeURIComponent(activeBrand.id)}` : ''}`).catch(() => ({
+        channels: [],
+      })),
+  });
+
+  const { data: summaryRes } = useQuery<any>({
+    queryKey: ['analytics-summary', apiRange, activeBrand?.id || 'all', activeNetwork],
+    queryFn: () =>
+      apiFetch(`/analytics/summary?range=${apiRange}${brandQueryParam}${netQueryParam}`).catch(() => null),
+  });
+
+  const { data: byNetworkRes } = useQuery<any>({
+    queryKey: ['analytics-by-network', apiRange, activeBrand?.id || 'all'],
+    queryFn: () =>
+      apiFetch(`/analytics/by-network?range=${apiRange}${brandQueryParam}`).catch(() => ({ networks: [] })),
+  });
+
+  const { data: contentMixRes } = useQuery<any>({
+    queryKey: ['analytics-content-mix', apiRange, activeBrand?.id || 'all', activeNetwork],
+    queryFn: () =>
+      apiFetch(`/analytics/content-mix?range=${apiRange}${brandQueryParam}${netQueryParam}`).catch(() => null),
+  });
+
+  const { data: topPostsRes } = useQuery<any>({
+    queryKey: ['analytics-top-posts', apiRange, activeBrand?.id || 'all', activeNetwork, topRankBy],
+    queryFn: () => {
+      const sortKey = topRankBy === 'eng' ? 'engagement' : topRankBy;
+      return apiFetch(
+        `/analytics/top-posts?range=${apiRange}${brandQueryParam}${netQueryParam}&sort=${sortKey}&limit=6`
+      ).catch(() => ({ posts: [] }));
+    },
+  });
+
+  const { data: brandsComparisonRes } = useQuery<any>({
+    queryKey: ['analytics-brands-comparison', apiRange],
+    queryFn: () => apiFetch(`/analytics/brands-comparison?range=${apiRange}`).catch(() => ({ brands: [] })),
+  });
+
+  const handleSyncLiveAnalytics = async () => {
+    setIsSyncingLive(true);
+    try {
+      await apiFetch('/channels/sync-all', {
+        method: 'POST',
+        body: JSON.stringify(activeBrand?.id ? { brandId: activeBrand.id } : {}),
+      });
+      await queryClient.invalidateQueries({ queryKey: ['analytics-channels'] });
+      await queryClient.invalidateQueries({ queryKey: ['analytics-summary'] });
+      await queryClient.invalidateQueries({ queryKey: ['analytics-by-network'] });
+      await queryClient.invalidateQueries({ queryKey: ['analytics-content-mix'] });
+      await queryClient.invalidateQueries({ queryKey: ['analytics-top-posts'] });
+      await queryClient.invalidateQueries({ queryKey: ['analytics-brands-comparison'] });
+      addToast({ type: 'success', message: 'Synced latest live metrics and posts from connected accounts.' });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err?.message || 'Failed to sync live social metrics.' });
+    } finally {
+      setIsSyncingLive(false);
+    }
+  };
+
+  // Dynamic brand analytics data computation from live backend DB
+  const brandData = useMemo(() => {
     const brandName = activeBrand ? activeBrand.name : `${brands.length} brand${brands.length === 1 ? '' : 's'}`;
-    const channels = (activeBrand as any)?.channels || (brands as any[]).flatMap((b: any) => b.channels || []);
+    const channels: any[] = liveChannelsRes?.channels || [];
+    const apiNetworks: any[] = byNetworkRes?.networks || [];
+
     const netCountMap: Record<string, number> = {};
     channels.forEach((ch: any) => {
-      const net = (ch.network || 'instagram').toLowerCase();
+      const net = (ch.network || 'facebook').toLowerCase();
       netCountMap[net] = (netCountMap[net] || 0) + 1;
     });
+
     const networksList = [
       { id: 'all', name: 'All networks', count: channels.length },
       ...Object.entries(netCountMap).map(([net, count]) => ({
@@ -322,43 +406,117 @@ export function AnalyticsView() {
         count,
       })),
     ];
-    const networksTable: NetworkRow[] = Object.entries(netCountMap).map(([net, count]) => ({
-      key: net,
-      net,
-      name: NETWORK_NAMES[net] || net,
-      accounts: count,
-      followers: 0,
-      growth: 0,
-      impressions: 0,
-      eng: 0,
-      posts: 0,
-      trend: [0, 0, 0, 0, 0, 0, 0],
+
+    const networksTable: NetworkRow[] = apiNetworks.length > 0
+      ? apiNetworks.map((row: any) => {
+          const net = String(row.network || 'facebook').toLowerCase();
+          return {
+            key: net,
+            net,
+            name: NETWORK_NAMES[net] || net,
+            accounts: Number(row.channelCount ?? 0),
+            followers: Number(row.followers ?? 0),
+            growth: Number(row.growthPct ?? 0),
+            impressions: Number(row.impressions ?? 0),
+            eng: Number(row.engagementRate ?? 0),
+            posts: Number(row.posts ?? 0),
+            trend: Array.isArray(row.sparkline) && row.sparkline.length > 0 ? row.sparkline : [0, 0, 0, 0, 0, 0, 0],
+          };
+        })
+      : Object.entries(netCountMap).map(([net, count]) => {
+          const matching = channels.filter((c) => String(c.network || '').toLowerCase() === net);
+          const followersSum = matching.reduce((s, c) => s + Number(c.followers ?? 0), 0);
+          return {
+            key: net,
+            net,
+            name: NETWORK_NAMES[net] || net,
+            accounts: count,
+            followers: followersSum,
+            growth: 0,
+            impressions: 0,
+            eng: 0,
+            posts: 0,
+            trend: [0, 0, 0, 0, 0, 0, 0],
+          };
+        });
+
+    const totalAudience = summaryRes?.audience ?? channels.reduce((s, c) => s + Number(c.followers ?? 0), 0);
+    const totalImpressions = Number(summaryRes?.impressions ?? 0);
+    const newFollowersNum = Number(summaryRes?.newFollowers ?? 0);
+    const followerGrowthPct = Number(summaryRes?.followerGrowthPct ?? 0);
+    const engRateNum = Number(summaryRes?.engagementRate ?? 0);
+    const postsPublishedCount = Number(summaryRes?.postsPublished ?? 0);
+
+    const mixRows = networksTable.map((n) => ({
+      net: n.net,
+      name: n.name,
+      count: n.posts,
+      fillRatio: postsPublishedCount > 0 ? Math.max(0.05, n.posts / postsPublishedCount) : n.accounts > 0 ? 1 / networksTable.length : 0,
+      pct: postsPublishedCount > 0 ? `${Math.round((n.posts / postsPublishedCount) * 100)}%` : '0%',
     }));
+
+    const topPostsMapped = (topPostsRes?.posts || []).map((p: any, idx: number) => {
+      const val =
+        topRankBy === 'eng'
+          ? `${p.engagementRate ?? 0}%`
+          : topRankBy === 'clicks'
+            ? formatCompactVal(p.clicks ?? 0)
+            : p.reach > 0
+              ? formatCompactVal(p.reach)
+              : formatCompactVal(p.engagements ?? 0);
+      const metric =
+        topRankBy === 'eng'
+          ? 'eng. rate'
+          : topRankBy === 'clicks'
+            ? 'clicks'
+            : p.reach > 0
+              ? `${p.xUsualReach || 1}x usual reach`
+              : `${p.engagements ?? 0} engagements`;
+
+      return {
+        id: p.id,
+        rank: idx + 1,
+        img: p.media?.[0]?.url || '',
+        caption: p.caption,
+        val,
+        metric,
+      };
+    });
 
     return {
       scopeTitle: `${brandName} · last ${range} days`,
-      audience: '0',
+      audience: formatCompactVal(totalAudience),
       audienceLabel: `Audience across ${channels.length} account${channels.length === 1 ? '' : 's'}`,
-      newFollowers: '0',
-      followersBadge: '+0%',
-      impressions: '0',
-      impressionsBadge: '+0%',
-      engRate: '0%',
-      engLabel: 'Avg. engagement rate, 0 posts',
-      growthNum: '0',
-      growthSub: `followers gained, last ${range} days · +0% vs previous period`,
+      newFollowers: formatCompactVal(newFollowersNum),
+      followersBadge: `${followerGrowthPct >= 0 ? '+' : ''}${followerGrowthPct}%`,
+      impressions: formatCompactVal(totalImpressions),
+      impressionsBadge: `${Number(summaryRes?.impressionsGrowthPct ?? 0) >= 0 ? '+' : ''}${Number(summaryRes?.impressionsGrowthPct ?? 0)}%`,
+      engRate: `${engRateNum}%`,
+      engLabel: `Avg. engagement rate, ${postsPublishedCount} post${postsPublishedCount === 1 ? '' : 's'}`,
+      growthNum: formatCompactVal(newFollowersNum),
+      growthSub: `followers gained, last ${range} days · ${followerGrowthPct >= 0 ? '+' : ''}${followerGrowthPct}% vs previous period`,
       networksList,
       networksTable,
-      contentMix: [] as any[],
-      postsPublishedCount: 0,
-      networkDeliveriesCount: 0,
-      topPosts: [] as any[],
-      y1: '0',
-      y2: '0',
-      impY1: '0',
-      impY2: '0',
+      contentMix: mixRows,
+      postsPublishedCount: contentMixRes?.total ?? postsPublishedCount,
+      networkDeliveriesCount: postsPublishedCount,
+      topPosts: topPostsMapped,
+      y1: formatCompactVal(totalAudience),
+      y2: formatCompactVal(Math.round(totalAudience / 2)),
+      impY1: formatCompactVal(totalImpressions),
+      impY2: formatCompactVal(Math.round(totalImpressions / 2)),
     };
-  }, [activeBrand, brands, range]);
+  }, [
+    activeBrand,
+    brands.length,
+    range,
+    liveChannelsRes,
+    summaryRes,
+    byNetworkRes,
+    contentMixRes,
+    topPostsRes,
+    topRankBy,
+  ]);
 
   // Report Modal state
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
@@ -399,20 +557,49 @@ export function AnalyticsView() {
     });
   }, [brandData.networksTable, sortCol, sortAsc]);
 
-  // Sorted accounts table for drilled-down network
+  // Sorted accounts table for drilled-down network (from real DB + by-network endpoint)
   const sortedAccounts = useMemo(() => {
     if (activeNetwork === 'all') return [];
-    const accounts = NETWORK_ACCOUNTS[activeNetwork] || [];
-    const filtered = activeBrand
-      ? accounts.filter((acc) => {
-          if (isHollowHome) return acc.brandCode === 'HH' || acc.name.toLowerCase().includes('hollow');
-          if (isVantageGarage) return acc.brandCode === 'VG' || acc.name.toLowerCase().includes('vantage');
-          if (isStarlightBakery) return acc.brandCode === 'SB' || acc.name.toLowerCase().includes('starlight');
-          return acc.name.toLowerCase().includes(activeBrand.name.toLowerCase());
-        })
-      : accounts;
+    const apiNetworks: any[] = byNetworkRes?.networks || [];
+    const matchedNet = apiNetworks.find((n: any) => String(n.network || '').toLowerCase() === activeNetwork);
+    const liveChannels: any[] = liveChannelsRes?.channels || [];
 
-    return [...filtered].sort((a, b) => {
+    const accounts: NetworkAccountRow[] =
+      matchedNet?.accounts && Array.isArray(matchedNet.accounts)
+        ? matchedNet.accounts.map((a: any) => ({
+            id: a.id,
+            net: activeNetwork,
+            brandCode: (a.brandName || 'BR').slice(0, 2).toUpperCase(),
+            brandTone: 'pine',
+            name: a.brandName || 'Brand',
+            handle: a.handle || 'Account',
+            status: a.status === 'DISCONNECTED' ? 'disconnected' : a.status === 'EXPIRING' ? 'expiring' : 'connected',
+            followers: Number(a.followers ?? 0),
+            growth: Number(a.growth ?? 0),
+            impressions: Number(a.impressions ?? 0),
+            eng: Number(a.engagementRate ?? 0),
+            posts: Number(a.posts ?? 0),
+            trend: Array.isArray(a.sparkline) ? a.sparkline : [],
+          }))
+        : liveChannels
+            .filter((ch: any) => String(ch.network || '').toLowerCase() === activeNetwork)
+            .map((ch: any) => ({
+              id: ch.id,
+              net: activeNetwork,
+              brandCode: (ch.brand?.name || 'BR').slice(0, 2).toUpperCase(),
+              brandTone: 'pine',
+              name: ch.brand?.name || 'Brand',
+              handle: ch.handle || 'Account',
+              status: ch.status === 'DISCONNECTED' ? 'disconnected' : ch.status === 'EXPIRING' ? 'expiring' : 'connected',
+              followers: Number(ch.followers ?? 0),
+              growth: Number(ch.growthPct ?? 0),
+              impressions: 0,
+              eng: 0,
+              posts: 0,
+              trend: [],
+            }));
+
+    return [...accounts].sort((a, b) => {
       let vA: any = a[sortCol as keyof NetworkAccountRow] ?? 0;
       let vB: any = b[sortCol as keyof NetworkAccountRow] ?? 0;
       if (typeof vA === 'string' && typeof vB === 'string') {
@@ -420,7 +607,7 @@ export function AnalyticsView() {
       }
       return sortAsc ? (vA > vB ? 1 : -1) : (vA < vB ? 1 : -1);
     });
-  }, [activeNetwork, activeBrand, isHollowHome, isVantageGarage, isStarlightBakery, sortCol, sortAsc]);
+  }, [activeNetwork, byNetworkRes, liveChannelsRes, sortCol, sortAsc]);
 
   // Handlers
   const handleSort = (col: typeof sortCol) => {
@@ -567,6 +754,16 @@ export function AnalyticsView() {
               90D
             </button>
           </div>
+
+          <button
+            type="button"
+            className="btn btn--ghost magnetic"
+            onClick={handleSyncLiveAnalytics}
+            disabled={isSyncingLive}
+            title="Fetch fresh followers & posts from connected accounts"
+          >
+            {isSyncingLive ? 'Syncing...' : '↻ Sync live data'}
+          </button>
 
           <button
             type="button"
@@ -1475,22 +1672,15 @@ export function AnalyticsView() {
                           </span>
                         </td>
                         <td className="r num">
-                          <b>
-                            {acc.followers >= 1000000
-                              ? `${(acc.followers / 1000000).toFixed(2)}M`
-                              : `${(acc.followers / 1000).toFixed(1)}K`}
-                          </b>
+                          <b>{formatCompactVal(acc.followers)}</b>
                         </td>
                         <td className="r num">
                           <span className={`an-growth ${acc.growth >= 0 ? 'is-up' : 'is-down'}`}>
-                            +{acc.growth}%
+                            {acc.growth >= 0 ? '+' : ''}
+                            {acc.growth}%
                           </span>
                         </td>
-                        <td className="r num">
-                          {acc.impressions >= 1000000
-                            ? `${(acc.impressions / 1000000).toFixed(2)}M`
-                            : `${(acc.impressions / 1000).toFixed(1)}K`}
-                        </td>
+                        <td className="r num">{formatCompactVal(acc.impressions)}</td>
                         <td className="r num">{acc.eng}%</td>
                         <td className="r num">{acc.posts}</td>
                         <td className="an-trend">
@@ -1541,22 +1731,15 @@ export function AnalyticsView() {
                       </th>
                       <td className="r num an-acc">{row.accounts}</td>
                       <td className="r num">
-                        <b>
-                          {row.followers >= 1000000
-                            ? `${(row.followers / 1000000).toFixed(2)}M`
-                            : `${(row.followers / 1000).toFixed(1)}K`}
-                        </b>
+                        <b>{formatCompactVal(row.followers)}</b>
                       </td>
                       <td className="r num">
                         <span className={`an-growth ${row.growth >= 0 ? 'is-up' : 'is-down'}`}>
-                          +{row.growth}%
+                          {row.growth >= 0 ? '+' : ''}
+                          {row.growth}%
                         </span>
                       </td>
-                      <td className="r num">
-                        {row.impressions >= 1000000
-                          ? `${(row.impressions / 1000000).toFixed(2)}M`
-                          : `${(row.impressions / 1000).toFixed(1)}K`}
-                      </td>
+                      <td className="r num">{formatCompactVal(row.impressions)}</td>
                       <td className="r num">{row.eng}%</td>
                       <td className="r num">{row.posts}</td>
                       <td className="an-trend">
@@ -1626,11 +1809,28 @@ export function AnalyticsView() {
             </div>
           ) : (
             <ol className="an-posts">
-              {brandData.topPosts.map((p) => (
+              {brandData.topPosts.map((p: any) => (
                 <li key={p.id}>
                   <button type="button" className="an-post">
                     <span className="an-post__img">
-                      <img src={p.img} alt="" className="thumb" />
+                      {p.img ? (
+                        <img src={p.img} alt="" className="thumb" />
+                      ) : (
+                        <span
+                          className="thumb"
+                          style={{
+                            display: 'grid',
+                            placeItems: 'center',
+                            background: 'var(--well)',
+                            fontSize: '11px',
+                            padding: '6px',
+                            color: 'var(--muted)',
+                            textAlign: 'center',
+                          }}
+                        >
+                          {(p.caption || 'Post').slice(0, 28)}
+                        </span>
+                      )}
                       <span className="an-post__rank">{p.rank}</span>
                     </span>
                     <span className="an-post__body">
@@ -1683,25 +1883,62 @@ export function AnalyticsView() {
           </div>
 
           <ul className="an-bars">
-            {brands.length === 0 ? (
-              <li style={{ padding: '2rem 1rem', textAlign: 'center', opacity: 0.6, listStyle: 'none' }}>
-                No brands to compare yet.
-              </li>
-            ) : (
-              brands.map((b) => (
-                <li key={b.id} className="an-bar">
-                  <span className="bmark bmark--md tone--coral">{b.name.slice(0, 2).toUpperCase()}</span>
-                  <span className="an-bar__name">
-                    <b>{b.name}</b>
-                    <small>{(b as any).channels?.length || 0} accounts</small>
-                  </span>
-                  <span className="meter an-bar__meter">
-                    <span className="meter__fill" style={{ transform: 'scaleX(0)' }} />
-                  </span>
-                  <b className="num tnum">0</b>
-                </li>
-              ))
-            )}
+            {(() => {
+              const compList: any[] =
+                brandsComparisonRes?.brands && brandsComparisonRes.brands.length > 0
+                  ? brandsComparisonRes.brands
+                  : brands.map((b) => ({
+                      id: b.id,
+                      name: b.name,
+                      accountsCount: 0,
+                      followers: 0,
+                      engagementRate: 0,
+                      impressions: 0,
+                    }));
+
+              if (compList.length === 0) {
+                return (
+                  <li style={{ padding: '2rem 1rem', textAlign: 'center', opacity: 0.6, listStyle: 'none' }}>
+                    No brands to compare yet.
+                  </li>
+                );
+              }
+
+              const getMetricVal = (b: any) =>
+                brandCompareBy === 'eng'
+                  ? Number(b.engagementRate ?? 0)
+                  : brandCompareBy === 'impressions'
+                    ? Number(b.impressions ?? 0)
+                    : Number(b.followers ?? 0);
+
+              const maxVal = Math.max(...compList.map(getMetricVal), 0);
+
+              return compList.map((b) => {
+                const rawVal = getMetricVal(b);
+                const ratio = maxVal > 0 ? Math.max(0.06, rawVal / maxVal) : 0;
+                const displayVal =
+                  brandCompareBy === 'eng' ? `${rawVal}%` : formatCompactVal(rawVal);
+
+                return (
+                  <li key={b.id} className="an-bar">
+                    <span className="bmark bmark--md tone--coral">{b.name.slice(0, 2).toUpperCase()}</span>
+                    <span className="an-bar__name">
+                      <b>{b.name}</b>
+                      <small>
+                        {b.accountsCount} account{b.accountsCount === 1 ? '' : 's'}
+                      </small>
+                    </span>
+                    <span className="meter an-bar__meter">
+                      <span
+                        className="meter__fill"
+                        style={{ transform: `scaleX(${ratio})`, transformOrigin: '0 50%' }}
+                      />
+                    </span>
+                    <b className="num tnum">{displayVal}</b>
+                  </li>
+                );
+              });
+            })()}
           </ul>
         </article>
       </div>

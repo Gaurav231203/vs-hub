@@ -208,27 +208,37 @@ export async function fetchMetaChannelSnapshot({
     let engagements = 0;
     let impressions = 0;
 
-    // 2. Non-fatally fetch recent Page posts
+    // 2. Non-fatally fetch recent Page posts (check /posts, then /published_posts, then /feed)
     try {
-      const postsUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}/posts?fields=id,message,story,created_time,permalink_url,full_picture,likes.summary(true),comments.summary(true),shares&limit=10&access_token=${encodeURIComponent(accessToken)}`;
-      const postsData = await fetchJsonWithTimeout(postsUrl, fetchImpl);
-      if (Array.isArray(postsData?.data)) {
-        for (const p of postsData.data) {
-          const likes = Number(p.likes?.summary?.total_count ?? 0);
-          const comments = Number(p.comments?.summary?.total_count ?? 0);
-          const shares = Number(p.shares?.count ?? 0);
-          engagements += likes + comments + shares;
-          posts.push({
-            externalPostId: String(p.id),
-            caption: p.message || p.story || 'Facebook Page post',
-            publishedAt: p.created_time ? new Date(p.created_time) : new Date(),
-            permalinkUrl: p.permalink_url,
-            mediaUrl: p.full_picture,
-            likes,
-            comments,
-            shares,
-          });
+      const postFields = 'id,message,story,created_time,permalink_url,full_picture,attachments{media{image{src}}},likes.summary(true),comments.summary(true),shares';
+      const candidateEdges = ['posts', 'published_posts', 'feed'];
+      let rawPosts: any[] = [];
+
+      for (const edge of candidateEdges) {
+        const edgeUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}/${edge}?fields=${encodeURIComponent(postFields)}&limit=10&access_token=${encodeURIComponent(accessToken)}`;
+        const edgeData = await fetchJsonWithTimeout(edgeUrl, fetchImpl);
+        if (Array.isArray(edgeData?.data) && edgeData.data.length > 0) {
+          rawPosts = edgeData.data;
+          break;
         }
+      }
+
+      for (const p of rawPosts) {
+        const likes = Number(p.likes?.summary?.total_count ?? 0);
+        const comments = Number(p.comments?.summary?.total_count ?? 0);
+        const shares = Number(p.shares?.count ?? 0);
+        const attachmentImg = p.attachments?.data?.[0]?.media?.image?.src;
+        engagements += likes + comments + shares;
+        posts.push({
+          externalPostId: String(p.id),
+          caption: p.message || p.story || 'Facebook Page post',
+          publishedAt: p.created_time ? new Date(p.created_time) : new Date(),
+          permalinkUrl: p.permalink_url,
+          mediaUrl: p.full_picture || attachmentImg,
+          likes,
+          comments,
+          shares,
+        });
       }
     } catch {
       // Non-fatal: Page permissions may omit pages_read_engagement
@@ -504,6 +514,7 @@ export class ChannelSyncService {
             comments: remotePost.comments,
             shares: remotePost.shares,
             permalinkUrl: remotePost.permalinkUrl || null,
+            mediaUrl: remotePost.mediaUrl || null,
           };
 
           if (existingTarget) {
@@ -579,3 +590,4 @@ export class ChannelSyncService {
     return computeChannelGrowthPct(rows);
   }
 }
+
