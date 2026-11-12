@@ -189,13 +189,67 @@ export async function exchangeMetaCodeForAccounts(
     }
 
     // 4. Fetch User's Real Facebook Pages and linked Instagram Business/Creator Accounts
-    const accountsUrl = `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,fan_count,followers_count,picture.type(large){url},instagram_business_account{id,username,profile_picture_url,followers_count}&access_token=${encodeURIComponent(longLivedToken)}`;
-    const accountsRes = await fetch(accountsUrl);
-    const accountsData = (await accountsRes.json()) as any;
+    const accountsFields =
+      'id,name,access_token,fan_count,followers_count,picture.type(large){url},instagram_business_account{id,username,profile_picture_url,followers_count}';
+    let accountsUrl: string | null =
+      `https://graph.facebook.com/v20.0/me/accounts?fields=${encodeURIComponent(accountsFields)}&limit=100&access_token=${encodeURIComponent(longLivedToken)}`;
+    const rawPages: any[] = [];
+    let accountsError: any = null;
 
-    if (accountsData.error) {
-      logger.error({ error: accountsData.error }, 'Meta me/accounts API error');
-      // If permissions or pages fetch had error but we have userProfile, link real user Facebook profile!
+    while (accountsUrl) {
+      const accountsRes = await fetch(accountsUrl);
+      const accountsData = (await accountsRes.json()) as any;
+      if (accountsData?.error) {
+        accountsError = accountsData.error;
+        break;
+      }
+      if (Array.isArray(accountsData?.data)) {
+        rawPages.push(...accountsData.data);
+      }
+      accountsUrl = accountsData?.paging?.next || null;
+    }
+
+    // Fallback: if nested fields failed on /me/accounts, fetch minimal page list
+    if (accountsError && rawPages.length === 0) {
+      const minimalRes = await fetch(
+        `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token&limit=100&access_token=${encodeURIComponent(longLivedToken)}`
+      );
+      const minimalData = (await minimalRes.json()) as any;
+      if (Array.isArray(minimalData?.data) && minimalData.data.length > 0) {
+        accountsError = null;
+        rawPages.push(...minimalData.data);
+      }
+    }
+
+    // Also inspect Business Portfolio Pages non-fatally if /me/accounts returned 0
+    if (rawPages.length === 0) {
+      try {
+        const bizUrl = `https://graph.facebook.com/v20.0/me/businesses?fields=id,name,owned_pages{${accountsFields}},client_pages{${accountsFields}}&access_token=${encodeURIComponent(longLivedToken)}`;
+        const bizRes = await fetch(bizUrl);
+        const bizData = (await bizRes.json()) as any;
+        if (Array.isArray(bizData?.data)) {
+          const seenIds = new Set<string>();
+          for (const biz of bizData.data) {
+            for (const listKey of ['owned_pages', 'client_pages']) {
+              const pList = biz?.[listKey]?.data;
+              if (Array.isArray(pList)) {
+                for (const p of pList) {
+                  if (p?.id && !seenIds.has(p.id)) {
+                    seenIds.add(p.id);
+                    rawPages.push(p);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Non-fatal: business_management scope may not be granted
+      }
+    }
+
+    if (accountsError && rawPages.length === 0) {
+      logger.error({ error: accountsError }, 'Meta me/accounts API error');
       if (userProfile) {
         return [
           {
@@ -207,11 +261,29 @@ export async function exchangeMetaCodeForAccounts(
           },
         ];
       }
-      throw new Error(accountsData.error.message || 'Failed to fetch user Facebook pages from Meta');
+      throw new Error(accountsError.message || 'Failed to fetch user Facebook pages from Meta');
     }
 
-    const rawPages = (accountsData && Array.isArray(accountsData.data)) ? accountsData.data : [];
-    logger.info({ rawPagesCount: rawPages.length }, 'Fetched Meta pages for user');
+    // Log token granular_scopes diagnostic when Meta returns 0 Pages
+    if (rawPages.length === 0) {
+      try {
+        const dbgRes = await fetch(
+          `https://graph.facebook.com/v20.0/debug_token?input_token=${encodeURIComponent(longLivedToken)}&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`
+        );
+        const dbgData = (await dbgRes.json()) as any;
+        logger.warn(
+          {
+            userId: userProfile?.id,
+            appId,
+            granularScopes: dbgData?.data?.granular_scopes,
+            scopes: dbgData?.data?.scopes,
+          },
+          'Meta /me/accounts returned 0 Pages — check Facebook Business Integrations page opt-in or Meta App Review'
+        );
+      } catch {}
+    } else {
+      logger.info({ rawPagesCount: rawPages.length }, 'Fetched Meta pages for user');
+    }
 
     const pages: MetaPageCandidate[] = rawPages.map((page: any) => ({
       pageId: page.id,

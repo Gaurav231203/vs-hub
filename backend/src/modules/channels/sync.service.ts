@@ -1,6 +1,7 @@
 import { ChannelStatus, Network, PostStatus, TargetStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { decrypt } from '../../lib/crypto.js';
+import { env } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
 
 export type FetchLike = typeof fetch;
@@ -588,6 +589,97 @@ export class ChannelSyncService {
       select: { date: true, followers: true },
     });
     return computeChannelGrowthPct(rows);
+  }
+
+  /**
+   * Live Meta OAuth token diagnostics: checks debug_token granular_scopes,
+   * /me/permissions, /me/accounts, and /me/businesses to pinpoint why Meta returned 0 Pages.
+   */
+  static async diagnoseMetaChannel(channelId: string, deps: SyncServiceDeps = {}) {
+    const db = deps.db ?? prisma;
+    const fetchImpl = deps.fetchImpl ?? fetch;
+    const decryptFn = deps.decryptFn ?? decrypt;
+
+    const channel = await db.channel.findUnique({ where: { id: channelId } });
+    if (!channel) throw new Error(`Channel not found: ${channelId}`);
+
+    const token = safeDecryptToken(channel.accessTokenEnc, decryptFn);
+    if (!token || token.startsWith('mock_') || token.startsWith('manual_pass_')) {
+      return {
+        ok: false,
+        diagnosisCode: 'NO_LIVE_OAUTH_TOKEN',
+        diagnosis: 'This channel does not have a live Meta OAuth token stored.',
+        fixSteps: ['Connect Facebook or Instagram using the official Meta OAuth flow.'],
+      };
+    }
+
+    const appId = (env.META_APP_ID || process.env.META_APP_ID || '1700460381501081').trim();
+    const appSecret = (env.META_APP_SECRET || process.env.META_APP_SECRET || '').trim();
+
+    const [permData, accountsData, bizData, debugData] = await Promise.all([
+      fetchJsonWithTimeout(`https://graph.facebook.com/v20.0/me/permissions?access_token=${encodeURIComponent(token)}`, fetchImpl).catch(() => null),
+      fetchJsonWithTimeout(`https://graph.facebook.com/v20.0/me/accounts?fields=id,name,fan_count,followers_count&limit=100&access_token=${encodeURIComponent(token)}`, fetchImpl).catch(() => null),
+      fetchJsonWithTimeout(`https://graph.facebook.com/v20.0/me/businesses?fields=id,name&access_token=${encodeURIComponent(token)}`, fetchImpl).catch(() => null),
+      appSecret
+        ? fetchJsonWithTimeout(
+            `https://graph.facebook.com/v20.0/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`,
+            fetchImpl
+          ).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+    const permissions = Array.isArray(permData?.data) ? permData.data : [];
+    const pagesReturned = Array.isArray(accountsData?.data) ? accountsData.data : [];
+    const granularScopes: Array<{ scope: string; targetIds: string[] }> = Array.isArray(debugData?.data?.granular_scopes)
+      ? debugData.data.granular_scopes.map((g: any) => ({
+          scope: String(g.scope || ''),
+          targetIds: Array.isArray(g.target_ids) ? g.target_ids : [],
+        }))
+      : [];
+
+    const pagesScope = granularScopes.find((g) => g.scope === 'pages_show_list');
+    let diagnosisCode = 'OK';
+    let diagnosis = `Meta returned ${pagesReturned.length} Facebook Page(s).`;
+    const fixSteps: string[] = [];
+
+    if (pagesReturned.length === 0) {
+      if (pagesScope && pagesScope.targetIds.length === 0) {
+        diagnosisCode = 'OPT_IN_PAGES_EMPTY';
+        diagnosis =
+          'Meta authorized the app with 0 Pages selected in Facebook Business Integrations (pages_show_list target_ids is empty).';
+        fixSteps.push(
+          'Open https://www.facebook.com/settings?tab=business_tools → find your app (VS Adda) → click "View and edit" and enable all your Pages (or click Remove and reconnect here).',
+          'When reconnecting on Facebook, choose "Opt in to all current and future Pages" instead of leaving Pages unchecked.'
+        );
+      } else if (bizData?.error?.code === 100) {
+        diagnosisCode = 'NO_PAGES_VISIBLE_TO_APP';
+        diagnosis =
+          'Meta returned 0 Pages from /me/accounts. Either no Pages were opted in during Facebook Login, the Pages are managed only inside a Business Portfolio without direct Page Task access, or the Meta App needs Development/Tester role for this Facebook account.';
+        fixSteps.push(
+          'Check https://www.facebook.com/settings?tab=business_tools → "View and edit" on your app and ensure your 2-3 Pages are checked.',
+          'In Meta Business Suite / Page Settings → Page Access, verify your Facebook user has Full Control / Task access directly on each Page (not only Business Portfolio view).',
+          'In Meta Developer Dashboard → App Roles, verify this Facebook user is listed as Admin/Developer/Tester (if App is in Development mode) or that Pages permissions have Advanced Access (if Live).'
+        );
+      }
+    }
+
+    return {
+      ok: true,
+      appId,
+      tokenType: debugData?.data?.type || null,
+      isValid: debugData?.data?.is_valid ?? null,
+      pagesCount: pagesReturned.length,
+      pages: pagesReturned.map((p: any) => ({ id: p.id, name: p.name })),
+      permissions,
+      granularScopes: granularScopes.map((g) => ({
+        scope: g.scope,
+        targetIdsCount: g.targetIds.length,
+      })),
+      businessesError: bizData?.error?.message || null,
+      diagnosisCode,
+      diagnosis,
+      fixSteps,
+    };
   }
 }
 

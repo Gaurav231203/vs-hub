@@ -404,6 +404,29 @@ channelsRouter.post('/channels/:id/sync', async (req: Request, res: Response, ne
 });
 
 /**
+ * GET /api/v1/channels/:id/meta-diagnostics
+ * Live diagnostics of Meta OAuth token granular_scopes & Page visibility
+ */
+channelsRouter.get('/channels/:id/meta-diagnostics', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ctx = req.ctx!;
+    const channel = await prisma.channel.findFirst({
+      where: { id: req.params.id, workspaceId: ctx.workspaceId },
+    });
+    if (!channel) throw new AppError('CHANNEL_NOT_FOUND', 'Channel not found', 404);
+
+    if (!ctx.allBrands && !ctx.brandIds.includes(channel.brandId)) {
+      throw new AppError('CHANNEL_NOT_FOUND', 'Channel not found', 404);
+    }
+
+    const report = await ChannelSyncService.diagnoseMetaChannel(channel.id);
+    res.json(report);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * POST /api/v1/channels/connect-manual
  * Connects any social channel for any brand with user-provided credentials
  * and seeds historical client posts so past + new posts appear in dashboard.

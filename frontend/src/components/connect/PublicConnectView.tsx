@@ -138,6 +138,7 @@ export function PublicConnectView() {
   const urlStatus = searchParams.get('status');
   const urlError = searchParams.get('error');
   const urlMessage = searchParams.get('message');
+  const metaZeroPages = searchParams.get('metaZeroPages') === '1';
 
   const [isLoading, setIsLoading] = useState(true);
   const [agencyName, setAgencyName] = useState('');
@@ -663,6 +664,38 @@ export function PublicConnectView() {
                   </div>
                 )}
               </div>
+
+              {metaZeroPages && (
+                <div
+                  style={{
+                    background: '#fffbeb',
+                    border: '1px solid #fcd34d',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    textAlign: 'left',
+                    marginBottom: '20px',
+                    fontSize: '12.5px',
+                    color: '#78350f',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <strong style={{ display: 'block', marginBottom: '4px', fontSize: '13px' }}>
+                    Meta returned 0 Facebook Pages for this account
+                  </strong>
+                  Only your personal profile was received, so followers &amp; Page posts cannot be fetched until you grant access to your Pages:
+                  <br />
+                  1. Open{' '}
+                  <a
+                    href="https://www.facebook.com/settings?tab=business_tools"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: '#b45309', fontWeight: 700, textDecoration: 'underline' }}
+                  >
+                    Facebook Business Integrations ↗
+                  </a>{' '}
+                  → click <b>View and edit</b> on this app and select all your Pages (or <b>Remove</b> the app and reconnect).
+                </div>
+              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <a

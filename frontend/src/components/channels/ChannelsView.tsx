@@ -150,7 +150,36 @@ export function ChannelsView() {
 
   const [channels, setChannels] = useState<ChannelItem[]>(getInitialChannels);
   const [isSyncingChannels, setIsSyncingChannels] = useState(false);
+  const [metaDiagModal, setMetaDiagModal] = useState<{
+    channel: ChannelItem;
+    loading: boolean;
+    report?: any;
+    error?: string;
+  } | null>(null);
   const autoSyncedOnceRef = React.useRef(false);
+
+  const handleInspectMetaPages = async (channel: ChannelItem) => {
+    setMetaDiagModal({ channel, loading: true });
+    try {
+      const report = await apiFetch(`/channels/${channel.id}/meta-diagnostics`);
+      setMetaDiagModal({ channel, loading: false, report });
+    } catch (err: any) {
+      setMetaDiagModal({ channel, loading: false, error: err?.message || 'Failed to inspect Meta token.' });
+    }
+  };
+
+  const handleReauthorizeMeta = async (brandId: string) => {
+    try {
+      const res: any = await apiFetch(`/channels/meta/auth-url?brandId=${encodeURIComponent(brandId)}`);
+      if (res?.authUrl) {
+        window.location.href = res.authUrl;
+        return;
+      }
+      addToast({ type: 'error', message: 'Could not generate Meta OAuth URL.' });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err?.message || 'Meta OAuth redirect failed.' });
+    }
+  };
 
   // Sync real channels from backend database on load, focus, and live interval
   const fetchDbChannels = useCallback(async (showFeedback = false) => {
@@ -1013,7 +1042,27 @@ export function ChannelsView() {
                                   <>followers · Live synced</>
                                 ) : (
                                   <>
-                                    followers · {c.net === 'facebook' ? 'Live OAuth (Page needed for insights)' : 'Live synced'}
+                                    followers ·{' '}
+                                    {c.net === 'facebook' ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleInspectMetaPages(c)}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          padding: 0,
+                                          color: 'var(--butter, #f2b740)',
+                                          textDecoration: 'underline',
+                                          cursor: 'pointer',
+                                          font: 'inherit',
+                                        }}
+                                        title="Check why Meta returned 0 Facebook Pages for this account"
+                                      >
+                                        0 Pages visible · Check / Select Page
+                                      </button>
+                                    ) : (
+                                      'Live synced'
+                                    )}
                                   </>
                                 )}
                               </small>
@@ -1286,7 +1335,7 @@ export function ChannelsView() {
 
             <ul className="ch-bars">
               {audienceByNetwork.map((item) => {
-                const pct = Math.round((item.total / totalAudience) * 100);
+                const pct = totalAudience > 0 ? Math.round((item.total / totalAudience) * 100) : 0;
                 const maxVal = audienceByNetwork[0]?.total || 1;
                 const fillRatio = item.total / maxVal;
                 const netMeta = NETWORK_METAS[item.net];
@@ -2024,6 +2073,98 @@ export function ChannelsView() {
           />
         );
       })()}
+
+      {/* Meta Page Visibility Diagnostics Modal */}
+      {metaDiagModal &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.65)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
+            onClick={() => setMetaDiagModal(null)}
+          >
+            <div
+              className="card"
+              style={{ maxWidth: '540px', width: '100%', padding: '24px', background: 'var(--panel, #14171a)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700 }}>
+                  Meta Page Diagnostics · {metaDiagModal.channel.handle}
+                </h3>
+                <button type="button" className="btn btn--sm btn--ghost" onClick={() => setMetaDiagModal(null)}>
+                  ✕
+                </button>
+              </div>
+
+              {metaDiagModal.loading ? (
+                <p style={{ color: 'var(--muted)', fontSize: '14px' }}>Inspecting live Meta OAuth token &amp; Pages...</p>
+              ) : metaDiagModal.error ? (
+                <p style={{ color: 'var(--coral, #ef4444)', fontSize: '14px' }}>{metaDiagModal.error}</p>
+              ) : (
+                <div style={{ display: 'grid', gap: '12px', fontSize: '13.5px' }}>
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      background: 'rgba(242, 183, 64, 0.1)',
+                      border: '1px solid rgba(242, 183, 64, 0.35)',
+                    }}
+                  >
+                    <strong style={{ display: 'block', marginBottom: '4px' }}>
+                      Status: {metaDiagModal.report?.diagnosisCode} ({metaDiagModal.report?.pagesCount ?? 0} Pages returned by Meta)
+                    </strong>
+                    <span style={{ color: 'var(--muted)' }}>{metaDiagModal.report?.diagnosis}</span>
+                  </div>
+
+                  {Array.isArray(metaDiagModal.report?.granularScopes) && metaDiagModal.report.granularScopes.length > 0 && (
+                    <div style={{ fontSize: '12.5px', color: 'var(--muted)' }}>
+                      <b>Meta Token Target Scope Details:</b>{' '}
+                      {metaDiagModal.report.granularScopes
+                        .map((g: any) => `${g.scope} (selected targets: ${g.targetIdsCount})`)
+                        .join(' · ')}
+                    </div>
+                  )}
+
+                  {Array.isArray(metaDiagModal.report?.fixSteps) && metaDiagModal.report.fixSteps.length > 0 && (
+                    <ol style={{ margin: '4px 0', paddingLeft: '18px', display: 'grid', gap: '6px', color: 'var(--text)' }}>
+                      {metaDiagModal.report.fixSteps.map((step: string, idx: number) => (
+                        <li key={idx}>{step}</li>
+                      ))}
+                    </ol>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '6px' }}>
+                    <a
+                      href="https://www.facebook.com/settings?tab=business_tools"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn--ghost btn--sm"
+                    >
+                      Open Facebook Business Integrations ↗
+                    </a>
+                    <button
+                      type="button"
+                      className="btn btn--ink btn--sm"
+                      onClick={() => handleReauthorizeMeta(metaDiagModal.channel.brandId)}
+                    >
+                      Re-authorize with Facebook
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

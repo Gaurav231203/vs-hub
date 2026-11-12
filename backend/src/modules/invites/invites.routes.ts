@@ -472,7 +472,7 @@ invitesRouter.get(
       });
 
       return res.redirect(
-        `${resolvedWebBase}/connect/${inviteToken}?status=success&network=facebook&pageName=${encodeURIComponent(page.pageName)}`
+        `${resolvedWebBase}/connect/${inviteToken}?status=success&network=facebook&pageName=${encodeURIComponent(page.pageName)}${page.isProfile ? '&metaZeroPages=1' : ''}`
       );
     } catch (err: any) {
       next(err);
