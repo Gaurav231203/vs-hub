@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../../lib/api.js';
@@ -385,6 +385,29 @@ export function AnalyticsView() {
       setIsSyncingLive(false);
     }
   };
+
+  const initialSyncDoneRef = useRef<Record<string, boolean>>({});
+
+  // Automatically refresh live metrics from Meta in background when viewing brand analytics
+  useEffect(() => {
+    const brandKey = activeBrand?.id || 'all';
+    if (!initialSyncDoneRef.current[brandKey]) {
+      initialSyncDoneRef.current[brandKey] = true;
+      apiFetch('/channels/sync-all', {
+        method: 'POST',
+        body: JSON.stringify(activeBrand?.id ? { brandId: activeBrand.id } : {}),
+      })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['analytics-channels'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics-summary'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics-by-network'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics-content-mix'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics-top-posts'] });
+          queryClient.invalidateQueries({ queryKey: ['analytics-brands-comparison'] });
+        })
+        .catch(() => {});
+    }
+  }, [activeBrand?.id, queryClient]);
 
   // Dynamic brand analytics data computation from live backend DB
   const brandData = useMemo(() => {

@@ -5,6 +5,7 @@ import { Scheduler } from './jobs/scheduler.js';
 import { Worker } from './jobs/worker.js';
 import { Sweeper } from './jobs/sweeper.js';
 import { TokenRefreshService } from './jobs/tokenRefresh.js';
+import { ChannelSyncService } from './modules/channels/sync.service.js';
 
 const app = createApp();
 
@@ -70,10 +71,27 @@ const runTokenRefreshLoop = async () => {
   }
 };
 
+// 5. Live Post Metrics Sync Loop (Syncs real likes, comments, and reach every 15 minutes)
+const runMetricsSyncLoop = async () => {
+  // Wait 20s initially before first sync run
+  await new Promise((r) => setTimeout(r, 20000));
+  while (!isShuttingDown) {
+    try {
+      logger.info('Starting background live post metrics sync across connected channels...');
+      const summary = await ChannelSyncService.syncAllConnectedChannels();
+      logger.info({ total: summary.total, synced: summary.synced }, 'Background live post metrics sync complete');
+    } catch (err: any) {
+      logger.error({ err: err.message }, 'MetricsSync loop error');
+    }
+    await new Promise((r) => setTimeout(r, 15 * 60 * 1000)); // Every 15 minutes
+  }
+};
+
 runSchedulerLoop();
 runWorkerLoop();
 runSweeperLoop();
 runTokenRefreshLoop();
+runMetricsSyncLoop();
 
 const shutdown = (signal: string) => {
   isShuttingDown = true;

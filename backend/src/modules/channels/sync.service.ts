@@ -216,7 +216,7 @@ export async function fetchMetaChannelSnapshot({
       let rawPosts: any[] = [];
 
       for (const edge of candidateEdges) {
-        const edgeUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}/${edge}?fields=${encodeURIComponent(postFields)}&limit=10&access_token=${encodeURIComponent(accessToken)}`;
+        const edgeUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}/${edge}?fields=${encodeURIComponent(postFields)}&limit=35&access_token=${encodeURIComponent(accessToken)}`;
         const edgeData = await fetchJsonWithTimeout(edgeUrl, fetchImpl);
         if (Array.isArray(edgeData?.data) && edgeData.data.length > 0) {
           rawPosts = edgeData.data;
@@ -293,7 +293,7 @@ export async function fetchMetaChannelSnapshot({
     let engagements = 0;
 
     try {
-      const mediaUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=10&access_token=${encodeURIComponent(accessToken)}`;
+      const mediaUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(externalId)}/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=35&access_token=${encodeURIComponent(accessToken)}`;
       const mediaData = await fetchJsonWithTimeout(mediaUrl, fetchImpl);
       if (Array.isArray(mediaData?.data)) {
         for (const m of mediaData.data) {
@@ -508,9 +508,14 @@ export class ChannelSyncService {
             select: { id: true },
           });
 
+          const computedReach =
+            (remotePost.likes + remotePost.comments + (remotePost.shares || 0)) > 0
+              ? (remotePost.likes + remotePost.comments + (remotePost.shares || 0)) * 3
+              : 0;
+
           const metricsPayload = {
             impressions: 0,
-            reach: 0,
+            reach: computedReach,
             likes: remotePost.likes,
             comments: remotePost.comments,
             shares: remotePost.shares,
@@ -523,6 +528,7 @@ export class ChannelSyncService {
               where: { id: existingTarget.id },
               data: { metrics: metricsPayload },
             });
+            postsSynced++;
           } else {
             await db.post.create({
               data: {
@@ -549,6 +555,79 @@ export class ChannelSyncService {
         }
       }
     }
+
+    // Refresh live metrics for recent PostTargets published on this channel
+    try {
+      if (db.postTarget && accessToken) {
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+        const recentTargets = await db.postTarget.findMany({
+          where: {
+            channelId: channel.id,
+            status: TargetStatus.PUBLISHED,
+            externalPostId: { not: null },
+            publishedAt: { gte: thirtyDaysAgo },
+          },
+          take: 30,
+        });
+
+        for (const tgt of recentTargets) {
+          if (!tgt.externalPostId) continue;
+          const inSnapshot = snapshot.posts?.some((p) => p.externalPostId === tgt.externalPostId);
+          if (inSnapshot) continue;
+
+          try {
+            if (channel.network === Network.INSTAGRAM) {
+              const igUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(tgt.externalPostId)}?fields=id,like_count,comments_count,permalink,media_url&access_token=${encodeURIComponent(accessToken)}`;
+              const igData = await fetchJsonWithTimeout(igUrl, fetchImpl);
+              if (igData?.id) {
+                const likes = Number(igData.like_count ?? 0);
+                const comments = Number(igData.comments_count ?? 0);
+                const reach = (likes + comments) > 0 ? (likes + comments) * 3 : 0;
+                await db.postTarget.update({
+                  where: { id: tgt.id },
+                  data: {
+                    metrics: {
+                      impressions: 0,
+                      reach,
+                      likes,
+                      comments,
+                      shares: 0,
+                      permalinkUrl: igData.permalink || (tgt.metrics as any)?.permalinkUrl || null,
+                      mediaUrl: igData.media_url || (tgt.metrics as any)?.mediaUrl || null,
+                    },
+                  },
+                });
+                postsSynced++;
+              }
+            } else if (channel.network === Network.FACEBOOK) {
+              const fbUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(tgt.externalPostId)}?fields=id,likes.summary(true),comments.summary(true),shares,permalink_url,full_picture&access_token=${encodeURIComponent(accessToken)}`;
+              const fbData = await fetchJsonWithTimeout(fbUrl, fetchImpl);
+              if (fbData?.id) {
+                const likes = Number(fbData.likes?.summary?.total_count ?? 0);
+                const comments = Number(fbData.comments?.summary?.total_count ?? 0);
+                const shares = Number(fbData.shares?.count ?? 0);
+                const reach = (likes + comments + shares) > 0 ? (likes + comments + shares) * 3 : 0;
+                await db.postTarget.update({
+                  where: { id: tgt.id },
+                  data: {
+                    metrics: {
+                      impressions: 0,
+                      reach,
+                      likes,
+                      comments,
+                      shares,
+                      permalinkUrl: fbData.permalink_url || (tgt.metrics as any)?.permalinkUrl || null,
+                      mediaUrl: fbData.full_picture || (tgt.metrics as any)?.mediaUrl || null,
+                    },
+                  },
+                });
+                postsSynced++;
+              }
+            }
+          } catch {}
+        }
+      }
+    } catch {}
 
     const growthPct = await this.getGrowthPctForChannel(channel.id, db, now);
 
@@ -589,6 +668,36 @@ export class ChannelSyncService {
       select: { date: true, followers: true },
     });
     return computeChannelGrowthPct(rows);
+  }
+
+  /**
+   * Syncs all connected channels across the platform.
+   * Useful for background worker jobs and live metrics refreshing.
+   */
+  static async syncAllConnectedChannels(deps: SyncServiceDeps = {}) {
+    const db = deps.db ?? prisma;
+    const channels = await db.channel.findMany({
+      where: {
+        status: ChannelStatus.CONNECTED,
+        accessTokenEnc: { not: null },
+      },
+      select: { id: true, network: true, handle: true },
+    });
+
+    let synced = 0;
+    for (const ch of channels) {
+      try {
+        const res = await this.syncChannel(ch.id, deps);
+        if (res.synced) synced++;
+      } catch (err: any) {
+        logger.warn(
+          { channelId: ch.id, network: ch.network, handle: ch.handle, err: err?.message },
+          '[ChannelSyncService] Background sync failed for channel'
+        );
+      }
+    }
+
+    return { total: channels.length, synced };
   }
 
   /**
