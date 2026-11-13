@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { NetworkIcon } from '../common/NetworkIcon.js';
-import { Smartphone } from 'lucide-react';
+import { Smartphone, Share2 } from 'lucide-react';
 import { ManualPublishModal } from '../common/ManualPublishModal.js';
+import { apiFetch } from '../../lib/api.js';
+import { useToastStore } from '../../stores/toastStore.js';
 
 interface PostDetailDrawerProps {
   post: any | null;
@@ -22,8 +24,28 @@ export function PostDetailDrawer({
   if (isOpen === false || !post) return null;
 
   const [showManualModal, setShowManualModal] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const addToast = useToastStore((state) => state.addToast);
   const networks = post.targets?.map((t: any) => t.channel?.network) || ['INSTAGRAM'];
   const [activeNetwork, setActiveNetwork] = useState<string>(networks[0] || 'INSTAGRAM');
+
+  const handleCopyReviewLink = async () => {
+    if (!post?.id) return;
+    setIsCopying(true);
+    try {
+      const res = await apiFetch(`/posts/${post.id}/review-link`, { method: 'POST' });
+      if (res?.reviewUrl) {
+        await navigator.clipboard.writeText(res.reviewUrl);
+        addToast({ type: 'success', message: 'Client review link copied to clipboard!' });
+      } else {
+        throw new Error('No review link received');
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to copy review link' });
+    } finally {
+      setIsCopying(false);
+    }
+  };
 
   return (
     <>
@@ -191,6 +213,17 @@ export function PostDetailDrawer({
                 <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
               </svg>
               <span>Request Changes</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn--ink magnetic"
+              onClick={handleCopyReviewLink}
+              disabled={isCopying}
+              title="Copy 1-click review link to send to client via WhatsApp or Email"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Share2 style={{ width: 15, height: 15 }} />
+              <span>{isCopying ? 'Copying...' : 'Copy Client Review Link'}</span>
             </button>
             {post.publishMode === 'MANUAL' && (
               <button

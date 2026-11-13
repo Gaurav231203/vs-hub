@@ -406,6 +406,42 @@ export function ComposeView() {
     },
   });
 
+  const [isGeneratingReviewLink, setIsGeneratingReviewLink] = useState(false);
+
+  const handleShareReviewLink = async () => {
+    if (!caption.trim() && mediaUrls.length === 0) {
+      addToast({ type: 'error', message: 'Please write a caption or upload media before sharing for review.' });
+      return;
+    }
+
+    setIsGeneratingReviewLink(true);
+    try {
+      const saveRes = await saveCurrentPost();
+      const targetId = saveRes.post?.id || currentPostId;
+      if (!targetId) {
+        throw new Error('Could not save post before generating review link.');
+      }
+
+      const res = await apiFetch(`/posts/${targetId}/review-link`, {
+        method: 'POST',
+      });
+
+      if (res?.reviewUrl) {
+        await navigator.clipboard.writeText(res.reviewUrl);
+        addToast({
+          type: 'success',
+          message: 'Client review link copied! Send it to your client via WhatsApp or Email.',
+        });
+      } else {
+        throw new Error('No review link received from server.');
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to generate review link.' });
+    } finally {
+      setIsGeneratingReviewLink(false);
+    }
+  };
+
   // 8. Fetch Drafts List for this Brand
   const { data: draftsData } = useQuery({
     queryKey: ['drafts-list', selectedBrandId],
@@ -1957,6 +1993,16 @@ export function ComposeView() {
                 >
                   {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
                 </button>
+                <button
+                  type="button"
+                  onClick={handleShareReviewLink}
+                  disabled={isGeneratingReviewLink || (!caption.trim() && mediaUrls.length === 0)}
+                  className="btn cm-sec magnetic"
+                  title="Generate a 1-click review link to send to your client via WhatsApp or Email"
+                >
+                  <Share2 className="ico" />
+                  <span>{isGeneratingReviewLink ? 'Generating link...' : 'Get Review Link'}</span>
+                </button>
               </>
             ) : canPublish ? (
               <>
@@ -1985,6 +2031,16 @@ export function ComposeView() {
                 >
                   {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
                 </button>
+                <button
+                  type="button"
+                  onClick={handleShareReviewLink}
+                  disabled={isGeneratingReviewLink || (!caption.trim() && mediaUrls.length === 0)}
+                  className="btn cm-sec magnetic"
+                  title="Generate a 1-click review link to send to your client via WhatsApp or Email"
+                >
+                  <Share2 className="ico" />
+                  <span>{isGeneratingReviewLink ? 'Generating link...' : 'Get Review Link'}</span>
+                </button>
               </>
             ) : (
               <>
@@ -2004,6 +2060,16 @@ export function ComposeView() {
                   className="btn cm-sec magnetic"
                 >
                   {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareReviewLink}
+                  disabled={isGeneratingReviewLink || (!caption.trim() && mediaUrls.length === 0)}
+                  className="btn cm-sec magnetic"
+                  title="Generate a 1-click review link to send to your client via WhatsApp or Email"
+                >
+                  <Share2 className="ico" />
+                  <span>{isGeneratingReviewLink ? 'Generating link...' : 'Get Review Link'}</span>
                 </button>
               </>
             )}

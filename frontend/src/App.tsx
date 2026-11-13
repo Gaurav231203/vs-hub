@@ -6,6 +6,7 @@ import { LoginView } from './components/auth/LoginView.js';
 import { ForgotPasswordView } from './components/auth/ForgotPasswordView.js';
 import { AcceptInviteView } from './components/auth/AcceptInviteView.js';
 import { PublicConnectView } from './components/connect/PublicConnectView.js';
+import { PublicReviewView } from './components/review/PublicReviewView.js';
 import { PrivacyPolicyView } from './components/legal/PrivacyPolicyView.js';
 import { TermsView } from './components/legal/TermsView.js';
 import { DataDeletionView } from './components/legal/DataDeletionView.js';
@@ -72,6 +73,7 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordView />} />
       <Route path="/accept-invite/:token" element={<AcceptInviteView />} />
       <Route path="/connect/:token" element={<PublicConnectView />} />
+      <Route path="/review/:token" element={<PublicReviewView />} />
       <Route path="/privacy" element={<PrivacyPolicyView />} />
       <Route path="/terms" element={<TermsView />} />
       <Route path="/data-deletion" element={<DataDeletionView />} />
