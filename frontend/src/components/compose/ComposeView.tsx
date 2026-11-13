@@ -428,9 +428,12 @@ export function ComposeView() {
 
       if (res?.reviewUrl) {
         await navigator.clipboard.writeText(res.reviewUrl);
+        const emailMsg = res.emailSent
+          ? `Review link copied and emailed to ${res.sentTo}!`
+          : 'Client review link copied to clipboard! Send it to your client via WhatsApp or Email.';
         addToast({
           type: 'success',
-          message: 'Client review link copied! Send it to your client via WhatsApp or Email.',
+          message: emailMsg,
         });
       } else {
         throw new Error('No review link received from server.');

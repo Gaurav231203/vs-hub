@@ -36,7 +36,10 @@ export function PostDetailDrawer({
       const res = await apiFetch(`/posts/${post.id}/review-link`, { method: 'POST' });
       if (res?.reviewUrl) {
         await navigator.clipboard.writeText(res.reviewUrl);
-        addToast({ type: 'success', message: 'Client review link copied to clipboard!' });
+        const emailMsg = res.emailSent
+          ? `Review link copied & emailed to ${res.sentTo}!`
+          : 'Client review link copied to clipboard!';
+        addToast({ type: 'success', message: emailMsg });
       } else {
         throw new Error('No review link received');
       }

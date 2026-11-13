@@ -11,6 +11,7 @@ import { reviewRateLimiter } from '../../middleware/rateLimit.js';
 import { clientApproveSchema, clientRequestChangesSchema } from '../../lib/sanitize.js';
 import { getWebUrl } from '../../lib/urls.js';
 import { PostStatus, ReviewDecision, ApprovalTokenStatus } from '@prisma/client';
+import { EmailService } from '../../lib/email.js';
 
 export const reviewRouter = Router();
 
@@ -34,7 +35,18 @@ reviewRouter.post(
 
       const post = await prisma.post.findFirst({
         where: { id, workspaceId: ctx.workspaceId, deletedAt: null },
-        include: { brand: true },
+        include: {
+          brand: {
+            include: {
+              contacts: true,
+              workspace: true,
+            },
+          },
+          media: {
+            include: { asset: true },
+            orderBy: { position: 'asc' },
+          },
+        },
       });
 
       if (!post) {
@@ -71,6 +83,38 @@ reviewRouter.post(
 
       logger.info({ postId: id, version: post.version, tokenId: approvalToken.id }, 'Generated fresh client review link');
 
+      // Check recipient email (from request body OR brand primary contact)
+      const requestedEmail = (req.body?.recipientEmail as string)?.trim();
+      const primaryContact = post.brand.contacts.find((c) => c.isPrimary) || post.brand.contacts[0];
+      const targetEmail = requestedEmail || primaryContact?.email || null;
+      const targetName = requestedEmail ? 'Client' : primaryContact?.name || 'Client';
+
+      let emailSent = false;
+      let emailError: string | null = null;
+
+      if (targetEmail) {
+        try {
+          const mediaThumb = post.media?.[0]?.asset?.url || null;
+          const emailRes = await EmailService.sendPostReviewInvite({
+            toEmail: targetEmail,
+            clientName: targetName,
+            brandName: post.brand.name,
+            agencyName: post.brand.workspace?.name || 'VS Adda',
+            reviewUrl,
+            postCaption: post.caption || undefined,
+            scheduledAt: post.scheduledAt,
+            mediaThumbUrl: mediaThumb,
+          });
+          emailSent = Boolean(emailRes.sent);
+          if (!emailRes.sent && emailRes.error) {
+            emailError = emailRes.error;
+          }
+        } catch (mailErr: any) {
+          logger.warn({ postId: id, err: mailErr?.message }, 'Failed to dispatch post review email');
+          emailError = mailErr?.message || 'Email delivery failed';
+        }
+      }
+
       return res.status(201).json({
         postId: id,
         reviewUrl,
@@ -78,6 +122,9 @@ reviewRouter.post(
         expiresAt: approvalToken.expiresAt,
         version: post.version,
         status: approvalToken.status,
+        emailSent,
+        sentTo: emailSent ? targetEmail : null,
+        emailError: emailError || undefined,
       });
     } catch (err) {
       next(err);

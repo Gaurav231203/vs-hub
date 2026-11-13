@@ -26,6 +26,17 @@ export interface SendRequestNewLinkNotificationParams {
   brandName: string;
 }
 
+export interface SendPostReviewEmailParams {
+  toEmail: string;
+  clientName?: string;
+  brandName: string;
+  agencyName: string;
+  reviewUrl: string;
+  postCaption?: string;
+  scheduledAt?: Date | string | null;
+  mediaThumbUrl?: string | null;
+}
+
 export interface EmailDeliveryResult {
   sent: boolean;
   provider: 'brevo_api' | 'resend_api' | 'smtp' | 'mock' | 'none';
@@ -114,6 +125,60 @@ export class EmailService {
     `;
 
     return this.dispatchEmail({ to: toEmail, subject, html });
+  }
+
+  /**
+   * Send post sign-off review request with live preview button to brand client
+   */
+  static async sendPostReviewInvite(params: SendPostReviewEmailParams): Promise<EmailDeliveryResult> {
+    const { toEmail, clientName, brandName, agencyName, reviewUrl, postCaption, scheduledAt, mediaThumbUrl } = params;
+
+    const safeBrand = escapeHtml(brandName);
+    const safeAgency = escapeHtml(agencyName);
+    const safeClient = escapeHtml(clientName || 'there');
+    const safeCaption = postCaption ? escapeHtml(postCaption.slice(0, 300)) : '';
+
+    const scheduledTimeStr = scheduledAt
+      ? new Date(scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+      : 'Ready for scheduling';
+
+    const subject = `Review & Sign-Off Request: New Post for ${brandName} · ${agencyName}`;
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #161a1e; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb;">
+        <div style="margin-bottom: 24px; border-bottom: 1px solid #f3f4f6; padding-bottom: 16px;">
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #d97706; background: #fef3c7; padding: 4px 8px; border-radius: 6px;">Sign-Off Needed</span>
+          <h2 style="margin: 12px 0 4px 0; font-size: 20px; font-weight: 700; color: #111827;">New Post Ready for Review</h2>
+          <p style="margin: 0; color: #6b7280; font-size: 13px;"><strong>${safeAgency}</strong> has prepared a new social post for <strong>${safeBrand}</strong>.</p>
+        </div>
+
+        <p style="font-size: 14px; line-height: 1.6; color: #374151;">Hi ${safeClient},</p>
+        <p style="font-size: 14px; line-height: 1.6; color: #374151;">Please review the post preview below before it goes live on your social accounts:</p>
+
+        <div style="margin: 20px 0; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+          <div style="font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 8px;">📅 Scheduled for: ${scheduledTimeStr}</div>
+          ${mediaThumbUrl ? `<div style="margin: 10px 0;"><img src="${mediaThumbUrl}" alt="Post thumbnail" style="max-width: 100%; max-height: 280px; border-radius: 6px; object-fit: cover;" /></div>` : ''}
+          ${safeCaption ? `<div style="font-size: 14px; color: #1f2937; line-height: 1.5; white-space: pre-wrap; margin-top: 8px;">${safeCaption}</div>` : ''}
+        </div>
+
+        <div style="margin: 28px 0; text-align: center;">
+          <a href="${reviewUrl}" style="background-color: #10b981; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Review & Approve Post</a>
+        </div>
+
+        <p style="font-size: 12px; color: #6b7280; line-height: 1.5; text-align: center;">
+          Zero login required. You can approve with 1 click or request changes directly on the preview.
+        </p>
+
+        <div style="margin-top: 32px; border-top: 1px solid #f3f4f6; padding-top: 16px; font-size: 11px; color: #9ca3af; text-align: center;">
+          VS Adda · Agency-Client Collaboration
+        </div>
+      </div>
+    `;
+
+    return this.dispatchEmail({
+      to: toEmail,
+      subject,
+      html,
+    });
   }
 
   /**
