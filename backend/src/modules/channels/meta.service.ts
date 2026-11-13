@@ -259,18 +259,57 @@ export async function exchangeMetaCodeForAccounts(
       }
     }
 
-    // Ensure every Page has a valid access token (fetch /{pageId}?fields=access_token if missing)
+    // Ensure every Page has a valid access token and check page-level instagram_business_account/connected_instagram_account
     for (const p of rawPages) {
-      if (!p.access_token && p.id) {
-        try {
-          const ptRes = await fetch(
-            `https://graph.facebook.com/v20.0/${encodeURIComponent(p.id)}?fields=access_token&access_token=${encodeURIComponent(longLivedToken)}`
-          );
-          const ptData = (await ptRes.json()) as any;
-          if (ptData?.access_token) {
-            p.access_token = ptData.access_token;
+      if (p.id) {
+        const needsToken = !p.access_token;
+        const needsIg = !p.instagram_business_account?.id;
+        if (needsToken || needsIg) {
+          try {
+            const pageQueryToken = p.access_token || longLivedToken;
+            const ptRes = await fetch(
+              `https://graph.facebook.com/v20.0/${encodeURIComponent(p.id)}?fields=access_token,fan_count,followers_count,picture.type(large){url},instagram_business_account{id,username,name,profile_picture_url,followers_count},connected_instagram_account{id,username,name,profile_picture_url,followers_count}&access_token=${encodeURIComponent(pageQueryToken)}`
+            );
+            const ptData = (await ptRes.json()) as any;
+            if (ptData?.access_token) {
+              p.access_token = ptData.access_token;
+            }
+            if (ptData?.picture?.data?.url && !p.picture?.data?.url) {
+              p.picture = ptData.picture;
+            }
+            if (ptData?.followers_count !== undefined && p.followers_count === undefined) {
+              p.followers_count = ptData.followers_count;
+            }
+            const igAcc = ptData?.instagram_business_account || ptData?.connected_instagram_account;
+            if (igAcc?.id) {
+              p.instagram_business_account = {
+                ...(p.instagram_business_account || {}),
+                ...igAcc,
+              };
+            }
+          } catch (err: any) {
+            logger.warn({ pageId: p.id, err: err?.message }, 'Failed to fetch page-level token or instagram fallback');
           }
-        } catch {}
+        }
+
+        // If instagram_business_account has ID but lacks username or profile pic, fetch directly from IG node
+        if (
+          p.instagram_business_account?.id &&
+          (!p.instagram_business_account.username || !p.instagram_business_account.profile_picture_url)
+        ) {
+          try {
+            const igRes = await fetch(
+              `https://graph.facebook.com/v20.0/${encodeURIComponent(p.instagram_business_account.id)}?fields=id,username,name,profile_picture_url,followers_count&access_token=${encodeURIComponent(p.access_token || longLivedToken)}`
+            );
+            const igData = (await igRes.json()) as any;
+            if (igData?.id) {
+              p.instagram_business_account = {
+                ...p.instagram_business_account,
+                ...igData,
+              };
+            }
+          } catch {}
+        }
       }
     }
 
@@ -323,14 +362,18 @@ export async function exchangeMetaCodeForAccounts(
           : page.fan_count !== undefined
             ? Number(page.fan_count)
             : 0,
-      instagram: page.instagram_business_account
+      instagram: (page.instagram_business_account || page.connected_instagram_account)?.id
         ? {
-            id: page.instagram_business_account.id,
-            username: (page.instagram_business_account.username || '').replace(/^@+/, ''),
-            profilePictureUrl: page.instagram_business_account.profile_picture_url,
+            id: (page.instagram_business_account || page.connected_instagram_account).id,
+            username: (
+              (page.instagram_business_account || page.connected_instagram_account).username ||
+              (page.instagram_business_account || page.connected_instagram_account).name ||
+              ''
+            ).replace(/^@+/, ''),
+            profilePictureUrl: (page.instagram_business_account || page.connected_instagram_account).profile_picture_url,
             followersCount:
-              page.instagram_business_account.followers_count !== undefined
-                ? Number(page.instagram_business_account.followers_count)
+              (page.instagram_business_account || page.connected_instagram_account).followers_count !== undefined
+                ? Number((page.instagram_business_account || page.connected_instagram_account).followers_count)
                 : 0,
           }
         : undefined,
