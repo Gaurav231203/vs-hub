@@ -1976,32 +1976,45 @@ export function ComposeView() {
                   <Clock className="ico" />
                   <span>{scheduleMutation.isPending ? 'Scheduling...' : 'Schedule Reminder'}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowManualModal(true)}
-                  disabled={!caption && mediaUrls.length === 0}
-                  className="btn cm-sec magnetic"
-                >
-                  <Smartphone className="ico" />
-                  <span>Post Manually Now</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => saveDraftMutation.mutate()}
-                  disabled={saveDraftMutation.isPending}
-                  className="btn cm-sec magnetic"
-                >
-                  {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
-                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowManualModal(true)}
+                    disabled={!caption && mediaUrls.length === 0}
+                    className="btn cm-sec magnetic"
+                    style={{ width: '100%', height: '42px', padding: '0 8px' }}
+                  >
+                    <Smartphone className="ico" style={{ width: 14, height: 14 }} />
+                    <span>Post Manually</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => saveDraftMutation.mutate()}
+                    disabled={saveDraftMutation.isPending}
+                    className="btn cm-sec magnetic"
+                    style={{ width: '100%', height: '42px', padding: '0 8px' }}
+                  >
+                    {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={handleShareReviewLink}
                   disabled={isGeneratingReviewLink || (!caption.trim() && mediaUrls.length === 0)}
                   className="btn cm-sec magnetic"
                   title="Generate a 1-click review link to send to your client via WhatsApp or Email"
+                  style={{
+                    width: '100%',
+                    height: '42px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '2px',
+                  }}
                 >
-                  <Share2 className="ico" />
-                  <span>{isGeneratingReviewLink ? 'Generating link...' : 'Get Review Link'}</span>
+                  <Share2 className="ico" style={{ width: 15, height: 15 }} />
+                  <span>{isGeneratingReviewLink ? 'Generating link...' : 'Get Client Review Link'}</span>
                 </button>
               </>
             ) : canPublish ? (
@@ -2015,31 +2028,44 @@ export function ComposeView() {
                   <Calendar className="ico" />
                   <span>{scheduleMutation.isPending ? 'Scheduling...' : 'Schedule'}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => publishNowMutation.mutate()}
-                  disabled={publishNowMutation.isPending || isUploadingMedia || blockingErrors.length > 0 || (!caption.trim() && mediaUrls.length === 0)}
-                  className="btn cm-sec magnetic"
-                >
-                  {isUploadingMedia ? 'Uploading image...' : publishNowMutation.isPending ? 'Publishing live...' : 'Publish now'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => saveDraftMutation.mutate()}
-                  disabled={saveDraftMutation.isPending}
-                  className="btn cm-sec magnetic"
-                >
-                  {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
-                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%' }}>
+                  <button
+                    type="button"
+                    onClick={() => publishNowMutation.mutate()}
+                    disabled={publishNowMutation.isPending || isUploadingMedia || blockingErrors.length > 0 || (!caption.trim() && mediaUrls.length === 0)}
+                    className="btn cm-sec magnetic"
+                    style={{ width: '100%', height: '42px', padding: '0 8px' }}
+                  >
+                    {isUploadingMedia ? 'Uploading...' : publishNowMutation.isPending ? 'Publishing...' : 'Publish now'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => saveDraftMutation.mutate()}
+                    disabled={saveDraftMutation.isPending}
+                    className="btn cm-sec magnetic"
+                    style={{ width: '100%', height: '42px', padding: '0 8px' }}
+                  >
+                    {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={handleShareReviewLink}
                   disabled={isGeneratingReviewLink || (!caption.trim() && mediaUrls.length === 0)}
                   className="btn cm-sec magnetic"
                   title="Generate a 1-click review link to send to your client via WhatsApp or Email"
+                  style={{
+                    width: '100%',
+                    height: '42px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '2px',
+                  }}
                 >
-                  <Share2 className="ico" />
-                  <span>{isGeneratingReviewLink ? 'Generating link...' : 'Get Review Link'}</span>
+                  <Share2 className="ico" style={{ width: 15, height: 15 }} />
+                  <span>{isGeneratingReviewLink ? 'Generating link...' : 'Get Client Review Link'}</span>
                 </button>
               </>
             ) : (
@@ -2053,24 +2079,35 @@ export function ComposeView() {
                   <Send className="ico" />
                   <span>{submitMutation.isPending ? 'Submitting...' : 'Send for Approval'}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => saveDraftMutation.mutate()}
-                  disabled={saveDraftMutation.isPending}
-                  className="btn cm-sec magnetic"
-                >
-                  {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleShareReviewLink}
-                  disabled={isGeneratingReviewLink || (!caption.trim() && mediaUrls.length === 0)}
-                  className="btn cm-sec magnetic"
-                  title="Generate a 1-click review link to send to your client via WhatsApp or Email"
-                >
-                  <Share2 className="ico" />
-                  <span>{isGeneratingReviewLink ? 'Generating link...' : 'Get Review Link'}</span>
-                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%' }}>
+                  <button
+                    type="button"
+                    onClick={() => saveDraftMutation.mutate()}
+                    disabled={saveDraftMutation.isPending}
+                    className="btn cm-sec magnetic"
+                    style={{ width: '100%', height: '42px', padding: '0 8px' }}
+                  >
+                    {saveDraftMutation.isPending ? 'Saving...' : 'Save draft'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareReviewLink}
+                    disabled={isGeneratingReviewLink || (!caption.trim() && mediaUrls.length === 0)}
+                    className="btn cm-sec magnetic"
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '0 8px',
+                    }}
+                  >
+                    <Share2 className="ico" style={{ width: 14, height: 14 }} />
+                    <span>Review Link</span>
+                  </button>
+                </div>
               </>
             )}
           </div>
