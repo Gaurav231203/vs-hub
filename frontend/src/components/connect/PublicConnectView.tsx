@@ -28,6 +28,7 @@ interface PageCandidate {
   pageName: string;
   isProfile?: boolean;
   avatarUrl?: string;
+  followers?: number;
   instagram?: {
     id: string;
     username: string;
@@ -258,7 +259,17 @@ export function PublicConnectView() {
             const data = await res.json();
             setCandidates(data.candidates || []);
             if (data.candidates && data.candidates.length > 0) {
-              setSelectedPageId(data.candidates[0].pageId);
+              const matchingCand =
+                data.candidates.find(
+                  (c: PageCandidate) =>
+                    c.pageName.toLowerCase() === (brand?.name || '').toLowerCase() && Boolean(c.instagram)
+                ) ||
+                data.candidates.find((c: PageCandidate) => Boolean(c.instagram)) ||
+                data.candidates.find(
+                  (c: PageCandidate) => c.pageName.toLowerCase() === (brand?.name || '').toLowerCase()
+                ) ||
+                data.candidates[0];
+              setSelectedPageId(matchingCand.pageId);
             }
           }
         } catch (err) {
@@ -727,69 +738,122 @@ export function PublicConnectView() {
             /* Multi-Page Selection Screen (From Meta OAuth) */
             <form onSubmit={handleConfirmSelectPage}>
               <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '0 0 6px 0' }}>
-                Select Your Facebook Page
+                Select Facebook Page &amp; Linked Instagram Account
               </h3>
               <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px 0' }}>
-                Choose which Page belongs to <strong>{brand?.name}</strong>:
+                Choose which account belongs to <strong>{brand?.name}</strong>. Any linked Instagram Business account
+                will connect and sync automatically:
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-                {candidates.map((cand) => (
-                  <label
-                    key={cand.pageId}
+                {candidates.map((cand) => {
+                  const isSelected = selectedPageId === cand.pageId;
+                  return (
+                    <label
+                      key={cand.pageId}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        padding: '14px 16px',
+                        borderRadius: '14px',
+                        border: isSelected ? '2px solid #0f172a' : '1px solid #cbd5e1',
+                        background: isSelected ? 'rgba(15, 23, 42, 0.03)' : '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="candidatePage"
+                        value={cand.pageId}
+                        checked={isSelected}
+                        onChange={() => setSelectedPageId(cand.pageId)}
+                        style={{ accentColor: '#0f172a', marginTop: '4px' }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                          <strong style={{ fontSize: '14.5px', color: '#0f172a' }}>
+                            {cand.pageName}
+                          </strong>
+                          {cand.instagram && (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                color: '#e1306c',
+                                background: 'rgba(225, 48, 108, 0.1)',
+                                padding: '3px 8px',
+                                borderRadius: '999px',
+                                border: '1px solid rgba(225, 48, 108, 0.25)',
+                              }}
+                            >
+                              📸 @{cand.instagram.username.replace(/^@+/, '')}
+                            </span>
+                          )}
+                        </div>
+
+                        <span style={{ fontSize: '11.5px', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                          {cand.isProfile ? '👤 Facebook Personal Account' : '📄 Facebook Business Page'}
+                          {cand.followers !== undefined && !cand.isProfile ? ` · ${cand.followers.toLocaleString()} followers` : ''}
+                        </span>
+
+                        {cand.instagram && (
+                          <div
+                            style={{
+                              marginTop: '8px',
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              background: '#fdf2f8',
+                              border: '1px solid #fbcfe8',
+                              fontSize: '12px',
+                              color: '#9d174d',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <span>✓</span>
+                            <span>
+                              <b>Instagram Connected:</b> <strong>@{cand.instagram.username.replace(/^@+/, '')}</strong> will be linked to this brand.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {(() => {
+                const chosen = candidates.find((c) => c.pageId === selectedPageId);
+                return (
+                  <button
+                    type="submit"
+                    disabled={isSubmittingPage}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '12px 14px',
+                      width: '100%',
+                      background: '#0f172a',
+                      color: '#ffffff',
+                      border: 'none',
                       borderRadius: '12px',
-                      border: selectedPageId === cand.pageId ? '2px solid #0f172a' : '1px solid #cbd5e1',
-                      background: selectedPageId === cand.pageId ? 'rgba(15, 23, 42, 0.03)' : '#ffffff',
+                      padding: '14px',
+                      fontSize: '14px',
+                      fontWeight: 600,
                       cursor: 'pointer',
                     }}
                   >
-                    <input
-                      type="radio"
-                      name="candidatePage"
-                      value={cand.pageId}
-                      checked={selectedPageId === cand.pageId}
-                      onChange={() => setSelectedPageId(cand.pageId)}
-                      style={{ accentColor: '#0f172a' }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <strong style={{ fontSize: '14px', color: '#0f172a', display: 'block' }}>
-                        {cand.pageName}
-                      </strong>
-                      <span style={{ fontSize: '11.5px', color: '#64748b', display: 'block', marginTop: '2px' }}>
-                        {cand.isProfile ? '👤 Facebook Personal Account' : '📄 Facebook Business Page'}
-                      </span>
-                      {cand.instagram && (
-                        <span style={{ fontSize: '12px', color: '#e1306c', display: 'block', marginTop: '2px' }}>
-                          Linked Instagram: @{cand.instagram.username.replace(/^@+/, '')}
-                        </span>
-                      )}
-                    </div>
-                  </label>
-                ))}
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmittingPage}
-                style={{
-                  width: '100%',
-                  background: '#0f172a',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '14px',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {isSubmittingPage ? 'Connecting Accounts...' : 'Confirm & Connect Page'}
-              </button>
+                    {isSubmittingPage
+                      ? 'Connecting Accounts...'
+                      : chosen?.instagram
+                      ? `Confirm & Connect Page + Instagram (@${chosen.instagram.username.replace(/^@+/, '')}) →`
+                      : 'Confirm & Connect Page →'}
+                  </button>
+                );
+              })()}
             </form>
           ) : (
             /* Multi-Platform Social Media Hub */
