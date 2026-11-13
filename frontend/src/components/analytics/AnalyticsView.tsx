@@ -473,11 +473,26 @@ export function AnalyticsView() {
               ? `${p.xUsualReach || 1}x usual reach`
               : `${p.engagements ?? 0} engagements`;
 
+      const primaryTarget = p.targets?.[0];
+      const network = primaryTarget?.network || (p.permalinkUrl?.includes('instagram.com') ? 'INSTAGRAM' : 'FACEBOOK');
+      const handle = primaryTarget?.handle || p.brand?.name || '';
+      const dateStr = p.publishedAt
+        ? new Date(p.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : '';
+
       return {
         id: p.id,
         rank: idx + 1,
         img: p.media?.[0]?.url || '',
         caption: p.caption,
+        permalinkUrl: p.permalinkUrl,
+        likes: p.likes ?? 0,
+        comments: p.comments ?? 0,
+        reach: p.reach ?? 0,
+        engagements: p.engagements ?? 0,
+        network,
+        handle,
+        dateStr,
         val,
         metric,
       };
@@ -1811,10 +1826,24 @@ export function AnalyticsView() {
             <ol className="an-posts">
               {brandData.topPosts.map((p: any) => (
                 <li key={p.id}>
-                  <button type="button" className="an-post">
+                  <button
+                    type="button"
+                    className="an-post"
+                    onClick={() => p.permalinkUrl && window.open(p.permalinkUrl, '_blank', 'noopener,noreferrer')}
+                    title={p.permalinkUrl ? 'View post on Instagram' : undefined}
+                    style={{ cursor: p.permalinkUrl ? 'pointer' : 'default', textDecoration: 'none' }}
+                  >
                     <span className="an-post__img">
                       {p.img ? (
-                        <img src={p.img} alt="" className="thumb" />
+                        <img
+                          src={p.img}
+                          alt={p.caption || 'Post image'}
+                          className="thumb"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                          }}
+                        />
                       ) : (
                         <span
                           className="thumb"
@@ -1832,10 +1861,72 @@ export function AnalyticsView() {
                         </span>
                       )}
                       <span className="an-post__rank">{p.rank}</span>
+                      {p.network && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            right: '8px',
+                            background: 'rgba(0,0,0,0.65)',
+                            backdropFilter: 'blur(4px)',
+                            borderRadius: '999px',
+                            padding: '3px 6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            color: '#fff',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          <NetworkIcon network={p.network} className="w-3 h-3" />
+                        </span>
+                      )}
                     </span>
                     <span className="an-post__body">
                       <b className="an-post__val num tnum">{p.val}</b>
-                      <small>{p.metric}</small>
+                      <small style={{ color: 'var(--muted)', fontSize: '12px' }}>{p.metric}</small>
+
+                      <div
+                        className="an-post__meta"
+                        style={{
+                          marginTop: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '11.5px',
+                          color: 'var(--muted)',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '120px',
+                          }}
+                        >
+                          {p.handle}
+                        </span>
+                        {p.dateStr && <span>{p.dateStr}</span>}
+                      </div>
+
+                      <div
+                        className="an-post__mini"
+                        style={{
+                          marginTop: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          fontSize: '11px',
+                          color: 'var(--muted)',
+                        }}
+                      >
+                        {p.reach > 0 && <span>👁 {formatCompactVal(p.reach)}</span>}
+                        {p.likes > 0 && <span>♡ {formatCompactVal(p.likes)}</span>}
+                        {p.comments > 0 && <span>💬 {formatCompactVal(p.comments)}</span>}
+                      </div>
                     </span>
                   </button>
                 </li>

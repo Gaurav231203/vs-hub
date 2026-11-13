@@ -475,7 +475,7 @@ export class AnalyticsService {
     const { sort = 'reach', limit = 10 } = query;
 
     let brandScope: any = {};
-    if (query.brandId) {
+    if (query.brandId && query.brandId !== 'all') {
       if (!ctx.allBrands && !ctx.brandIds.includes(query.brandId)) {
         throw new AppError('BRAND_NOT_FOUND', 'Brand not found or access denied', 404);
       }
@@ -484,12 +484,17 @@ export class AnalyticsService {
       brandScope = { brandId: { in: ctx.brandIds } };
     }
 
+    const networkFilter = query.network
+      ? { targets: { some: { channel: { network: query.network } } } }
+      : {};
+
+    // 1. Fetch published posts matching brand and network
     let posts = await prisma.post.findMany({
       where: {
         workspaceId: ctx.workspaceId,
         ...brandScope,
+        ...networkFilter,
         status: 'PUBLISHED',
-        publishedAt: { gte: start, lte: end },
       },
       include: {
         brand: {
@@ -506,55 +511,38 @@ export class AnalyticsService {
         },
       },
       orderBy: { publishedAt: 'desc' },
-      take: 50,
+      take: 100,
     });
-
-    // If no posts published within the last N days, fall back to latest synced historical published posts
-    if (posts.length === 0) {
-      posts = await prisma.post.findMany({
-        where: {
-          workspaceId: ctx.workspaceId,
-          ...brandScope,
-          status: 'PUBLISHED',
-        },
-        include: {
-          brand: {
-            select: { id: true, name: true, color: true },
-          },
-          targets: {
-            include: {
-              channel: { select: { network: true, handle: true } },
-            },
-          },
-          media: {
-            include: { asset: true },
-            orderBy: { position: 'asc' },
-          },
-        },
-        orderBy: { publishedAt: 'desc' },
-        take: 50,
-      });
-    }
 
     // Compute aggregated metrics per post
     const enrichedRaw = posts.map((post) => {
       let totalReach = 0;
       let totalImpressions = 0;
-      let totalEngagements = 0;
+      let totalLikes = 0;
+      let totalComments = 0;
+      let totalShares = 0;
       let totalClicks = 0;
       let fallbackMediaUrl: string | null = null;
       let permalinkUrl: string | null = null;
 
       for (const t of post.targets) {
+        if (query.network && t.channel.network !== query.network) {
+          continue;
+        }
+
         const m = (t.metrics as any) || {};
-        totalReach += m.reach || 0;
-        totalImpressions += m.impressions || 0;
-        totalEngagements += (m.likes || 0) + (m.comments || 0) + (m.shares || 0) + (m.saves || 0);
+        totalLikes += m.likes || 0;
+        totalComments += m.comments || 0;
+        totalShares += m.shares || 0;
         totalClicks += m.clicks || 0;
+        totalImpressions += m.impressions || 0;
+        if (m.reach) totalReach += m.reach;
         if (!fallbackMediaUrl && m.mediaUrl) fallbackMediaUrl = m.mediaUrl;
         if (!permalinkUrl && m.permalinkUrl) permalinkUrl = m.permalinkUrl;
       }
 
+      const totalEngagements = totalLikes + totalComments + totalShares;
+      const computedReach = totalReach > 0 ? totalReach : totalEngagements > 0 ? Math.round(totalEngagements * 3.5) : 0;
       const engRate = totalImpressions > 0 ? (totalEngagements / totalImpressions) * 100 : 0;
 
       return {
@@ -573,7 +561,10 @@ export class AnalyticsService {
               ? [{ url: fallbackMediaUrl, kind: 'IMAGE' }]
               : [],
         permalinkUrl,
-        reach: totalReach,
+        likes: totalLikes,
+        comments: totalComments,
+        shares: totalShares,
+        reach: computedReach,
         impressions: totalImpressions,
         engagements: totalEngagements,
         clicks: totalClicks,
@@ -581,19 +572,24 @@ export class AnalyticsService {
       };
     });
 
+    // Filter out posts with no matching targets if network filter was applied
+    const filtered = query.network
+      ? enrichedRaw.filter((p) => p.targets.some((t) => t.network === query.network))
+      : enrichedRaw;
+
     const avgReach =
-      enrichedRaw.length > 0
-        ? enrichedRaw.reduce((sum, p) => sum + p.reach, 0) / enrichedRaw.length
+      filtered.length > 0
+        ? filtered.reduce((sum, p) => sum + p.reach, 0) / filtered.length
         : 0;
 
-    const enriched = enrichedRaw.map((p) => ({
+    const enriched = filtered.map((p) => ({
       ...p,
       xUsualReach: avgReach > 0 ? Math.round((p.reach / avgReach) * 10) / 10 : 1,
     }));
 
-    // Sort
+    // Sort descending by performance (best on top, lowest below)
     enriched.sort((a, b) => {
-      if (sort === 'engagement') return b.engagementRate - a.engagementRate || b.engagements - a.engagements;
+      if (sort === 'engagement') return b.engagements - a.engagements || b.engagementRate - a.engagementRate;
       if (sort === 'clicks') return b.clicks - a.clicks || b.engagements - a.engagements;
       return b.reach - a.reach || b.engagements - a.engagements;
     });
